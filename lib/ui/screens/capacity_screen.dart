@@ -7,7 +7,9 @@ import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../surface.dart';
+import '../../data/repository/capacity_repository.dart';
 import '../widgets/content_header.dart';
+import '../widgets/day_timeline.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
 ///
@@ -50,8 +52,12 @@ class CapacityScreen extends ConsumerWidget {
                   _RejectedRules(rejected: rejected),
                   const SizedBox(height: AppSpace.lg),
                 ],
-                if (capacity.isNotEmpty) _TodayWorking(day: capacity.first),
-                const SizedBox(height: AppSpace.lg),
+                if (capacity.isNotEmpty) ...[
+                  _TodayCard(day: capacity.first),
+                  const SizedBox(height: AppSpace.lg),
+                  _WeekCard(days: capacity.take(7).toList()),
+                  const SizedBox(height: AppSpace.lg),
+                ],
                 if (profile != null) _ProfileCard(profile: profile),
                 const SizedBox(height: AppSpace.lg),
                 _CommitmentsCard(commitments: commitments),
@@ -64,61 +70,214 @@ class CapacityScreen extends ConsumerWidget {
   }
 }
 
-/// The derivation, spelled out.
-class _TodayWorking extends StatelessWidget {
-  const _TodayWorking({required this.day});
+/// Today, led by the answer rather than the working.
+class _TodayCard extends ConsumerStatefulWidget {
+  const _TodayCard({required this.day});
 
   final DayCapacity day;
 
   @override
+  ConsumerState<_TodayCard> createState() => _TodayCardState();
+}
+
+class _TodayCardState extends ConsumerState<_TodayCard> {
+  bool _showWorking = false;
+
+  @override
   Widget build(BuildContext context) {
+    final day = widget.day;
+    final profile = ref.watch(capacityProfileProvider).value;
+    final settings = CapacityMapping.settings(profile);
+    final commitments = ref.watch(commitmentsProvider).value ?? const [];
+    final (blocks, _) = CapacityMapping.blocks(commitments);
+    final planned = ref.watch(scheduleProvider).allocatedOn(day.date);
+
+    final over = planned - day.usableMin;
+
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Today, step by step', style: AppText.caption),
-          const SizedBox(height: AppSpace.md),
-          _Line(label: 'Awake', value: Format.estimate(day.wakingMin)),
-          _Line(
-            label: 'Classes and fixed blocks',
-            value: '− ${Format.estimate(day.committedMin)}',
-          ),
-          _Line(
-            label: 'Meals and buffer',
-            value: '− ${Format.estimate(day.overheadMin)}',
-          ),
-          if (day.discardedGapMin > 0)
-            _Line(
-              label: 'Gaps too short to use',
-              value: '− ${Format.estimate(day.discardedGapMin)}',
-              tint: AppColour.orange,
-            ),
-          _Line(
-            label: 'Focus factor',
-            value: 'applied per gap',
-            tint: AppColour.labelTertiary,
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpace.sm),
-            child: AppDivider(),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Text('Usable today', style: AppText.headline),
-              ),
-              Text(
-                Format.estimate(day.usableMin),
-                style: AppText.title.copyWith(color: AppColour.accent),
-              ),
-            ],
-          ),
+          Text('Today', style: AppText.caption),
           const SizedBox(height: AppSpace.sm),
+
+          // One sentence, in words, before any chart or number grid.
           Text(
-            'Sleep (${Format.estimate(day.sleepMin)}) is a floor, not spare time. '
-            'Nothing is ever scheduled into it.',
-            style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
+            planned == 0
+                ? 'You have ${Format.estimate(day.usableMin)} to spend and '
+                      'nothing planned into it yet.'
+                : over > 0
+                ? "You have ${Format.estimate(day.usableMin)} to spend and "
+                      "${Format.estimate(planned)} planned. "
+                      "That's ${Format.estimate(over)} more than fits."
+                : 'You have ${Format.estimate(day.usableMin)} to spend and '
+                      '${Format.estimate(planned)} planned. '
+                      '${Format.estimate(-over)} spare.',
+            style: AppText.title3.copyWith(
+              color: over > 0 ? AppColour.red : AppColour.label,
+            ),
           ),
+          const SizedBox(height: AppSpace.lg),
+
+          DayTimeline(
+            day: day,
+            settings: settings,
+            blocks: blocks,
+            allocatedMin: planned,
+          ),
+
+          const SizedBox(height: AppSpace.md),
+          const AppDivider(),
+          const SizedBox(height: AppSpace.sm),
+
+          // The derivation is still available, just no longer the first thing you meet.
+          GestureDetector(
+            onTap: () => setState(() => _showWorking = !_showWorking),
+            behavior: HitTestBehavior.opaque,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Row(
+                children: [
+                  Icon(
+                    _showWorking ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: AppColour.labelTertiary,
+                  ),
+                  const SizedBox(width: AppSpace.xs),
+                  Text(
+                    _showWorking ? 'Hide the arithmetic' : 'Show the arithmetic',
+                    style: AppText.footnote,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: AppMotion.medium,
+            curve: AppMotion.standard,
+            alignment: Alignment.topCenter,
+            child: _showWorking
+                ? Padding(
+                    padding: const EdgeInsets.only(top: AppSpace.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Line(
+                          label: 'Awake',
+                          value: Format.estimate(day.wakingMin),
+                        ),
+                        _Line(
+                          label: 'Classes and fixed blocks',
+                          value: '− ${Format.estimate(day.committedMin)}',
+                        ),
+                        _Line(
+                          label: 'Meals and buffer',
+                          value: '− ${Format.estimate(day.overheadMin)}',
+                        ),
+                        if (day.discardedGapMin > 0)
+                          _Line(
+                            label: 'Gaps too short to use',
+                            value: '− ${Format.estimate(day.discardedGapMin)}',
+                            tint: AppColour.orange,
+                          ),
+                        _Line(
+                          label: 'Focus factor, applied per gap',
+                          value:
+                              '× ${(CapacityMapping.settings(profile).focusFactor * 100).round()}%',
+                          tint: AppColour.labelTertiary,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpace.sm),
+                          child: AppDivider(),
+                        ),
+                        _Line(
+                          label: 'Yours to spend',
+                          value: Format.estimate(day.usableMin),
+                          tint: AppColour.accent,
+                        ),
+                        const SizedBox(height: AppSpace.sm),
+                        Text(
+                          'Sleep (${Format.estimate(day.sleepMin)}) is a floor, not '
+                          'spare time. Nothing is ever scheduled into it.',
+                          style: AppText.footnote.copyWith(
+                            color: AppColour.labelTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The week, so a bad Thursday is visible on Monday.
+class _WeekCard extends ConsumerWidget {
+  const _WeekCard({required this.days});
+
+  final List<DayCapacity> days;
+
+  static const _names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(capacityProfileProvider).value;
+    final settings = CapacityMapping.settings(profile);
+    final commitments = ref.watch(commitmentsProvider).value ?? const [];
+    final (blocks, _) = CapacityMapping.blocks(commitments);
+    final schedule = ref.watch(scheduleProvider);
+
+    return AppSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('The week ahead', style: AppText.caption),
+          const SizedBox(height: AppSpace.md),
+          for (final day in days)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpace.md),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 62,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.xs),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _names[day.date.weekday - 1],
+                            style: AppText.numeric.copyWith(
+                              color: AppColour.label,
+                            ),
+                          ),
+                          Text(
+                            '${day.date.day}/${day.date.month}',
+                            style: AppText.numeric.copyWith(
+                              fontSize: 10,
+                              color: AppColour.labelQuaternary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: DayTimeline(
+                      day: day,
+                      settings: settings,
+                      blocks: blocks,
+                      allocatedMin: schedule.allocatedOn(day.date),
+                      showHours: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

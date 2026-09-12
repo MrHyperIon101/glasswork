@@ -9,6 +9,7 @@ import '../../theme/tokens.dart';
 import '../format.dart';
 import '../motion.dart';
 import '../surface.dart';
+import 'field_controls.dart';
 
 /// The task inspector.
 ///
@@ -166,12 +167,41 @@ class _BodyState extends ConsumerState<_Body> {
               AppSpace.lg,
             ),
             children: [
-              _Section(label: 'Due', child: _DueControls(task: task)),
+              _Section(
+                label: 'Due',
+                child: DueChips(
+                  dueAt: task.dueAt,
+                  dueDate: _isoToDate(task.dueDate),
+                  onChanged: (at, date) => _scope?.tasks.setDue(
+                    task.id,
+                    dueAt: at,
+                    dueDate: at == null ? _isoOf(date) : null,
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpace.xl),
-              _Section(label: 'Priority', child: _PriorityControls(task: task)),
+              _Section(
+                label: 'Priority',
+                child: PriorityChips(
+                  value: task.priority,
+                  onChanged: (p) => _scope?.tasks.setPriority(task.id, p),
+                ),
+              ),
               const SizedBox(height: AppSpace.xl),
-              _Section(label: 'Estimate', child: _EstimateControls(task: task)),
+              _Section(
+                label: 'Estimate',
+                child: EstimateChips(
+                  value: task.estimateMin,
+                  onChanged: (m) => _scope?.tasks.setEstimate(task.id, m),
+                ),
+              ),
               const SizedBox(height: AppSpace.xl),
+              _Section(
+                label: 'Labels',
+                child: _TaskLabels(task: task),
+              ),
+              const SizedBox(height: AppSpace.xl),
+              _CustomFields(task: task),
               _Section(
                 label: subtasks.isEmpty
                     ? 'Steps'
@@ -248,6 +278,103 @@ class _BodyState extends ConsumerState<_Body> {
   }
 }
 
+String? _isoOf(DateTime? d) => d == null
+    ? null
+    : '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+
+DateTime? _isoToDate(String? iso) {
+  if (iso == null) return null;
+  final p = iso.split('-');
+  if (p.length != 3) return null;
+  final y = int.tryParse(p[0]);
+  final m = int.tryParse(p[1]);
+  final d = int.tryParse(p[2]);
+  return (y == null || m == null || d == null) ? null : DateTime(y, m, d);
+}
+
+/// Labels on this task. Toggling writes immediately, like everything else here.
+class _TaskLabels extends ConsumerWidget {
+  const _TaskLabels({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(appScopeProvider).value;
+    final mine = ref.watch(labelsForTaskProvider(task.id));
+    final names = mine.map((l) => l.name).toSet();
+
+    return LabelPicker(
+      selectedNames: names,
+      onToggle: (name) async {
+        if (scope == null) return;
+        final label = await scope.labels.ensure(
+          workspaceId: task.workspaceId,
+          name: name,
+        );
+        if (names.contains(name)) {
+          await scope.labels.detach(taskId: task.id, labelId: label.id);
+        } else {
+          await scope.labels.attach(
+            workspaceId: task.workspaceId,
+            taskId: task.id,
+            labelId: label.id,
+          );
+        }
+      },
+    );
+  }
+}
+
+/// The project's own fields, if it defines any.
+class _CustomFields extends ConsumerWidget {
+  const _CustomFields({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(appScopeProvider).value;
+    final sections = ref.watch(allSectionsProvider).value ?? const [];
+    final projectId = sections
+        .where((s) => s.id == task.listId)
+        .map((s) => s.boardId)
+        .firstOrNull;
+    if (projectId == null) return const SizedBox.shrink();
+
+    final fields = ref.watch(fieldsProvider(projectId)).value ?? const [];
+    if (fields.isEmpty) return const SizedBox.shrink();
+
+    final values = ref.watch(fieldValuesProvider(projectId)).value ?? const {};
+    final mine = values[task.id] ?? const <String, String?>{};
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final field in fields) ...[
+          _Section(
+            label: field.name,
+            child: CustomFieldControl(
+              key: ValueKey('${task.id}:${field.id}'),
+              field: field,
+              value: mine[field.id],
+              onChanged: (v) => scope?.projects.setFieldValue(
+                workspaceId: task.workspaceId,
+                taskId: task.id,
+                fieldId: field.id,
+                value: v,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpace.xl),
+        ],
+      ],
+    );
+  }
+}
+
 class _Section extends StatelessWidget {
   const _Section({required this.label, required this.child});
 
@@ -265,139 +392,8 @@ class _Section extends StatelessWidget {
   );
 }
 
-class _DueControls extends ConsumerWidget {
-  const _DueControls({required this.task});
 
-  final Task task;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scope = ref.watch(appScopeProvider).value;
-    final today = DateTime.now();
-    final due = Format.due(task, today);
-
-    String iso(DateTime d) =>
-        '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}';
-
-    void setDate(DateTime? d) => scope?.tasks.setDue(
-      task.id,
-      dueAt: null,
-      dueDate: d == null ? null : iso(d),
-    );
-
-    return Wrap(
-      spacing: AppSpace.sm,
-      runSpacing: AppSpace.sm,
-      children: [
-        if (due != null)
-          _Chip(
-            label: due.label,
-            selected: true,
-            tint: due.colour,
-            onTap: () {},
-          ),
-        _Chip(
-          label: 'Today',
-          selected: false,
-          onTap: () => setDate(today),
-        ),
-        _Chip(
-          label: 'Tomorrow',
-          selected: false,
-          onTap: () => setDate(today.add(const Duration(days: 1))),
-        ),
-        _Chip(
-          label: 'Next week',
-          selected: false,
-          onTap: () => setDate(today.add(const Duration(days: 7))),
-        ),
-        _Chip(
-          label: 'Pick…',
-          selected: false,
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: today,
-              firstDate: DateTime(today.year - 1),
-              lastDate: DateTime(today.year + 5),
-            );
-            if (picked != null) setDate(picked);
-          },
-        ),
-        if (due != null)
-          _Chip(
-            label: 'Clear',
-            selected: false,
-            tint: AppColour.labelTertiary,
-            onTap: () => setDate(null),
-          ),
-      ],
-    );
-  }
-}
-
-class _PriorityControls extends ConsumerWidget {
-  const _PriorityControls({required this.task});
-
-  final Task task;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scope = ref.watch(appScopeProvider).value;
-    const options = [(0, 'None'), (1, 'Low'), (2, 'Medium'), (3, 'High')];
-    const tints = [
-      AppColour.labelTertiary,
-      AppColour.grey,
-      AppColour.orange,
-      AppColour.red,
-    ];
-
-    return Wrap(
-      spacing: AppSpace.sm,
-      children: [
-        for (final (value, label) in options)
-          _Chip(
-            label: label,
-            selected: task.priority == value,
-            tint: tints[value],
-            onTap: () => scope?.tasks.setPriority(task.id, value),
-          ),
-      ],
-    );
-  }
-}
-
-class _EstimateControls extends ConsumerWidget {
-  const _EstimateControls({required this.task});
-
-  final Task task;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scope = ref.watch(appScopeProvider).value;
-    // Sizes, not a number field. One tap is the difference between estimating
-    // everything and estimating nothing.
-    const sizes = [15, 30, 60, 120, 240];
-
-    return Wrap(
-      spacing: AppSpace.sm,
-      runSpacing: AppSpace.sm,
-      children: [
-        for (final mins in sizes)
-          _Chip(
-            label: Format.estimate(mins),
-            selected: task.estimateMin == mins,
-            onTap: () => scope?.tasks.setEstimate(
-              task.id,
-              task.estimateMin == mins ? null : mins,
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 class _Subtasks extends ConsumerWidget {
   const _Subtasks({
@@ -495,68 +491,6 @@ class _Subtasks extends ConsumerWidget {
 
 // --- small shared controls --------------------------------------------------
 
-class _Chip extends StatefulWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.tint,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color? tint;
-
-  @override
-  State<_Chip> createState() => _ChipState();
-}
-
-class _ChipState extends State<_Chip> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = widget.tint ?? AppColour.accent;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppMotion.quick,
-          curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm - 1,
-          ),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? tint.withValues(alpha: 0.18)
-                : _hovered
-                ? AppColour.fillStrong
-                : AppColour.fill,
-            borderRadius: AppRadius.smallAll,
-            border: Border.all(
-              color: widget.selected
-                  ? tint.withValues(alpha: 0.5)
-                  : Colors.transparent,
-            ),
-          ),
-          child: Text(
-            widget.label,
-            style: AppText.numeric.copyWith(
-              color: widget.selected ? tint : AppColour.labelSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _Check extends StatelessWidget {
   const _Check({required this.done, required this.onTap, this.small = false});
