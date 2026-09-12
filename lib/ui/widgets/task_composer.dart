@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../format.dart';
 import '../motion.dart';
 import '../surface.dart';
+import 'field_controls.dart';
 
 /// The task creation flow.
 ///
@@ -24,8 +25,7 @@ class TaskComposer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final open = ref.watch(composerOpenProvider);
-    if (!open) return const SizedBox.shrink();
+    if (!ref.watch(composerOpenProvider)) return const SizedBox.shrink();
 
     void close() => ref.read(composerOpenProvider.notifier).close();
 
@@ -38,21 +38,17 @@ class TaskComposer extends ConsumerWidget {
             duration: AppMotion.quick,
             builder: (context, t, _) => GestureDetector(
               onTap: close,
-              child: ColoredBox(
-                color: Color.fromRGBO(0, 0, 0, 0.62 * t),
-              ),
+              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.62 * t)),
             ),
           ),
         ),
         Align(
-          // Slightly above centre: the panel grows downward as fields appear, and
-          // dead-centring would make it drift as it does.
-          alignment: const Alignment(0, -0.25),
+          alignment: const Alignment(0, -0.1),
           child: Padding(
             padding: const EdgeInsets.all(AppSpace.xxl),
             child: SpringIn(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
+                constraints: const BoxConstraints(maxWidth: 640, maxHeight: 700),
                 child: VibrancyMaterial.sheet(child: _Form(onClose: close)),
               ),
             ),
@@ -73,20 +69,22 @@ class _Form extends ConsumerStatefulWidget {
 }
 
 /// Which fields the user has set by hand, so a later parse does not clobber them.
-enum _Field { list, due, priority, estimate }
+enum _Touched { due, priority, estimate, labels }
 
 class _FormState extends ConsumerState<_Form> {
   final _title = TextEditingController();
   final _notes = TextEditingController();
-  final _titleFocus = FocusNode();
 
-  final _touched = <_Field>{};
+  final _touched = <_Touched>{};
 
-  String? _listId;
+  String? _projectId;
+  String? _sectionId;
   DateTime? _dueAt;
   DateTime? _dueDate;
   int _priority = 0;
   int? _estimateMin;
+  final _labelNames = <String>{};
+  final _fieldValues = <String, String?>{};
   bool _notesOpen = false;
 
   List<ParseSpan> _spans = const [];
@@ -101,26 +99,29 @@ class _FormState extends ConsumerState<_Form> {
   void dispose() {
     _title.dispose();
     _notes.dispose();
-    _titleFocus.dispose();
     super.dispose();
   }
 
-  /// Re-parses and seeds any field the user has not taken over.
   void _onTitleChanged() {
     final parsed = QuickAddParser.parse(_title.text, now: DateTime.now());
 
     setState(() {
       _spans = parsed.spans;
 
-      if (!_touched.contains(_Field.due)) {
+      if (!_touched.contains(_Touched.due)) {
         _dueAt = parsed.dueAt;
         _dueDate = _isoToDate(parsed.dueDate);
       }
-      if (!_touched.contains(_Field.priority) && parsed.priority != 0) {
+      if (!_touched.contains(_Touched.priority) && parsed.priority != 0) {
         _priority = parsed.priority;
       }
-      if (!_touched.contains(_Field.estimate) && parsed.estimateMin != null) {
+      if (!_touched.contains(_Touched.estimate) && parsed.estimateMin != null) {
         _estimateMin = parsed.estimateMin;
+      }
+      if (!_touched.contains(_Touched.labels) && parsed.labels.isNotEmpty) {
+        _labelNames
+          ..clear()
+          ..addAll(parsed.labels);
       }
     });
   }
@@ -129,6 +130,11 @@ class _FormState extends ConsumerState<_Form> {
     if (_dueAt case final at?) return DateTime(at.year, at.month, at.day);
     return _dueDate;
   }
+
+  String get _cleanTitle =>
+      QuickAddParser.parse(_title.text, now: DateTime.now()).title;
+
+  bool get _canSubmit => _cleanTitle.isNotEmpty && _sectionId != null;
 
   /// What the arithmetic makes of this task, live, before it exists.
   ScheduledTask? get _preview {
@@ -147,22 +153,17 @@ class _FormState extends ConsumerState<_Form> {
     );
   }
 
-  String get _cleanTitle =>
-      QuickAddParser.parse(_title.text, now: DateTime.now()).title;
-
-  bool get _canSubmit => _cleanTitle.isNotEmpty;
-
   Future<void> _submit() async {
     if (!_canSubmit) return;
 
     final scope = ref.read(appScopeProvider).value;
-    final listId = _listId ?? ref.read(captureListIdProvider);
-    if (scope == null || listId == null) return;
+    final sectionId = _sectionId;
+    if (scope == null || sectionId == null) return;
 
     widget.onClose();
 
     final created = await scope.tasks.create(
-      listId: listId,
+      listId: sectionId,
       workspaceId: scope.workspace.id,
       title: _cleanTitle,
       dueAt: _dueAt,
@@ -174,18 +175,59 @@ class _FormState extends ConsumerState<_Form> {
     if (_notes.text.trim().isNotEmpty) {
       await scope.tasks.setNotes(created.id, _notes.text.trim());
     }
+
+    // Labels are created on demand: typing #uni should not require the label to exist.
+    for (final name in _labelNames) {
+      final label = await scope.labels.ensure(
+        workspaceId: scope.workspace.id,
+        name: name,
+      );
+      await scope.labels.attach(
+        workspaceId: scope.workspace.id,
+        taskId: created.id,
+        labelId: label.id,
+      );
+    }
+
+    for (final entry in _fieldValues.entries) {
+      if (entry.value == null) continue;
+      await scope.projects.setFieldValue(
+        workspaceId: scope.workspace.id,
+        taskId: created.id,
+        fieldId: entry.key,
+        value: entry.value,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final projects = ref.watch(projectsProvider).value ?? const <Board>[];
+
+    // Default to wherever you are, falling back to the first project.
     final projectId =
+        _projectId ??
         ref.watch(currentProjectIdProvider) ??
-        (ref.watch(projectsProvider).value ?? const <Board>[]).firstOrNull?.id;
-    final lists = projectId == null
+        projects.firstOrNull?.id;
+
+    final sections = projectId == null
         ? const <BoardList>[]
         : ref.watch(sectionsProvider(projectId)).value ?? const <BoardList>[];
-    final fallbackListId = ref.watch(captureListIdProvider);
-    final selectedList = _listId ?? fallbackListId;
+
+    // Resolve the section once sections for the chosen project arrive.
+    if (_sectionId == null && sections.isNotEmpty) {
+      _sectionId = sections.first.id;
+    } else if (_sectionId != null &&
+        sections.isNotEmpty &&
+        !sections.any((s) => s.id == _sectionId)) {
+      // Project changed under us; the old section belongs to a different board.
+      _sectionId = sections.first.id;
+    }
+
+    final fields = projectId == null
+        ? const <FieldDef>[]
+        : ref.watch(fieldsProvider(projectId)).value ?? const <FieldDef>[];
+
     final preview = _preview;
 
     return CallbackShortcuts(
@@ -198,7 +240,6 @@ class _FormState extends ConsumerState<_Form> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- title ---
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpace.xxl,
@@ -211,7 +252,6 @@ class _FormState extends ConsumerState<_Form> {
               children: [
                 TextField(
                   controller: _title,
-                  focusNode: _titleFocus,
                   autofocus: true,
                   style: AppText.title3,
                   cursorColor: AppColour.accent,
@@ -231,7 +271,7 @@ class _FormState extends ConsumerState<_Form> {
                   const SizedBox(height: AppSpace.sm),
                   Text(
                     'Read from what you typed: '
-                    '${_spans.map((s) => s.label).join(' · ')}',
+                    '${_spans.map((s) => s.label).join('  ·  ')}',
                     style: AppText.footnote.copyWith(
                       color: AppColour.labelTertiary,
                     ),
@@ -242,26 +282,28 @@ class _FormState extends ConsumerState<_Form> {
           ),
           const AppDivider(),
 
-          // --- fields ---
-          Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Flexible(
+            child: ListView(
+              padding: const EdgeInsets.all(AppSpace.xxl),
               children: [
-                if (lists.length > 1) ...[
-                  _FieldRow(
-                    label: 'Section',
+                if (projects.length > 1) ...[
+                  FieldRow(
+                    label: 'Project',
                     child: Wrap(
                       spacing: AppSpace.sm,
                       runSpacing: AppSpace.sm,
                       children: [
-                        for (final list in lists)
+                        for (final p in projects)
                           ComposerChip(
-                            label: list.name,
-                            selected: list.id == selectedList,
+                            label: '${p.icon ?? '○'}  ${p.name}',
+                            selected: p.id == projectId,
+                            tint: p.colour == null ? null : Color(p.colour!),
                             onTap: () => setState(() {
-                              _listId = list.id;
-                              _touched.add(_Field.list);
+                              _projectId = p.id;
+                              // Section belongs to the old project; clear so the
+                              // resolver above picks the new project's first.
+                              _sectionId = null;
+                              _fieldValues.clear();
                             }),
                           ),
                       ],
@@ -270,64 +312,94 @@ class _FormState extends ConsumerState<_Form> {
                   const SizedBox(height: AppSpace.lg),
                 ],
 
-                _FieldRow(label: 'Due', child: _dueControls()),
-                const SizedBox(height: AppSpace.lg),
+                if (sections.length > 1) ...[
+                  FieldRow(
+                    label: 'Section',
+                    child: Wrap(
+                      spacing: AppSpace.sm,
+                      runSpacing: AppSpace.sm,
+                      children: [
+                        for (final s in sections)
+                          ComposerChip(
+                            label: s.name,
+                            selected: s.id == _sectionId,
+                            onTap: () => setState(() => _sectionId = s.id),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                ],
 
-                _FieldRow(
-                  label: 'Priority',
-                  child: Wrap(
-                    spacing: AppSpace.sm,
-                    children: [
-                      for (final (value, label) in const [
-                        (0, 'None'),
-                        (1, 'Low'),
-                        (2, 'Medium'),
-                        (3, 'High'),
-                      ])
-                        ComposerChip(
-                          label: label,
-                          selected: _priority == value,
-                          tint: switch (value) {
-                            3 => AppColour.red,
-                            2 => AppColour.orange,
-                            1 => AppColour.grey,
-                            _ => null,
-                          },
-                          onTap: () => setState(() {
-                            _priority = value;
-                            _touched.add(_Field.priority);
-                          }),
-                        ),
-                    ],
+                FieldRow(
+                  label: 'Due',
+                  child: DueChips(
+                    dueAt: _dueAt,
+                    dueDate: _dueDate,
+                    onChanged: (at, date) => setState(() {
+                      _touched.add(_Touched.due);
+                      _dueAt = at;
+                      _dueDate = date;
+                    }),
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),
 
-                _FieldRow(
+                FieldRow(
+                  label: 'Priority',
+                  child: PriorityChips(
+                    value: _priority,
+                    onChanged: (p) => setState(() {
+                      _touched.add(_Touched.priority);
+                      _priority = p;
+                    }),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.lg),
+
+                FieldRow(
                   label: 'Estimate',
                   hint: _estimateMin == null
                       ? 'Without one the planner assumes '
                             '${Format.estimate(CapacityScheduler.assumedEstimateMin)}'
                       : null,
-                  child: Wrap(
-                    spacing: AppSpace.sm,
-                    runSpacing: AppSpace.sm,
-                    children: [
-                      for (final mins in const [15, 30, 60, 120, 240])
-                        ComposerChip(
-                          label: Format.estimate(mins),
-                          selected: _estimateMin == mins,
-                          onTap: () => setState(() {
-                            _estimateMin = _estimateMin == mins ? null : mins;
-                            _touched.add(_Field.estimate);
-                          }),
-                        ),
-                    ],
+                  child: EstimateChips(
+                    value: _estimateMin,
+                    onChanged: (m) => setState(() {
+                      _touched.add(_Touched.estimate);
+                      _estimateMin = m;
+                    }),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.lg),
+
+                FieldRow(
+                  label: 'Labels',
+                  child: LabelPicker(
+                    selectedNames: _labelNames,
+                    onToggle: (name) => setState(() {
+                      _touched.add(_Touched.labels);
+                      _labelNames.contains(name)
+                          ? _labelNames.remove(name)
+                          : _labelNames.add(name);
+                    }),
                   ),
                 ),
 
-                // Notes stay folded away: most tasks do not need them, and an empty
-                // textarea makes every capture feel like paperwork.
+                // The project's own vocabulary, if it has any.
+                for (final field in fields) ...[
+                  const SizedBox(height: AppSpace.lg),
+                  FieldRow(
+                    label: field.name,
+                    child: CustomFieldControl(
+                      field: field,
+                      value: _fieldValues[field.id],
+                      onChanged: (v) =>
+                          setState(() => _fieldValues[field.id] = v),
+                    ),
+                  ),
+                ],
+
                 AnimatedSize(
                   duration: AppMotion.medium,
                   curve: AppMotion.standard,
@@ -335,7 +407,7 @@ class _FormState extends ConsumerState<_Form> {
                   child: _notesOpen
                       ? Padding(
                           padding: const EdgeInsets.only(top: AppSpace.lg),
-                          child: _FieldRow(
+                          child: FieldRow(
                             label: 'Notes',
                             child: TextField(
                               controller: _notes,
@@ -363,7 +435,7 @@ class _FormState extends ConsumerState<_Form> {
                         )
                       : Padding(
                           padding: const EdgeInsets.only(top: AppSpace.md),
-                          child: _TextAction(
+                          child: GhostButton(
                             label: '+ Add notes',
                             onTap: () => setState(() => _notesOpen = true),
                           ),
@@ -373,7 +445,6 @@ class _FormState extends ConsumerState<_Form> {
             ),
           ),
 
-          // --- live feasibility ---
           AnimatedSize(
             duration: AppMotion.medium,
             curve: AppMotion.standard,
@@ -395,9 +466,9 @@ class _FormState extends ConsumerState<_Form> {
                   ),
                 ),
                 const Spacer(),
-                _TextAction(label: 'Cancel', onTap: widget.onClose),
+                GhostButton(label: 'Cancel', onTap: widget.onClose),
                 const SizedBox(width: AppSpace.sm),
-                _PrimaryAction(
+                PrimaryButton(
                   label: 'Add task',
                   enabled: _canSubmit,
                   onTap: _submit,
@@ -409,79 +480,6 @@ class _FormState extends ConsumerState<_Form> {
       ),
     );
   }
-
-  Widget _dueControls() {
-    final today = DateTime.now();
-    final due = _effectiveDueDay;
-
-    void set(DateTime? d, {DateTime? at}) => setState(() {
-      _touched.add(_Field.due);
-      _dueAt = at;
-      _dueDate = at == null ? d : null;
-    });
-
-    return Wrap(
-      spacing: AppSpace.sm,
-      runSpacing: AppSpace.sm,
-      children: [
-        ComposerChip(
-          label: 'Today',
-          selected: due != null && _sameDay(due, today),
-          onTap: () => set(_dayOf(today)),
-        ),
-        ComposerChip(
-          label: 'Tomorrow',
-          selected:
-              due != null &&
-              _sameDay(due, today.add(const Duration(days: 1))),
-          onTap: () => set(_dayOf(today.add(const Duration(days: 1)))),
-        ),
-        ComposerChip(
-          label: 'Next week',
-          selected:
-              due != null &&
-              _sameDay(due, today.add(const Duration(days: 7))),
-          onTap: () => set(_dayOf(today.add(const Duration(days: 7)))),
-        ),
-        ComposerChip(
-          label: due == null
-              ? 'Pick…'
-              : _dueAt != null
-              ? '${Format.shortDate(_dueAt!)} '
-                    '${_dueAt!.hour.toString().padLeft(2, '0')}:'
-                    '${_dueAt!.minute.toString().padLeft(2, '0')}'
-              : Format.shortDate(due),
-          selected: due != null && !_isQuickPick(due, today),
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: due ?? today,
-              firstDate: DateTime(today.year - 1),
-              lastDate: DateTime(today.year + 5),
-            );
-            if (picked != null) set(_dayOf(picked));
-          },
-        ),
-        if (due != null)
-          ComposerChip(
-            label: 'Clear',
-            tint: AppColour.labelTertiary,
-            selected: false,
-            onTap: () => set(null),
-          ),
-      ],
-    );
-  }
-
-  static bool _isQuickPick(DateTime due, DateTime today) =>
-      _sameDay(due, today) ||
-      _sameDay(due, today.add(const Duration(days: 1))) ||
-      _sameDay(due, today.add(const Duration(days: 7)));
-
-  static DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  static bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 
   static String? _isoOf(DateTime? d) => d == null
       ? null
@@ -497,110 +495,6 @@ class _FormState extends ConsumerState<_Form> {
     final m = int.tryParse(p[1]);
     final d = int.tryParse(p[2]);
     return (y == null || m == null || d == null) ? null : DateTime(y, m, d);
-  }
-}
-
-class _FieldRow extends StatelessWidget {
-  const _FieldRow({required this.label, required this.child, this.hint});
-
-  final String label;
-  final Widget child;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(
-        width: 78,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(label, style: AppText.caption),
-        ),
-      ),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            child,
-            if (hint case final h?) ...[
-              const SizedBox(height: AppSpace.xs),
-              Text(
-                h,
-                style: AppText.footnote.copyWith(
-                  color: AppColour.labelQuaternary,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-/// Selectable pill. Shared with the detail sheet's controls.
-class ComposerChip extends StatefulWidget {
-  const ComposerChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.tint,
-    super.key,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color? tint;
-
-  @override
-  State<ComposerChip> createState() => _ComposerChipState();
-}
-
-class _ComposerChipState extends State<ComposerChip> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = widget.tint ?? AppColour.accent;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppMotion.quick,
-          curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm - 1,
-          ),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? tint.withValues(alpha: 0.2)
-                : _hovered
-                ? AppColour.fillStrong
-                : AppColour.fill,
-            borderRadius: AppRadius.smallAll,
-            border: Border.all(
-              color: widget.selected
-                  ? tint.withValues(alpha: 0.55)
-                  : const Color(0x00000000),
-            ),
-          ),
-          child: Text(
-            widget.label,
-            style: AppText.callout.copyWith(
-              color: widget.selected ? tint : AppColour.labelSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -620,7 +514,7 @@ class _FeasibilityNote extends StatelessWidget {
               ? '${Format.estimate(plan.shortfallMin)} more than you have before then'
               : '${-plan.slackDays} '
                     '${-plan.slackDays == 1 ? 'day' : 'days'} past the deadline')
-        : 'It finishes on the day it is due, with nothing spare';
+        : 'it finishes on the day it is due, with nothing spare';
 
     return Container(
       width: double.infinity,
@@ -635,109 +529,11 @@ class _FeasibilityNote extends StatelessWidget {
           const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Text(
-              impossible
-                  ? "This won't fit — $detail."
-                  : 'Tight — $detail.',
+              impossible ? "This won't fit — $detail." : 'Tight — $detail.',
               style: AppText.callout.copyWith(color: AppColour.label),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TextAction extends StatefulWidget {
-  const _TextAction({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  State<_TextAction> createState() => _TextActionState();
-}
-
-class _TextActionState extends State<_TextAction> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    onEnter: (_) => setState(() => _hovered = true),
-    onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: AppMotion.quick,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpace.md,
-          vertical: AppSpace.sm,
-        ),
-        decoration: BoxDecoration(
-          color: _hovered ? AppColour.fill : null,
-          borderRadius: AppRadius.smallAll,
-        ),
-        child: Text(
-          widget.label,
-          style: AppText.callout.copyWith(color: AppColour.labelSecondary),
-        ),
-      ),
-    ),
-  );
-}
-
-class _PrimaryAction extends StatefulWidget {
-  const _PrimaryAction({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  State<_PrimaryAction> createState() => _PrimaryActionState();
-}
-
-class _PrimaryActionState extends State<_PrimaryAction> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.enabled;
-
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: enabled ? widget.onTap : null,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppMotion.quick,
-          curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.lg,
-            vertical: AppSpace.sm,
-          ),
-          decoration: BoxDecoration(
-            color: !enabled
-                ? AppColour.fill
-                : _hovered
-                ? AppColour.accent
-                : AppColour.accent.withValues(alpha: 0.9),
-            borderRadius: AppRadius.mediumAll,
-          ),
-          child: Text(
-            widget.label,
-            style: AppText.headline.copyWith(
-              color: enabled ? Colors.white : AppColour.labelQuaternary,
-            ),
-          ),
-        ),
       ),
     );
   }

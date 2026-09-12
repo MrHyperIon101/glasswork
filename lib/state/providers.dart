@@ -5,6 +5,7 @@ import '../data/db/tables.dart';
 import '../capacity/ledger.dart';
 import '../capacity/scheduler.dart';
 import '../data/repository/capacity_repository.dart';
+import '../data/repository/label_repository.dart';
 import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
@@ -23,6 +24,7 @@ class AppScope {
     required this.subtasks,
     required this.capacity,
     required this.projects,
+    required this.labels,
     required this.workspace,
   });
 
@@ -32,6 +34,7 @@ class AppScope {
   final SubtaskRepository subtasks;
   final CapacityRepository capacity;
   final ProjectRepository projects;
+  final LabelRepository labels;
   final Workspace workspace;
 }
 
@@ -58,6 +61,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     subtasks: SubtaskRepository(db, clientId: clientId),
     capacity: capacityRepo,
     projects: ProjectRepository(db, clientId: clientId),
+    labels: LabelRepository(db, clientId: clientId),
     workspace: workspace,
   );
 });
@@ -433,3 +437,124 @@ class NewProjectOpen extends Notifier<bool> {
 final newProjectOpenProvider = NotifierProvider<NewProjectOpen, bool>(
   NewProjectOpen.new,
 );
+
+// --- labels -----------------------------------------------------------------
+
+final labelsProvider = StreamProvider<List<Label>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.labels.watchAll(scope.workspace.id);
+});
+
+/// task id -> label ids.
+final labelAssignmentsProvider = StreamProvider<Map<String, Set<String>>>((
+  ref,
+) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.labels.watchAssignments(scope.workspace.id);
+});
+
+/// Labels on one task, resolved to rows so widgets get names and colours directly.
+final labelsForTaskProvider = Provider.family<List<Label>, String>((
+  ref,
+  taskId,
+) {
+  final ids = ref.watch(labelAssignmentsProvider).value?[taskId] ?? const {};
+  if (ids.isEmpty) return const [];
+  final all = ref.watch(labelsProvider).value ?? const <Label>[];
+  return all.where((l) => ids.contains(l.id)).toList();
+});
+
+// --- project filtering ------------------------------------------------------
+
+/// Filters applied to the project currently open.
+///
+/// Held in memory per project rather than persisted: a filter is how you are looking
+/// right now, and one that survived a restart would quietly hide work.
+class ProjectFilter {
+  const ProjectFilter({
+    this.labelIds = const {},
+    this.priorities = const {},
+    this.hideCompleted = false,
+    this.onlyAtRisk = false,
+  });
+
+  final Set<String> labelIds;
+  final Set<int> priorities;
+  final bool hideCompleted;
+  final bool onlyAtRisk;
+
+  bool get isEmpty =>
+      labelIds.isEmpty &&
+      priorities.isEmpty &&
+      !hideCompleted &&
+      !onlyAtRisk;
+
+  int get activeCount =>
+      labelIds.length +
+      priorities.length +
+      (hideCompleted ? 1 : 0) +
+      (onlyAtRisk ? 1 : 0);
+
+  ProjectFilter copyWith({
+    Set<String>? labelIds,
+    Set<int>? priorities,
+    bool? hideCompleted,
+    bool? onlyAtRisk,
+  }) => ProjectFilter(
+    labelIds: labelIds ?? this.labelIds,
+    priorities: priorities ?? this.priorities,
+    hideCompleted: hideCompleted ?? this.hideCompleted,
+    onlyAtRisk: onlyAtRisk ?? this.onlyAtRisk,
+  );
+}
+
+class ProjectFilterState extends Notifier<ProjectFilter> {
+  @override
+  ProjectFilter build() => const ProjectFilter();
+
+  void toggleLabel(String id) => state = state.copyWith(
+    labelIds: state.labelIds.contains(id)
+        ? (state.labelIds.toSet()..remove(id))
+        : (state.labelIds.toSet()..add(id)),
+  );
+
+  void togglePriority(int p) => state = state.copyWith(
+    priorities: state.priorities.contains(p)
+        ? (state.priorities.toSet()..remove(p))
+        : (state.priorities.toSet()..add(p)),
+  );
+
+  void setHideCompleted(bool v) => state = state.copyWith(hideCompleted: v);
+  void setOnlyAtRisk(bool v) => state = state.copyWith(onlyAtRisk: v);
+  void clear() => state = const ProjectFilter();
+}
+
+final projectFilterProvider =
+    NotifierProvider<ProjectFilterState, ProjectFilter>(ProjectFilterState.new);
+
+/// Tasks for the open project after filters. Board and list views both read this, so
+/// a filter cannot apply in one view and not the other.
+final filteredProjectTasksProvider = Provider<List<Task>>((ref) {
+  final tasks = ref.watch(visibleTasksProvider);
+  final filter = ref.watch(projectFilterProvider);
+  if (filter.isEmpty) return tasks;
+
+  final assignments = ref.watch(labelAssignmentsProvider).value ?? const {};
+  final atRisk = {
+    for (final s in ref.watch(scheduleProvider).impossible) s.task.id,
+  };
+
+  return tasks.where((t) {
+    if (filter.hideCompleted && t.status == TaskStatus.done) return false;
+    if (filter.onlyAtRisk && !atRisk.contains(t.id)) return false;
+    if (filter.priorities.isNotEmpty &&
+        !filter.priorities.contains(t.priority)) {
+      return false;
+    }
+    if (filter.labelIds.isNotEmpty) {
+      final own = assignments[t.id] ?? const <String>{};
+      if (!filter.labelIds.any(own.contains)) return false;
+    }
+    return true;
+  }).toList();
+});
