@@ -324,18 +324,15 @@ final taskFeasibilityProvider = Provider.family<ScheduledTask?, String>((
   return null;
 });
 
-/// Focus requests for the capture field.
-///
-/// The composer owns its own FocusNode, so anything wanting to put the cursor there —
-/// the New task button, the keyboard shortcut, an empty-state call to action — bumps
-/// this instead of trying to reach across the widget tree for the node.
-class CaptureFocus extends Notifier<int> {
+/// Whether the task composer is open.
+class ComposerOpen extends Notifier<bool> {
   @override
-  int build() => 0;
+  bool build() => false;
 
-  void request() => state++;
+  void open() => state = true;
+  void close() => state = false;
 }
 
-final captureFocusProvider = NotifierProvider<CaptureFocus, int>(
-  CaptureFocus.new,
+final composerOpenProvider = NotifierProvider<ComposerOpen, bool>(
+  ComposerOpen.new,
 );

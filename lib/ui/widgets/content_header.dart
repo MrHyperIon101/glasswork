@@ -188,7 +188,7 @@ class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => ref.read(captureFocusProvider.notifier).request(),
+        onTap: () => ref.read(composerOpenProvider.notifier).open(),
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppMotion.quick,

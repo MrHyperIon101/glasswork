@@ -7,6 +7,7 @@ import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../motion.dart';
 import '../surface.dart';
 
 /// The task inspector.
@@ -47,9 +48,13 @@ class _Sheet extends ConsumerWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: GestureDetector(
-            onTap: close,
-            child: const ColoredBox(color: Color(0xA6000000)),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: AppMotion.quick,
+            builder: (context, t, _) => GestureDetector(
+              onTap: close,
+              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.65 * t)),
+            ),
           ),
         ),
         Center(
@@ -57,8 +62,10 @@ class _Sheet extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpace.xxl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-              child: VibrancyMaterial.sheet(
-                child: _Body(task: task, onClose: close),
+              child: SpringIn(
+                child: VibrancyMaterial.sheet(
+                  child: _Body(task: task, onClose: close),
+                ),
               ),
             ),
           ),

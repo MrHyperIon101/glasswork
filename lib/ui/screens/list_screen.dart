@@ -6,9 +6,9 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
+import '../motion.dart';
 import '../surface.dart';
 import '../widgets/content_header.dart';
-import '../widgets/quick_add.dart';
 import '../widgets/task_row.dart';
 
 /// A flat task list: a specific list, a smart view, or search results.
@@ -71,10 +71,6 @@ class ListScreen extends ConsumerWidget {
                   : _Rows(tasks: tasks),
             ),
           ),
-          if (destination is! DoneDestination) ...[
-            const SizedBox(height: AppSpace.lg),
-            const QuickAdd(),
-          ],
         ],
       ),
     );
@@ -102,8 +98,9 @@ class _Rows extends ConsumerWidget {
         ref.watch(destinationProvider) is ListDestination &&
         ref.watch(searchQueryProvider).trim().isEmpty;
 
-    Widget row(Task task) => TaskRow(
+    Widget row(Task task) => FadeSlideIn(
       key: ValueKey(task.id),
+      child: TaskRow(
       task: task,
       onToggle: () =>
           scope.tasks.setDone(task.id, done: task.status != TaskStatus.done),
@@ -117,6 +114,7 @@ class _Rows extends ConsumerWidget {
               () => scope.tasks.restore(task.id),
             );
       },
+      ),
     );
 
     // onReorderItem hands back a newIndex already adjusted for the removed row, so no
@@ -195,7 +193,7 @@ class _AddFirstButtonState extends ConsumerState<_AddFirstButton> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => ref.read(captureFocusProvider.notifier).request(),
+        onTap: () => ref.read(composerOpenProvider.notifier).open(),
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppMotion.quick,
