@@ -24,6 +24,9 @@ part 'database.g.dart';
     LocalSettings,
     CapacityProfiles,
     Commitments,
+    FieldDefs,
+    FieldValues,
+    ProjectViews,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -44,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -54,6 +57,15 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.createTable(capacityProfiles);
         await m.createTable(commitments);
+      }
+
+      // v3: projects with custom fields and saved views.
+      if (from < 3) {
+        await m.addColumn(boards, boards.purpose);
+        await m.addColumn(boards, boards.archived);
+        await m.createTable(fieldDefs);
+        await m.createTable(fieldValues);
+        await m.createTable(projectViews);
       }
     },
     beforeOpen: (details) async {

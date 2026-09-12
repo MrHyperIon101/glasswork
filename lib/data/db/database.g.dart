@@ -565,6 +565,17 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _purposeMeta = const VerificationMeta(
+    'purpose',
+  );
+  @override
+  late final GeneratedColumn<String> purpose = GeneratedColumn<String>(
+    'purpose',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _iconMeta = const VerificationMeta('icon');
   @override
   late final GeneratedColumn<String> icon = GeneratedColumn<String>(
@@ -582,6 +593,21 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     true,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
+  );
+  static const VerificationMeta _archivedMeta = const VerificationMeta(
+    'archived',
+  );
+  @override
+  late final GeneratedColumn<bool> archived = GeneratedColumn<bool>(
+    'archived',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("archived" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
   );
   @override
   late final GeneratedColumnWithTypeConverter<BoardView, String> viewDefault =
@@ -614,8 +640,10 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     fieldVersions,
     workspaceId,
     name,
+    purpose,
     icon,
     colour,
+    archived,
     viewDefault,
     orderKey,
   ];
@@ -688,6 +716,12 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('purpose')) {
+      context.handle(
+        _purposeMeta,
+        purpose.isAcceptableOrUnknown(data['purpose']!, _purposeMeta),
+      );
+    }
     if (data.containsKey('icon')) {
       context.handle(
         _iconMeta,
@@ -698,6 +732,12 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
       context.handle(
         _colourMeta,
         colour.isAcceptableOrUnknown(data['colour']!, _colourMeta),
+      );
+    }
+    if (data.containsKey('archived')) {
+      context.handle(
+        _archivedMeta,
+        archived.isAcceptableOrUnknown(data['archived']!, _archivedMeta),
       );
     }
     if (data.containsKey('order_key')) {
@@ -749,6 +789,10 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      purpose: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purpose'],
+      ),
       icon: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}icon'],
@@ -757,6 +801,10 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
         DriftSqlType.int,
         data['${effectivePrefix}colour'],
       ),
+      archived: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}archived'],
+      )!,
       viewDefault: $BoardsTable.$converterviewDefault.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -795,8 +843,15 @@ class Board extends DataClass implements Insertable<Board> {
   final String fieldVersions;
   final String workspaceId;
   final String name;
+
+  /// One-line statement of what the project is for. Shown under its title, because a
+  /// project name alone rarely says enough six weeks later.
+  final String? purpose;
   final String? icon;
   final int? colour;
+
+  /// Archived projects stay queryable but leave the sidebar.
+  final bool archived;
   final BoardView viewDefault;
 
   /// Fractional index. Never an int, never a reindex loop.
@@ -810,8 +865,10 @@ class Board extends DataClass implements Insertable<Board> {
     required this.fieldVersions,
     required this.workspaceId,
     required this.name,
+    this.purpose,
     this.icon,
     this.colour,
+    required this.archived,
     required this.viewDefault,
     required this.orderKey,
   });
@@ -830,12 +887,16 @@ class Board extends DataClass implements Insertable<Board> {
     map['field_versions'] = Variable<String>(fieldVersions);
     map['workspace_id'] = Variable<String>(workspaceId);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || purpose != null) {
+      map['purpose'] = Variable<String>(purpose);
+    }
     if (!nullToAbsent || icon != null) {
       map['icon'] = Variable<String>(icon);
     }
     if (!nullToAbsent || colour != null) {
       map['colour'] = Variable<int>(colour);
     }
+    map['archived'] = Variable<bool>(archived);
     {
       map['view_default'] = Variable<String>(
         $BoardsTable.$converterviewDefault.toSql(viewDefault),
@@ -859,10 +920,14 @@ class Board extends DataClass implements Insertable<Board> {
       fieldVersions: Value(fieldVersions),
       workspaceId: Value(workspaceId),
       name: Value(name),
+      purpose: purpose == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purpose),
       icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
       colour: colour == null && nullToAbsent
           ? const Value.absent()
           : Value(colour),
+      archived: Value(archived),
       viewDefault: Value(viewDefault),
       orderKey: Value(orderKey),
     );
@@ -882,8 +947,10 @@ class Board extends DataClass implements Insertable<Board> {
       fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
       workspaceId: serializer.fromJson<String>(json['workspaceId']),
       name: serializer.fromJson<String>(json['name']),
+      purpose: serializer.fromJson<String?>(json['purpose']),
       icon: serializer.fromJson<String?>(json['icon']),
       colour: serializer.fromJson<int?>(json['colour']),
+      archived: serializer.fromJson<bool>(json['archived']),
       viewDefault: $BoardsTable.$converterviewDefault.fromJson(
         serializer.fromJson<String>(json['viewDefault']),
       ),
@@ -902,8 +969,10 @@ class Board extends DataClass implements Insertable<Board> {
       'fieldVersions': serializer.toJson<String>(fieldVersions),
       'workspaceId': serializer.toJson<String>(workspaceId),
       'name': serializer.toJson<String>(name),
+      'purpose': serializer.toJson<String?>(purpose),
       'icon': serializer.toJson<String?>(icon),
       'colour': serializer.toJson<int?>(colour),
+      'archived': serializer.toJson<bool>(archived),
       'viewDefault': serializer.toJson<String>(
         $BoardsTable.$converterviewDefault.toJson(viewDefault),
       ),
@@ -920,8 +989,10 @@ class Board extends DataClass implements Insertable<Board> {
     String? fieldVersions,
     String? workspaceId,
     String? name,
+    Value<String?> purpose = const Value.absent(),
     Value<String?> icon = const Value.absent(),
     Value<int?> colour = const Value.absent(),
+    bool? archived,
     BoardView? viewDefault,
     String? orderKey,
   }) => Board(
@@ -933,8 +1004,10 @@ class Board extends DataClass implements Insertable<Board> {
     fieldVersions: fieldVersions ?? this.fieldVersions,
     workspaceId: workspaceId ?? this.workspaceId,
     name: name ?? this.name,
+    purpose: purpose.present ? purpose.value : this.purpose,
     icon: icon.present ? icon.value : this.icon,
     colour: colour.present ? colour.value : this.colour,
+    archived: archived ?? this.archived,
     viewDefault: viewDefault ?? this.viewDefault,
     orderKey: orderKey ?? this.orderKey,
   );
@@ -952,8 +1025,10 @@ class Board extends DataClass implements Insertable<Board> {
           ? data.workspaceId.value
           : this.workspaceId,
       name: data.name.present ? data.name.value : this.name,
+      purpose: data.purpose.present ? data.purpose.value : this.purpose,
       icon: data.icon.present ? data.icon.value : this.icon,
       colour: data.colour.present ? data.colour.value : this.colour,
+      archived: data.archived.present ? data.archived.value : this.archived,
       viewDefault: data.viewDefault.present
           ? data.viewDefault.value
           : this.viewDefault,
@@ -972,8 +1047,10 @@ class Board extends DataClass implements Insertable<Board> {
           ..write('fieldVersions: $fieldVersions, ')
           ..write('workspaceId: $workspaceId, ')
           ..write('name: $name, ')
+          ..write('purpose: $purpose, ')
           ..write('icon: $icon, ')
           ..write('colour: $colour, ')
+          ..write('archived: $archived, ')
           ..write('viewDefault: $viewDefault, ')
           ..write('orderKey: $orderKey')
           ..write(')'))
@@ -990,8 +1067,10 @@ class Board extends DataClass implements Insertable<Board> {
     fieldVersions,
     workspaceId,
     name,
+    purpose,
     icon,
     colour,
+    archived,
     viewDefault,
     orderKey,
   );
@@ -1007,8 +1086,10 @@ class Board extends DataClass implements Insertable<Board> {
           other.fieldVersions == this.fieldVersions &&
           other.workspaceId == this.workspaceId &&
           other.name == this.name &&
+          other.purpose == this.purpose &&
           other.icon == this.icon &&
           other.colour == this.colour &&
+          other.archived == this.archived &&
           other.viewDefault == this.viewDefault &&
           other.orderKey == this.orderKey);
 }
@@ -1022,8 +1103,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
   final Value<String> fieldVersions;
   final Value<String> workspaceId;
   final Value<String> name;
+  final Value<String?> purpose;
   final Value<String?> icon;
   final Value<int?> colour;
+  final Value<bool> archived;
   final Value<BoardView> viewDefault;
   final Value<String> orderKey;
   final Value<int> rowid;
@@ -1036,8 +1119,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     this.fieldVersions = const Value.absent(),
     this.workspaceId = const Value.absent(),
     this.name = const Value.absent(),
+    this.purpose = const Value.absent(),
     this.icon = const Value.absent(),
     this.colour = const Value.absent(),
+    this.archived = const Value.absent(),
     this.viewDefault = const Value.absent(),
     this.orderKey = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1051,8 +1136,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     this.fieldVersions = const Value.absent(),
     required String workspaceId,
     required String name,
+    this.purpose = const Value.absent(),
     this.icon = const Value.absent(),
     this.colour = const Value.absent(),
+    this.archived = const Value.absent(),
     this.viewDefault = const Value.absent(),
     required String orderKey,
     this.rowid = const Value.absent(),
@@ -1069,8 +1156,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     Expression<String>? fieldVersions,
     Expression<String>? workspaceId,
     Expression<String>? name,
+    Expression<String>? purpose,
     Expression<String>? icon,
     Expression<int>? colour,
+    Expression<bool>? archived,
     Expression<String>? viewDefault,
     Expression<String>? orderKey,
     Expression<int>? rowid,
@@ -1084,8 +1173,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
       if (fieldVersions != null) 'field_versions': fieldVersions,
       if (workspaceId != null) 'workspace_id': workspaceId,
       if (name != null) 'name': name,
+      if (purpose != null) 'purpose': purpose,
       if (icon != null) 'icon': icon,
       if (colour != null) 'colour': colour,
+      if (archived != null) 'archived': archived,
       if (viewDefault != null) 'view_default': viewDefault,
       if (orderKey != null) 'order_key': orderKey,
       if (rowid != null) 'rowid': rowid,
@@ -1101,8 +1192,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     Value<String>? fieldVersions,
     Value<String>? workspaceId,
     Value<String>? name,
+    Value<String?>? purpose,
     Value<String?>? icon,
     Value<int?>? colour,
+    Value<bool>? archived,
     Value<BoardView>? viewDefault,
     Value<String>? orderKey,
     Value<int>? rowid,
@@ -1116,8 +1209,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
       fieldVersions: fieldVersions ?? this.fieldVersions,
       workspaceId: workspaceId ?? this.workspaceId,
       name: name ?? this.name,
+      purpose: purpose ?? this.purpose,
       icon: icon ?? this.icon,
       colour: colour ?? this.colour,
+      archived: archived ?? this.archived,
       viewDefault: viewDefault ?? this.viewDefault,
       orderKey: orderKey ?? this.orderKey,
       rowid: rowid ?? this.rowid,
@@ -1151,11 +1246,17 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (purpose.present) {
+      map['purpose'] = Variable<String>(purpose.value);
+    }
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
     }
     if (colour.present) {
       map['colour'] = Variable<int>(colour.value);
+    }
+    if (archived.present) {
+      map['archived'] = Variable<bool>(archived.value);
     }
     if (viewDefault.present) {
       map['view_default'] = Variable<String>(
@@ -1182,8 +1283,10 @@ class BoardsCompanion extends UpdateCompanion<Board> {
           ..write('fieldVersions: $fieldVersions, ')
           ..write('workspaceId: $workspaceId, ')
           ..write('name: $name, ')
+          ..write('purpose: $purpose, ')
           ..write('icon: $icon, ')
           ..write('colour: $colour, ')
+          ..write('archived: $archived, ')
           ..write('viewDefault: $viewDefault, ')
           ..write('orderKey: $orderKey, ')
           ..write('rowid: $rowid')
@@ -7857,6 +7960,2189 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
   }
 }
 
+class $FieldDefsTable extends FieldDefs
+    with TableInfo<$FieldDefsTable, FieldDef> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FieldDefsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _boardIdMeta = const VerificationMeta(
+    'boardId',
+  );
+  @override
+  late final GeneratedColumn<String> boardId = GeneratedColumn<String>(
+    'board_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES boards (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<FieldType, String> type =
+      GeneratedColumn<String>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<FieldType>($FieldDefsTable.$convertertype);
+  static const VerificationMeta _optionsJsonMeta = const VerificationMeta(
+    'optionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> optionsJson = GeneratedColumn<String>(
+    'options_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _orderKeyMeta = const VerificationMeta(
+    'orderKey',
+  );
+  @override
+  late final GeneratedColumn<String> orderKey = GeneratedColumn<String>(
+    'order_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _showInlineMeta = const VerificationMeta(
+    'showInline',
+  );
+  @override
+  late final GeneratedColumn<bool> showInline = GeneratedColumn<bool>(
+    'show_inline',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_inline" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    boardId,
+    name,
+    type,
+    optionsJson,
+    orderKey,
+    showInline,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'field_defs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FieldDef> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('board_id')) {
+      context.handle(
+        _boardIdMeta,
+        boardId.isAcceptableOrUnknown(data['board_id']!, _boardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_boardIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('options_json')) {
+      context.handle(
+        _optionsJsonMeta,
+        optionsJson.isAcceptableOrUnknown(
+          data['options_json']!,
+          _optionsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('order_key')) {
+      context.handle(
+        _orderKeyMeta,
+        orderKey.isAcceptableOrUnknown(data['order_key']!, _orderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderKeyMeta);
+    }
+    if (data.containsKey('show_inline')) {
+      context.handle(
+        _showInlineMeta,
+        showInline.isAcceptableOrUnknown(data['show_inline']!, _showInlineMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FieldDef map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FieldDef(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      boardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}board_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      type: $FieldDefsTable.$convertertype.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
+      optionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}options_json'],
+      )!,
+      orderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_key'],
+      )!,
+      showInline: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_inline'],
+      )!,
+    );
+  }
+
+  @override
+  $FieldDefsTable createAlias(String alias) {
+    return $FieldDefsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<FieldType, String, String> $convertertype =
+      const EnumNameConverter<FieldType>(FieldType.values);
+}
+
+class FieldDef extends DataClass implements Insertable<FieldDef> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String boardId;
+  final String name;
+  final FieldType type;
+
+  /// JSON array of choices, for [FieldType.select] and [FieldType.multiSelect].
+  /// Each entry is `{"label": ..., "colour": ...}`.
+  final String optionsJson;
+  final String orderKey;
+
+  /// Whether it appears as a column in list and board views, or only in the detail sheet.
+  final bool showInline;
+  const FieldDef({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.boardId,
+    required this.name,
+    required this.type,
+    required this.optionsJson,
+    required this.orderKey,
+    required this.showInline,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['board_id'] = Variable<String>(boardId);
+    map['name'] = Variable<String>(name);
+    {
+      map['type'] = Variable<String>(
+        $FieldDefsTable.$convertertype.toSql(type),
+      );
+    }
+    map['options_json'] = Variable<String>(optionsJson);
+    map['order_key'] = Variable<String>(orderKey);
+    map['show_inline'] = Variable<bool>(showInline);
+    return map;
+  }
+
+  FieldDefsCompanion toCompanion(bool nullToAbsent) {
+    return FieldDefsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      boardId: Value(boardId),
+      name: Value(name),
+      type: Value(type),
+      optionsJson: Value(optionsJson),
+      orderKey: Value(orderKey),
+      showInline: Value(showInline),
+    );
+  }
+
+  factory FieldDef.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FieldDef(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      boardId: serializer.fromJson<String>(json['boardId']),
+      name: serializer.fromJson<String>(json['name']),
+      type: $FieldDefsTable.$convertertype.fromJson(
+        serializer.fromJson<String>(json['type']),
+      ),
+      optionsJson: serializer.fromJson<String>(json['optionsJson']),
+      orderKey: serializer.fromJson<String>(json['orderKey']),
+      showInline: serializer.fromJson<bool>(json['showInline']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'boardId': serializer.toJson<String>(boardId),
+      'name': serializer.toJson<String>(name),
+      'type': serializer.toJson<String>(
+        $FieldDefsTable.$convertertype.toJson(type),
+      ),
+      'optionsJson': serializer.toJson<String>(optionsJson),
+      'orderKey': serializer.toJson<String>(orderKey),
+      'showInline': serializer.toJson<bool>(showInline),
+    };
+  }
+
+  FieldDef copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? boardId,
+    String? name,
+    FieldType? type,
+    String? optionsJson,
+    String? orderKey,
+    bool? showInline,
+  }) => FieldDef(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    boardId: boardId ?? this.boardId,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    optionsJson: optionsJson ?? this.optionsJson,
+    orderKey: orderKey ?? this.orderKey,
+    showInline: showInline ?? this.showInline,
+  );
+  FieldDef copyWithCompanion(FieldDefsCompanion data) {
+    return FieldDef(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      boardId: data.boardId.present ? data.boardId.value : this.boardId,
+      name: data.name.present ? data.name.value : this.name,
+      type: data.type.present ? data.type.value : this.type,
+      optionsJson: data.optionsJson.present
+          ? data.optionsJson.value
+          : this.optionsJson,
+      orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+      showInline: data.showInline.present
+          ? data.showInline.value
+          : this.showInline,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FieldDef(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('boardId: $boardId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('optionsJson: $optionsJson, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('showInline: $showInline')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    boardId,
+    name,
+    type,
+    optionsJson,
+    orderKey,
+    showInline,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FieldDef &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.boardId == this.boardId &&
+          other.name == this.name &&
+          other.type == this.type &&
+          other.optionsJson == this.optionsJson &&
+          other.orderKey == this.orderKey &&
+          other.showInline == this.showInline);
+}
+
+class FieldDefsCompanion extends UpdateCompanion<FieldDef> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> boardId;
+  final Value<String> name;
+  final Value<FieldType> type;
+  final Value<String> optionsJson;
+  final Value<String> orderKey;
+  final Value<bool> showInline;
+  final Value<int> rowid;
+  const FieldDefsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.boardId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.type = const Value.absent(),
+    this.optionsJson = const Value.absent(),
+    this.orderKey = const Value.absent(),
+    this.showInline = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FieldDefsCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String boardId,
+    required String name,
+    required FieldType type,
+    this.optionsJson = const Value.absent(),
+    required String orderKey,
+    this.showInline = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       boardId = Value(boardId),
+       name = Value(name),
+       type = Value(type),
+       orderKey = Value(orderKey);
+  static Insertable<FieldDef> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? boardId,
+    Expression<String>? name,
+    Expression<String>? type,
+    Expression<String>? optionsJson,
+    Expression<String>? orderKey,
+    Expression<bool>? showInline,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (boardId != null) 'board_id': boardId,
+      if (name != null) 'name': name,
+      if (type != null) 'type': type,
+      if (optionsJson != null) 'options_json': optionsJson,
+      if (orderKey != null) 'order_key': orderKey,
+      if (showInline != null) 'show_inline': showInline,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FieldDefsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? boardId,
+    Value<String>? name,
+    Value<FieldType>? type,
+    Value<String>? optionsJson,
+    Value<String>? orderKey,
+    Value<bool>? showInline,
+    Value<int>? rowid,
+  }) {
+    return FieldDefsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      boardId: boardId ?? this.boardId,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      optionsJson: optionsJson ?? this.optionsJson,
+      orderKey: orderKey ?? this.orderKey,
+      showInline: showInline ?? this.showInline,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (boardId.present) {
+      map['board_id'] = Variable<String>(boardId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(
+        $FieldDefsTable.$convertertype.toSql(type.value),
+      );
+    }
+    if (optionsJson.present) {
+      map['options_json'] = Variable<String>(optionsJson.value);
+    }
+    if (orderKey.present) {
+      map['order_key'] = Variable<String>(orderKey.value);
+    }
+    if (showInline.present) {
+      map['show_inline'] = Variable<bool>(showInline.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FieldDefsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('boardId: $boardId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('optionsJson: $optionsJson, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('showInline: $showInline, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FieldValuesTable extends FieldValues
+    with TableInfo<$FieldValuesTable, FieldValue> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FieldValuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tasks (id)',
+    ),
+  );
+  static const VerificationMeta _fieldIdMeta = const VerificationMeta(
+    'fieldId',
+  );
+  @override
+  late final GeneratedColumn<String> fieldId = GeneratedColumn<String>(
+    'field_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES field_defs (id)',
+    ),
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    taskId,
+    fieldId,
+    value,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'field_values';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FieldValue> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('field_id')) {
+      context.handle(
+        _fieldIdMeta,
+        fieldId.isAcceptableOrUnknown(data['field_id']!, _fieldIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldIdMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FieldValue map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FieldValue(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      )!,
+      fieldId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_id'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      ),
+    );
+  }
+
+  @override
+  $FieldValuesTable createAlias(String alias) {
+    return $FieldValuesTable(attachedDatabase, alias);
+  }
+}
+
+class FieldValue extends DataClass implements Insertable<FieldValue> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String taskId;
+  final String fieldId;
+  final String? value;
+  const FieldValue({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.taskId,
+    required this.fieldId,
+    this.value,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['task_id'] = Variable<String>(taskId);
+    map['field_id'] = Variable<String>(fieldId);
+    if (!nullToAbsent || value != null) {
+      map['value'] = Variable<String>(value);
+    }
+    return map;
+  }
+
+  FieldValuesCompanion toCompanion(bool nullToAbsent) {
+    return FieldValuesCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      taskId: Value(taskId),
+      fieldId: Value(fieldId),
+      value: value == null && nullToAbsent
+          ? const Value.absent()
+          : Value(value),
+    );
+  }
+
+  factory FieldValue.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FieldValue(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      taskId: serializer.fromJson<String>(json['taskId']),
+      fieldId: serializer.fromJson<String>(json['fieldId']),
+      value: serializer.fromJson<String?>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'taskId': serializer.toJson<String>(taskId),
+      'fieldId': serializer.toJson<String>(fieldId),
+      'value': serializer.toJson<String?>(value),
+    };
+  }
+
+  FieldValue copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? taskId,
+    String? fieldId,
+    Value<String?> value = const Value.absent(),
+  }) => FieldValue(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    taskId: taskId ?? this.taskId,
+    fieldId: fieldId ?? this.fieldId,
+    value: value.present ? value.value : this.value,
+  );
+  FieldValue copyWithCompanion(FieldValuesCompanion data) {
+    return FieldValue(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      fieldId: data.fieldId.present ? data.fieldId.value : this.fieldId,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FieldValue(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('taskId: $taskId, ')
+          ..write('fieldId: $fieldId, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    taskId,
+    fieldId,
+    value,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FieldValue &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.taskId == this.taskId &&
+          other.fieldId == this.fieldId &&
+          other.value == this.value);
+}
+
+class FieldValuesCompanion extends UpdateCompanion<FieldValue> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> taskId;
+  final Value<String> fieldId;
+  final Value<String?> value;
+  final Value<int> rowid;
+  const FieldValuesCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.fieldId = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FieldValuesCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String taskId,
+    required String fieldId,
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       taskId = Value(taskId),
+       fieldId = Value(fieldId);
+  static Insertable<FieldValue> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? taskId,
+    Expression<String>? fieldId,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (taskId != null) 'task_id': taskId,
+      if (fieldId != null) 'field_id': fieldId,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FieldValuesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? taskId,
+    Value<String>? fieldId,
+    Value<String?>? value,
+    Value<int>? rowid,
+  }) {
+    return FieldValuesCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      taskId: taskId ?? this.taskId,
+      fieldId: fieldId ?? this.fieldId,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (fieldId.present) {
+      map['field_id'] = Variable<String>(fieldId.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FieldValuesCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('taskId: $taskId, ')
+          ..write('fieldId: $fieldId, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ProjectViewsTable extends ProjectViews
+    with TableInfo<$ProjectViewsTable, ProjectView> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProjectViewsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _boardIdMeta = const VerificationMeta(
+    'boardId',
+  );
+  @override
+  late final GeneratedColumn<String> boardId = GeneratedColumn<String>(
+    'board_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES boards (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<ViewKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<ViewKind>($ProjectViewsTable.$converterkind);
+  static const VerificationMeta _filterJsonMeta = const VerificationMeta(
+    'filterJson',
+  );
+  @override
+  late final GeneratedColumn<String> filterJson = GeneratedColumn<String>(
+    'filter_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _groupByMeta = const VerificationMeta(
+    'groupBy',
+  );
+  @override
+  late final GeneratedColumn<String> groupBy = GeneratedColumn<String>(
+    'group_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _orderKeyMeta = const VerificationMeta(
+    'orderKey',
+  );
+  @override
+  late final GeneratedColumn<String> orderKey = GeneratedColumn<String>(
+    'order_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    boardId,
+    name,
+    kind,
+    filterJson,
+    groupBy,
+    orderKey,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'project_views';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ProjectView> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('board_id')) {
+      context.handle(
+        _boardIdMeta,
+        boardId.isAcceptableOrUnknown(data['board_id']!, _boardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_boardIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('filter_json')) {
+      context.handle(
+        _filterJsonMeta,
+        filterJson.isAcceptableOrUnknown(data['filter_json']!, _filterJsonMeta),
+      );
+    }
+    if (data.containsKey('group_by')) {
+      context.handle(
+        _groupByMeta,
+        groupBy.isAcceptableOrUnknown(data['group_by']!, _groupByMeta),
+      );
+    }
+    if (data.containsKey('order_key')) {
+      context.handle(
+        _orderKeyMeta,
+        orderKey.isAcceptableOrUnknown(data['order_key']!, _orderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ProjectView map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ProjectView(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      boardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}board_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      kind: $ProjectViewsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      filterJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}filter_json'],
+      )!,
+      groupBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_by'],
+      ),
+      orderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_key'],
+      )!,
+    );
+  }
+
+  @override
+  $ProjectViewsTable createAlias(String alias) {
+    return $ProjectViewsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<ViewKind, String, String> $converterkind =
+      const EnumNameConverter<ViewKind>(ViewKind.values);
+}
+
+class ProjectView extends DataClass implements Insertable<ProjectView> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String boardId;
+  final String name;
+  final ViewKind kind;
+
+  /// The query DSL: `{"status": "open", "labels": ["uni"], "due": "<=7d"}`.
+  final String filterJson;
+
+  /// Field id or built-in key ('list', 'priority', 'due') to group columns by in a
+  /// board view.
+  final String? groupBy;
+  final String orderKey;
+  const ProjectView({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.boardId,
+    required this.name,
+    required this.kind,
+    required this.filterJson,
+    this.groupBy,
+    required this.orderKey,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['board_id'] = Variable<String>(boardId);
+    map['name'] = Variable<String>(name);
+    {
+      map['kind'] = Variable<String>(
+        $ProjectViewsTable.$converterkind.toSql(kind),
+      );
+    }
+    map['filter_json'] = Variable<String>(filterJson);
+    if (!nullToAbsent || groupBy != null) {
+      map['group_by'] = Variable<String>(groupBy);
+    }
+    map['order_key'] = Variable<String>(orderKey);
+    return map;
+  }
+
+  ProjectViewsCompanion toCompanion(bool nullToAbsent) {
+    return ProjectViewsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      boardId: Value(boardId),
+      name: Value(name),
+      kind: Value(kind),
+      filterJson: Value(filterJson),
+      groupBy: groupBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupBy),
+      orderKey: Value(orderKey),
+    );
+  }
+
+  factory ProjectView.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ProjectView(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      boardId: serializer.fromJson<String>(json['boardId']),
+      name: serializer.fromJson<String>(json['name']),
+      kind: $ProjectViewsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      filterJson: serializer.fromJson<String>(json['filterJson']),
+      groupBy: serializer.fromJson<String?>(json['groupBy']),
+      orderKey: serializer.fromJson<String>(json['orderKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'boardId': serializer.toJson<String>(boardId),
+      'name': serializer.toJson<String>(name),
+      'kind': serializer.toJson<String>(
+        $ProjectViewsTable.$converterkind.toJson(kind),
+      ),
+      'filterJson': serializer.toJson<String>(filterJson),
+      'groupBy': serializer.toJson<String?>(groupBy),
+      'orderKey': serializer.toJson<String>(orderKey),
+    };
+  }
+
+  ProjectView copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? boardId,
+    String? name,
+    ViewKind? kind,
+    String? filterJson,
+    Value<String?> groupBy = const Value.absent(),
+    String? orderKey,
+  }) => ProjectView(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    boardId: boardId ?? this.boardId,
+    name: name ?? this.name,
+    kind: kind ?? this.kind,
+    filterJson: filterJson ?? this.filterJson,
+    groupBy: groupBy.present ? groupBy.value : this.groupBy,
+    orderKey: orderKey ?? this.orderKey,
+  );
+  ProjectView copyWithCompanion(ProjectViewsCompanion data) {
+    return ProjectView(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      boardId: data.boardId.present ? data.boardId.value : this.boardId,
+      name: data.name.present ? data.name.value : this.name,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      filterJson: data.filterJson.present
+          ? data.filterJson.value
+          : this.filterJson,
+      groupBy: data.groupBy.present ? data.groupBy.value : this.groupBy,
+      orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProjectView(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('boardId: $boardId, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('filterJson: $filterJson, ')
+          ..write('groupBy: $groupBy, ')
+          ..write('orderKey: $orderKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    boardId,
+    name,
+    kind,
+    filterJson,
+    groupBy,
+    orderKey,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ProjectView &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.boardId == this.boardId &&
+          other.name == this.name &&
+          other.kind == this.kind &&
+          other.filterJson == this.filterJson &&
+          other.groupBy == this.groupBy &&
+          other.orderKey == this.orderKey);
+}
+
+class ProjectViewsCompanion extends UpdateCompanion<ProjectView> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> boardId;
+  final Value<String> name;
+  final Value<ViewKind> kind;
+  final Value<String> filterJson;
+  final Value<String?> groupBy;
+  final Value<String> orderKey;
+  final Value<int> rowid;
+  const ProjectViewsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.boardId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.filterJson = const Value.absent(),
+    this.groupBy = const Value.absent(),
+    this.orderKey = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProjectViewsCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String boardId,
+    required String name,
+    required ViewKind kind,
+    this.filterJson = const Value.absent(),
+    this.groupBy = const Value.absent(),
+    required String orderKey,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       boardId = Value(boardId),
+       name = Value(name),
+       kind = Value(kind),
+       orderKey = Value(orderKey);
+  static Insertable<ProjectView> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? boardId,
+    Expression<String>? name,
+    Expression<String>? kind,
+    Expression<String>? filterJson,
+    Expression<String>? groupBy,
+    Expression<String>? orderKey,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (boardId != null) 'board_id': boardId,
+      if (name != null) 'name': name,
+      if (kind != null) 'kind': kind,
+      if (filterJson != null) 'filter_json': filterJson,
+      if (groupBy != null) 'group_by': groupBy,
+      if (orderKey != null) 'order_key': orderKey,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProjectViewsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? boardId,
+    Value<String>? name,
+    Value<ViewKind>? kind,
+    Value<String>? filterJson,
+    Value<String?>? groupBy,
+    Value<String>? orderKey,
+    Value<int>? rowid,
+  }) {
+    return ProjectViewsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      boardId: boardId ?? this.boardId,
+      name: name ?? this.name,
+      kind: kind ?? this.kind,
+      filterJson: filterJson ?? this.filterJson,
+      groupBy: groupBy ?? this.groupBy,
+      orderKey: orderKey ?? this.orderKey,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (boardId.present) {
+      map['board_id'] = Variable<String>(boardId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $ProjectViewsTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (filterJson.present) {
+      map['filter_json'] = Variable<String>(filterJson.value);
+    }
+    if (groupBy.present) {
+      map['group_by'] = Variable<String>(groupBy.value);
+    }
+    if (orderKey.present) {
+      map['order_key'] = Variable<String>(orderKey.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProjectViewsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('boardId: $boardId, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('filterJson: $filterJson, ')
+          ..write('groupBy: $groupBy, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7874,6 +10160,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $CommitmentsTable commitments = $CommitmentsTable(this);
+  late final $FieldDefsTable fieldDefs = $FieldDefsTable(this);
+  late final $FieldValuesTable fieldValues = $FieldValuesTable(this);
+  late final $ProjectViewsTable projectViews = $ProjectViewsTable(this);
   late final Index boardWorkspace = Index(
     'board_workspace',
     'CREATE INDEX board_workspace ON boards (workspace_id)',
@@ -7906,6 +10195,22 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'commitment_workspace',
     'CREATE INDEX commitment_workspace ON commitments (workspace_id)',
   );
+  late final Index fielddefBoard = Index(
+    'fielddef_board',
+    'CREATE INDEX fielddef_board ON field_defs (board_id)',
+  );
+  late final Index fieldvalueTask = Index(
+    'fieldvalue_task',
+    'CREATE INDEX fieldvalue_task ON field_values (task_id)',
+  );
+  late final Index fieldvalueField = Index(
+    'fieldvalue_field',
+    'CREATE INDEX fieldvalue_field ON field_values (field_id)',
+  );
+  late final Index projectviewBoard = Index(
+    'projectview_board',
+    'CREATE INDEX projectview_board ON project_views (board_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7923,6 +10228,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localSettings,
     capacityProfiles,
     commitments,
+    fieldDefs,
+    fieldValues,
+    projectViews,
     boardWorkspace,
     listBoard,
     taskListOrder,
@@ -7931,6 +10239,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     subtaskTaskOrder,
     tasklabelLabel,
     commitmentWorkspace,
+    fielddefBoard,
+    fieldvalueTask,
+    fieldvalueField,
+    projectviewBoard,
   ];
 }
 
@@ -8187,8 +10499,10 @@ typedef $$BoardsTableCreateCompanionBuilder = BoardsCompanion Function({
   Value<String> fieldVersions,
   required String workspaceId,
   required String name,
+  Value<String?> purpose,
   Value<String?> icon,
   Value<int?> colour,
+  Value<bool> archived,
   Value<BoardView> viewDefault,
   required String orderKey,
   Value<int> rowid,
@@ -8202,8 +10516,10 @@ typedef $$BoardsTableUpdateCompanionBuilder = BoardsCompanion Function({
   Value<String> fieldVersions,
   Value<String> workspaceId,
   Value<String> name,
+  Value<String?> purpose,
   Value<String?> icon,
   Value<int?> colour,
+  Value<bool> archived,
   Value<BoardView> viewDefault,
   Value<String> orderKey,
   Value<int> rowid,
@@ -8227,6 +10543,42 @@ final class $$BoardsTableReferences
     ).filter((f) => f.boardId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_listsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$FieldDefsTable, List<FieldDef>>
+  _fieldDefsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.fieldDefs,
+    aliasName: 'boards__id__field_defs__board_id',
+  );
+
+  $$FieldDefsTableProcessedTableManager get fieldDefsRefs {
+    final manager = $$FieldDefsTableTableManager(
+      $_db,
+      $_db.fieldDefs,
+    ).filter((f) => f.boardId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_fieldDefsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ProjectViewsTable, List<ProjectView>>
+  _projectViewsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.projectViews,
+    aliasName: 'boards__id__project_views__board_id',
+  );
+
+  $$ProjectViewsTableProcessedTableManager get projectViewsRefs {
+    final manager = $$ProjectViewsTableTableManager(
+      $_db,
+      $_db.projectViews,
+    ).filter((f) => f.boardId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_projectViewsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -8282,6 +10634,11 @@ class $$BoardsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get purpose => $composableBuilder(
+    column: $table.purpose,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get icon => $composableBuilder(
     column: $table.icon,
     builder: (column) => ColumnFilters(column),
@@ -8289,6 +10646,11 @@ class $$BoardsTableFilterComposer
 
   ColumnFilters<int> get colour => $composableBuilder(
     column: $table.colour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get archived => $composableBuilder(
+    column: $table.archived,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8319,6 +10681,56 @@ class $$BoardsTableFilterComposer
           }) => $$ListsTableFilterComposer(
             $db: $db,
             $table: $db.lists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> fieldDefsRefs(
+    Expression<bool> Function($$FieldDefsTableFilterComposer f) f,
+  ) {
+    final $$FieldDefsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldDefs,
+      getReferencedColumn: (t) => t.boardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldDefsTableFilterComposer(
+            $db: $db,
+            $table: $db.fieldDefs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> projectViewsRefs(
+    Expression<bool> Function($$ProjectViewsTableFilterComposer f) f,
+  ) {
+    final $$ProjectViewsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.projectViews,
+      getReferencedColumn: (t) => t.boardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProjectViewsTableFilterComposer(
+            $db: $db,
+            $table: $db.projectViews,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -8378,6 +10790,11 @@ class $$BoardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get purpose => $composableBuilder(
+    column: $table.purpose,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get icon => $composableBuilder(
     column: $table.icon,
     builder: (column) => ColumnOrderings(column),
@@ -8385,6 +10802,11 @@ class $$BoardsTableOrderingComposer
 
   ColumnOrderings<int> get colour => $composableBuilder(
     column: $table.colour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get archived => $composableBuilder(
+    column: $table.archived,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -8436,11 +10858,17 @@ class $$BoardsTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
+  GeneratedColumn<String> get purpose =>
+      $composableBuilder(column: $table.purpose, builder: (column) => column);
+
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
 
   GeneratedColumn<int> get colour =>
       $composableBuilder(column: $table.colour, builder: (column) => column);
+
+  GeneratedColumn<bool> get archived =>
+      $composableBuilder(column: $table.archived, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<BoardView, String> get viewDefault =>
       $composableBuilder(
@@ -8475,6 +10903,56 @@ class $$BoardsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> fieldDefsRefs<T extends Object>(
+    Expression<T> Function($$FieldDefsTableAnnotationComposer a) f,
+  ) {
+    final $$FieldDefsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldDefs,
+      getReferencedColumn: (t) => t.boardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldDefsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.fieldDefs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> projectViewsRefs<T extends Object>(
+    Expression<T> Function($$ProjectViewsTableAnnotationComposer a) f,
+  ) {
+    final $$ProjectViewsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.projectViews,
+      getReferencedColumn: (t) => t.boardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProjectViewsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.projectViews,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BoardsTableTableManager
@@ -8490,7 +10968,11 @@ class $$BoardsTableTableManager
           $$BoardsTableUpdateCompanionBuilder,
           (Board, $$BoardsTableReferences),
           Board,
-          PrefetchHooks Function({bool listsRefs})
+          PrefetchHooks Function({
+            bool listsRefs,
+            bool fieldDefsRefs,
+            bool projectViewsRefs,
+          })
         > {
   $$BoardsTableTableManager(_$AppDatabase db, $BoardsTable table)
     : super(
@@ -8513,8 +10995,10 @@ class $$BoardsTableTableManager
                 Value<String> fieldVersions = const Value.absent(),
                 Value<String> workspaceId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> purpose = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
                 Value<int?> colour = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
                 Value<BoardView> viewDefault = const Value.absent(),
                 Value<String> orderKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8527,8 +11011,10 @@ class $$BoardsTableTableManager
                 fieldVersions: fieldVersions,
                 workspaceId: workspaceId,
                 name: name,
+                purpose: purpose,
                 icon: icon,
                 colour: colour,
+                archived: archived,
                 viewDefault: viewDefault,
                 orderKey: orderKey,
                 rowid: rowid,
@@ -8543,8 +11029,10 @@ class $$BoardsTableTableManager
                 Value<String> fieldVersions = const Value.absent(),
                 required String workspaceId,
                 required String name,
+                Value<String?> purpose = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
                 Value<int?> colour = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
                 Value<BoardView> viewDefault = const Value.absent(),
                 required String orderKey,
                 Value<int> rowid = const Value.absent(),
@@ -8557,8 +11045,10 @@ class $$BoardsTableTableManager
                 fieldVersions: fieldVersions,
                 workspaceId: workspaceId,
                 name: name,
+                purpose: purpose,
                 icon: icon,
                 colour: colour,
+                archived: archived,
                 viewDefault: viewDefault,
                 orderKey: orderKey,
                 rowid: rowid,
@@ -8571,29 +11061,85 @@ class $$BoardsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({listsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (listsRefs) db.lists],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (listsRefs)
-                    await $_getPrefetchedData<Board, $BoardsTable, BoardList>(
-                      currentTable: table,
-                      referencedTable: $$BoardsTableReferences._listsRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$BoardsTableReferences(db, table, p0).listsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.boardId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                listsRefs = false,
+                fieldDefsRefs = false,
+                projectViewsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (listsRefs) db.lists,
+                    if (fieldDefsRefs) db.fieldDefs,
+                    if (projectViewsRefs) db.projectViews,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (listsRefs)
+                        await $_getPrefetchedData<
+                          Board,
+                          $BoardsTable,
+                          BoardList
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BoardsTableReferences
+                              ._listsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BoardsTableReferences(db, table, p0).listsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.boardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (fieldDefsRefs)
+                        await $_getPrefetchedData<
+                          Board,
+                          $BoardsTable,
+                          FieldDef
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BoardsTableReferences
+                              ._fieldDefsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BoardsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).fieldDefsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.boardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (projectViewsRefs)
+                        await $_getPrefetchedData<
+                          Board,
+                          $BoardsTable,
+                          ProjectView
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BoardsTableReferences
+                              ._projectViewsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BoardsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).projectViewsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.boardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -8610,7 +11156,11 @@ typedef $$BoardsTableProcessedTableManager =
       $$BoardsTableUpdateCompanionBuilder,
       (Board, $$BoardsTableReferences),
       Board,
-      PrefetchHooks Function({bool listsRefs})
+      PrefetchHooks Function({
+        bool listsRefs,
+        bool fieldDefsRefs,
+        bool projectViewsRefs,
+      })
     >;
 typedef $$ListsTableCreateCompanionBuilder = ListsCompanion Function({
   required String id,
@@ -9258,6 +11808,24 @@ final class $$TasksTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$FieldValuesTable, List<FieldValue>>
+  _fieldValuesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.fieldValues,
+    aliasName: 'tasks__id__field_values__task_id',
+  );
+
+  $$FieldValuesTableProcessedTableManager get fieldValuesRefs {
+    final manager = $$FieldValuesTableTableManager(
+      $_db,
+      $_db.fieldValues,
+    ).filter((f) => f.taskId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_fieldValuesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
@@ -9448,6 +12016,31 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
           }) => $$TaskLabelsTableFilterComposer(
             $db: $db,
             $table: $db.taskLabels,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> fieldValuesRefs(
+    Expression<bool> Function($$FieldValuesTableFilterComposer f) f,
+  ) {
+    final $$FieldValuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldValues,
+      getReferencedColumn: (t) => t.taskId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldValuesTableFilterComposer(
+            $db: $db,
+            $table: $db.fieldValues,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -9770,6 +12363,31 @@ class $$TasksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> fieldValuesRefs<T extends Object>(
+    Expression<T> Function($$FieldValuesTableAnnotationComposer a) f,
+  ) {
+    final $$FieldValuesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldValues,
+      getReferencedColumn: (t) => t.taskId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldValuesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.fieldValues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TasksTableTableManager
@@ -9789,6 +12407,7 @@ class $$TasksTableTableManager
             bool listId,
             bool subtasksRefs,
             bool taskLabelsRefs,
+            bool fieldValuesRefs,
           })
         > {
   $$TasksTableTableManager(_$AppDatabase db, $TasksTable table)
@@ -9919,12 +12538,18 @@ class $$TasksTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({listId = false, subtasksRefs = false, taskLabelsRefs = false}) {
+              ({
+                listId = false,
+                subtasksRefs = false,
+                taskLabelsRefs = false,
+                fieldValuesRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (subtasksRefs) db.subtasks,
                     if (taskLabelsRefs) db.taskLabels,
+                    if (fieldValuesRefs) db.fieldValues,
                   ],
                   addJoins:
                       <
@@ -9992,6 +12617,27 @@ class $$TasksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (fieldValuesRefs)
+                        await $_getPrefetchedData<
+                          Task,
+                          $TasksTable,
+                          FieldValue
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TasksTableReferences
+                              ._fieldValuesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TasksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).fieldValuesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.taskId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -10016,6 +12662,7 @@ typedef $$TasksTableProcessedTableManager =
         bool listId,
         bool subtasksRefs,
         bool taskLabelsRefs,
+        bool fieldValuesRefs,
       })
     >;
 typedef $$SubtasksTableCreateCompanionBuilder = SubtasksCompanion Function({
@@ -12707,6 +15354,1540 @@ typedef $$CommitmentsTableProcessedTableManager =
       Commitment,
       PrefetchHooks Function()
     >;
+typedef $$FieldDefsTableCreateCompanionBuilder = FieldDefsCompanion Function({
+  required String id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  required String workspaceId,
+  required String boardId,
+  required String name,
+  required FieldType type,
+  Value<String> optionsJson,
+  required String orderKey,
+  Value<bool> showInline,
+  Value<int> rowid,
+});
+typedef $$FieldDefsTableUpdateCompanionBuilder = FieldDefsCompanion Function({
+  Value<String> id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  Value<String> workspaceId,
+  Value<String> boardId,
+  Value<String> name,
+  Value<FieldType> type,
+  Value<String> optionsJson,
+  Value<String> orderKey,
+  Value<bool> showInline,
+  Value<int> rowid,
+});
+
+final class $$FieldDefsTableReferences
+    extends BaseReferences<_$AppDatabase, $FieldDefsTable, FieldDef> {
+  $$FieldDefsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BoardsTable _boardIdTable(_$AppDatabase db) =>
+      db.boards.createAlias('field_defs__board_id__boards__id');
+
+  $$BoardsTableProcessedTableManager get boardId {
+    final $_column = $_itemColumn<String>('board_id')!;
+
+    final manager = $$BoardsTableTableManager(
+      $_db,
+      $_db.boards,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_boardIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$FieldValuesTable, List<FieldValue>>
+  _fieldValuesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.fieldValues,
+    aliasName: 'field_defs__id__field_values__field_id',
+  );
+
+  $$FieldValuesTableProcessedTableManager get fieldValuesRefs {
+    final manager = $$FieldValuesTableTableManager(
+      $_db,
+      $_db.fieldValues,
+    ).filter((f) => f.fieldId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_fieldValuesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$FieldDefsTableFilterComposer
+    extends Composer<_$AppDatabase, $FieldDefsTable> {
+  $$FieldDefsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<FieldType, FieldType, String> get type =>
+      $composableBuilder(
+        column: $table.type,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showInline => $composableBuilder(
+    column: $table.showInline,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BoardsTableFilterComposer get boardId {
+    final $$BoardsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableFilterComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> fieldValuesRefs(
+    Expression<bool> Function($$FieldValuesTableFilterComposer f) f,
+  ) {
+    final $$FieldValuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldValues,
+      getReferencedColumn: (t) => t.fieldId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldValuesTableFilterComposer(
+            $db: $db,
+            $table: $db.fieldValues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$FieldDefsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FieldDefsTable> {
+  $$FieldDefsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showInline => $composableBuilder(
+    column: $table.showInline,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BoardsTableOrderingComposer get boardId {
+    final $$BoardsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableOrderingComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FieldDefsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FieldDefsTable> {
+  $$FieldDefsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<FieldType, String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get orderKey =>
+      $composableBuilder(column: $table.orderKey, builder: (column) => column);
+
+  GeneratedColumn<bool> get showInline => $composableBuilder(
+    column: $table.showInline,
+    builder: (column) => column,
+  );
+
+  $$BoardsTableAnnotationComposer get boardId {
+    final $$BoardsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> fieldValuesRefs<T extends Object>(
+    Expression<T> Function($$FieldValuesTableAnnotationComposer a) f,
+  ) {
+    final $$FieldValuesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.fieldValues,
+      getReferencedColumn: (t) => t.fieldId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldValuesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.fieldValues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$FieldDefsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FieldDefsTable,
+          FieldDef,
+          $$FieldDefsTableFilterComposer,
+          $$FieldDefsTableOrderingComposer,
+          $$FieldDefsTableAnnotationComposer,
+          $$FieldDefsTableCreateCompanionBuilder,
+          $$FieldDefsTableUpdateCompanionBuilder,
+          (FieldDef, $$FieldDefsTableReferences),
+          FieldDef,
+          PrefetchHooks Function({bool boardId, bool fieldValuesRefs})
+        > {
+  $$FieldDefsTableTableManager(_$AppDatabase db, $FieldDefsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FieldDefsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FieldDefsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FieldDefsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> boardId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<FieldType> type = const Value.absent(),
+                Value<String> optionsJson = const Value.absent(),
+                Value<String> orderKey = const Value.absent(),
+                Value<bool> showInline = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FieldDefsCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                boardId: boardId,
+                name: name,
+                type: type,
+                optionsJson: optionsJson,
+                orderKey: orderKey,
+                showInline: showInline,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String boardId,
+                required String name,
+                required FieldType type,
+                Value<String> optionsJson = const Value.absent(),
+                required String orderKey,
+                Value<bool> showInline = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FieldDefsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                boardId: boardId,
+                name: name,
+                type: type,
+                optionsJson: optionsJson,
+                orderKey: orderKey,
+                showInline: showInline,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FieldDefsTable, FieldDef>(table),
+                  $$FieldDefsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({boardId = false, fieldValuesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (fieldValuesRefs) db.fieldValues],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (boardId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.boardId,
+                        referencedTable: $$FieldDefsTableReferences
+                            ._boardIdTable(db),
+                        referencedColumn: $$FieldDefsTableReferences
+                            ._boardIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (fieldValuesRefs)
+                    await $_getPrefetchedData<
+                      FieldDef,
+                      $FieldDefsTable,
+                      FieldValue
+                    >(
+                      currentTable: table,
+                      referencedTable: $$FieldDefsTableReferences
+                          ._fieldValuesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$FieldDefsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).fieldValuesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.fieldId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FieldDefsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FieldDefsTable,
+      FieldDef,
+      $$FieldDefsTableFilterComposer,
+      $$FieldDefsTableOrderingComposer,
+      $$FieldDefsTableAnnotationComposer,
+      $$FieldDefsTableCreateCompanionBuilder,
+      $$FieldDefsTableUpdateCompanionBuilder,
+      (FieldDef, $$FieldDefsTableReferences),
+      FieldDef,
+      PrefetchHooks Function({bool boardId, bool fieldValuesRefs})
+    >;
+typedef $$FieldValuesTableCreateCompanionBuilder =
+    FieldValuesCompanion Function({
+      required String id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      required String workspaceId,
+      required String taskId,
+      required String fieldId,
+      Value<String?> value,
+      Value<int> rowid,
+    });
+typedef $$FieldValuesTableUpdateCompanionBuilder =
+    FieldValuesCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      Value<String> workspaceId,
+      Value<String> taskId,
+      Value<String> fieldId,
+      Value<String?> value,
+      Value<int> rowid,
+    });
+
+final class $$FieldValuesTableReferences
+    extends BaseReferences<_$AppDatabase, $FieldValuesTable, FieldValue> {
+  $$FieldValuesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $TasksTable _taskIdTable(_$AppDatabase db) =>
+      db.tasks.createAlias('field_values__task_id__tasks__id');
+
+  $$TasksTableProcessedTableManager get taskId {
+    final $_column = $_itemColumn<String>('task_id')!;
+
+    final manager = $$TasksTableTableManager(
+      $_db,
+      $_db.tasks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_taskIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $FieldDefsTable _fieldIdTable(_$AppDatabase db) =>
+      db.fieldDefs.createAlias('field_values__field_id__field_defs__id');
+
+  $$FieldDefsTableProcessedTableManager get fieldId {
+    final $_column = $_itemColumn<String>('field_id')!;
+
+    final manager = $$FieldDefsTableTableManager(
+      $_db,
+      $_db.fieldDefs,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_fieldIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FieldValuesTableFilterComposer
+    extends Composer<_$AppDatabase, $FieldValuesTable> {
+  $$FieldValuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TasksTableFilterComposer get taskId {
+    final $$TasksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableFilterComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FieldDefsTableFilterComposer get fieldId {
+    final $$FieldDefsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fieldId,
+      referencedTable: $db.fieldDefs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldDefsTableFilterComposer(
+            $db: $db,
+            $table: $db.fieldDefs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FieldValuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FieldValuesTable> {
+  $$FieldValuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TasksTableOrderingComposer get taskId {
+    final $$TasksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableOrderingComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FieldDefsTableOrderingComposer get fieldId {
+    final $$FieldDefsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fieldId,
+      referencedTable: $db.fieldDefs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldDefsTableOrderingComposer(
+            $db: $db,
+            $table: $db.fieldDefs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FieldValuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FieldValuesTable> {
+  $$FieldValuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  $$TasksTableAnnotationComposer get taskId {
+    final $$TasksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.taskId,
+      referencedTable: $db.tasks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TasksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tasks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$FieldDefsTableAnnotationComposer get fieldId {
+    final $$FieldDefsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fieldId,
+      referencedTable: $db.fieldDefs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FieldDefsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.fieldDefs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FieldValuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FieldValuesTable,
+          FieldValue,
+          $$FieldValuesTableFilterComposer,
+          $$FieldValuesTableOrderingComposer,
+          $$FieldValuesTableAnnotationComposer,
+          $$FieldValuesTableCreateCompanionBuilder,
+          $$FieldValuesTableUpdateCompanionBuilder,
+          (FieldValue, $$FieldValuesTableReferences),
+          FieldValue,
+          PrefetchHooks Function({bool taskId, bool fieldId})
+        > {
+  $$FieldValuesTableTableManager(_$AppDatabase db, $FieldValuesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FieldValuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FieldValuesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FieldValuesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> taskId = const Value.absent(),
+                Value<String> fieldId = const Value.absent(),
+                Value<String?> value = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FieldValuesCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                taskId: taskId,
+                fieldId: fieldId,
+                value: value,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String taskId,
+                required String fieldId,
+                Value<String?> value = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FieldValuesCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                taskId: taskId,
+                fieldId: fieldId,
+                value: value,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FieldValuesTable, FieldValue>(table),
+                  $$FieldValuesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({taskId = false, fieldId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (taskId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.taskId,
+                        referencedTable: $$FieldValuesTableReferences
+                            ._taskIdTable(db),
+                        referencedColumn: $$FieldValuesTableReferences
+                            ._taskIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+                    if (fieldId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.fieldId,
+                        referencedTable: $$FieldValuesTableReferences
+                            ._fieldIdTable(db),
+                        referencedColumn: $$FieldValuesTableReferences
+                            ._fieldIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FieldValuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FieldValuesTable,
+      FieldValue,
+      $$FieldValuesTableFilterComposer,
+      $$FieldValuesTableOrderingComposer,
+      $$FieldValuesTableAnnotationComposer,
+      $$FieldValuesTableCreateCompanionBuilder,
+      $$FieldValuesTableUpdateCompanionBuilder,
+      (FieldValue, $$FieldValuesTableReferences),
+      FieldValue,
+      PrefetchHooks Function({bool taskId, bool fieldId})
+    >;
+typedef $$ProjectViewsTableCreateCompanionBuilder =
+    ProjectViewsCompanion Function({
+      required String id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      required String workspaceId,
+      required String boardId,
+      required String name,
+      required ViewKind kind,
+      Value<String> filterJson,
+      Value<String?> groupBy,
+      required String orderKey,
+      Value<int> rowid,
+    });
+typedef $$ProjectViewsTableUpdateCompanionBuilder =
+    ProjectViewsCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      Value<String> workspaceId,
+      Value<String> boardId,
+      Value<String> name,
+      Value<ViewKind> kind,
+      Value<String> filterJson,
+      Value<String?> groupBy,
+      Value<String> orderKey,
+      Value<int> rowid,
+    });
+
+final class $$ProjectViewsTableReferences
+    extends BaseReferences<_$AppDatabase, $ProjectViewsTable, ProjectView> {
+  $$ProjectViewsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BoardsTable _boardIdTable(_$AppDatabase db) =>
+      db.boards.createAlias('project_views__board_id__boards__id');
+
+  $$BoardsTableProcessedTableManager get boardId {
+    final $_column = $_itemColumn<String>('board_id')!;
+
+    final manager = $$BoardsTableTableManager(
+      $_db,
+      $_db.boards,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_boardIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ProjectViewsTableFilterComposer
+    extends Composer<_$AppDatabase, $ProjectViewsTable> {
+  $$ProjectViewsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<ViewKind, ViewKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupBy => $composableBuilder(
+    column: $table.groupBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BoardsTableFilterComposer get boardId {
+    final $$BoardsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableFilterComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProjectViewsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProjectViewsTable> {
+  $$ProjectViewsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupBy => $composableBuilder(
+    column: $table.groupBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BoardsTableOrderingComposer get boardId {
+    final $$BoardsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableOrderingComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProjectViewsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProjectViewsTable> {
+  $$ProjectViewsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ViewKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get filterJson => $composableBuilder(
+    column: $table.filterJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get groupBy =>
+      $composableBuilder(column: $table.groupBy, builder: (column) => column);
+
+  GeneratedColumn<String> get orderKey =>
+      $composableBuilder(column: $table.orderKey, builder: (column) => column);
+
+  $$BoardsTableAnnotationComposer get boardId {
+    final $$BoardsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.boardId,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ProjectViewsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProjectViewsTable,
+          ProjectView,
+          $$ProjectViewsTableFilterComposer,
+          $$ProjectViewsTableOrderingComposer,
+          $$ProjectViewsTableAnnotationComposer,
+          $$ProjectViewsTableCreateCompanionBuilder,
+          $$ProjectViewsTableUpdateCompanionBuilder,
+          (ProjectView, $$ProjectViewsTableReferences),
+          ProjectView,
+          PrefetchHooks Function({bool boardId})
+        > {
+  $$ProjectViewsTableTableManager(_$AppDatabase db, $ProjectViewsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProjectViewsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProjectViewsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProjectViewsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> boardId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<ViewKind> kind = const Value.absent(),
+                Value<String> filterJson = const Value.absent(),
+                Value<String?> groupBy = const Value.absent(),
+                Value<String> orderKey = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProjectViewsCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                boardId: boardId,
+                name: name,
+                kind: kind,
+                filterJson: filterJson,
+                groupBy: groupBy,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String boardId,
+                required String name,
+                required ViewKind kind,
+                Value<String> filterJson = const Value.absent(),
+                Value<String?> groupBy = const Value.absent(),
+                required String orderKey,
+                Value<int> rowid = const Value.absent(),
+              }) => ProjectViewsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                boardId: boardId,
+                name: name,
+                kind: kind,
+                filterJson: filterJson,
+                groupBy: groupBy,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProjectViewsTable, ProjectView>(table),
+                  $$ProjectViewsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({boardId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (boardId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.boardId,
+                        referencedTable: $$ProjectViewsTableReferences
+                            ._boardIdTable(db),
+                        referencedColumn: $$ProjectViewsTableReferences
+                            ._boardIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ProjectViewsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProjectViewsTable,
+      ProjectView,
+      $$ProjectViewsTableFilterComposer,
+      $$ProjectViewsTableOrderingComposer,
+      $$ProjectViewsTableAnnotationComposer,
+      $$ProjectViewsTableCreateCompanionBuilder,
+      $$ProjectViewsTableUpdateCompanionBuilder,
+      (ProjectView, $$ProjectViewsTableReferences),
+      ProjectView,
+      PrefetchHooks Function({bool boardId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12735,4 +16916,10 @@ class $AppDatabaseManager {
       $$CapacityProfilesTableTableManager(_db, _db.capacityProfiles);
   $$CommitmentsTableTableManager get commitments =>
       $$CommitmentsTableTableManager(_db, _db.commitments);
+  $$FieldDefsTableTableManager get fieldDefs =>
+      $$FieldDefsTableTableManager(_db, _db.fieldDefs);
+  $$FieldValuesTableTableManager get fieldValues =>
+      $$FieldValuesTableTableManager(_db, _db.fieldValues);
+  $$ProjectViewsTableTableManager get projectViews =>
+      $$ProjectViewsTableTableManager(_db, _db.projectViews);
 }

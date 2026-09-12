@@ -6,18 +6,20 @@ import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
-import '../surface.dart';
 import '../motion.dart';
+import '../surface.dart';
+import '../widgets/new_project_sheet.dart';
 import '../widgets/task_composer.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
 import 'capacity_screen.dart';
 import 'list_screen.dart';
+import 'project_screen.dart';
 import 'today_screen.dart';
 
 /// Width below which the sidebar is hidden behind a button rather than pinned.
-const _sidebarBreakpoint = 860.0;
-const _sidebarWidth = 252.0;
+const _sidebarBreakpoint = 900.0;
+const _sidebarWidth = 262.0;
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -84,11 +86,7 @@ class _Status extends StatelessWidget {
                   textAlign: TextAlign.center,
                 )
               else
-                Text(
-                  detail,
-                  style: AppText.footnote,
-                  textAlign: TextAlign.center,
-                ),
+                Text(detail, style: AppText.footnote, textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -123,57 +121,61 @@ class _ShellState extends ConsumerState<_Shell> {
           child: Focus(
             autofocus: true,
             child: Stack(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (wide)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpace.md,
-                      AppSpace.md,
-                      0,
-                      AppSpace.md,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (wide)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpace.md,
+                          AppSpace.md,
+                          0,
+                          AppSpace.md,
+                        ),
+                        child: SizedBox(width: _sidebarWidth, child: _Sidebar()),
+                      ),
+                    Expanded(
+                      child: _Content(
+                        onMenu: wide
+                            ? null
+                            : () => setState(() => _drawerOpen = true),
+                      ),
                     ),
-                    child: SizedBox(width: _sidebarWidth, child: _Sidebar()),
+                  ],
+                ),
+
+                // Narrow layout: the sidebar slides over the content rather than
+                // squeezing it into uselessness.
+                if (!wide && _drawerOpen) ...[
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _drawerOpen = false),
+                      child: const ColoredBox(color: Color(0x99000000)),
+                    ),
                   ),
-                Expanded(
-                  child: _Content(
-                    onMenu: wide ? null : () => setState(() => _drawerOpen = true),
+                  Positioned(
+                    left: AppSpace.md,
+                    top: AppSpace.md,
+                    bottom: AppSpace.md,
+                    width: _sidebarWidth,
+                    child: _Sidebar(
+                      onNavigate: () => setState(() => _drawerOpen = false),
+                    ),
                   ),
+                ],
+
+                const Positioned.fill(child: TaskDetailSheet()),
+                const Positioned.fill(child: TaskComposer()),
+                const Positioned.fill(child: NewProjectSheet()),
+
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: AppSpace.xxxl,
+                  child: Center(child: UndoToast()),
                 ),
               ],
-            ),
-
-            // Narrow layout: the sidebar slides over the content instead of squeezing it.
-            if (!wide && _drawerOpen) ...[
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () => setState(() => _drawerOpen = false),
-                  child: const ColoredBox(color: Color(0x99000000)),
-                ),
-              ),
-              Positioned(
-                left: AppSpace.md,
-                top: AppSpace.md,
-                bottom: AppSpace.md,
-                width: _sidebarWidth,
-                child: _Sidebar(
-                  onNavigate: () => setState(() => _drawerOpen = false),
-                ),
-              ),
-            ],
-
-            const Positioned.fill(child: TaskDetailSheet()),
-            const Positioned.fill(child: TaskComposer()),
-
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: AppSpace.xxxl,
-              child: Center(child: UndoToast()),
-            ),
-          ],
             ),
           ),
         );
@@ -189,14 +191,22 @@ class _Sidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lists = ref.watch(listsProvider).value ?? const <BoardList>[];
+    final projects = ref.watch(projectsProvider).value ?? const <Board>[];
+    final sections = ref.watch(allSectionsProvider).value ?? const <BoardList>[];
     final all = ref.watch(allTasksProvider).value ?? const <Task>[];
     final stats = ref.watch(statsProvider);
     final current = ref.watch(destinationProvider);
 
-    int openIn(String listId) => all
-        .where((t) => t.listId == listId && t.status != TaskStatus.done)
-        .length;
+    /// Open tasks in a project, counted across its sections.
+    int openIn(String projectId) {
+      final ids = sections
+          .where((s) => s.boardId == projectId)
+          .map((s) => s.id)
+          .toSet();
+      return all
+          .where((t) => ids.contains(t.listId) && t.status != TaskStatus.done)
+          .length;
+    }
 
     void go(Destination d) {
       ref.read(destinationProvider.notifier).go(d);
@@ -221,8 +231,10 @@ class _Sidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
               children: [
+                // Names say what they show. "Upcoming" and "All" were shorter and
+                // meant nothing at a glance.
                 _SidebarRow(
-                  icon: Icons.today_outlined,
+                  icon: Icons.wb_sunny_outlined,
                   label: 'Today',
                   tint: AppColour.accent,
                   badge: stats?.todayTotal,
@@ -230,15 +242,15 @@ class _Sidebar extends ConsumerWidget {
                   onTap: () => go(const TodayDestination()),
                 ),
                 _SidebarRow(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Upcoming',
+                  icon: Icons.date_range_outlined,
+                  label: 'Next 7 days',
                   tint: AppColour.orange,
                   selected: current is UpcomingDestination,
                   onTap: () => go(const UpcomingDestination()),
                 ),
                 _SidebarRow(
-                  icon: Icons.all_inbox_outlined,
-                  label: 'All',
+                  icon: Icons.layers_outlined,
+                  label: 'All open work',
                   tint: AppColour.grey,
                   badge: stats?.open,
                   selected: current is AllDestination,
@@ -246,49 +258,48 @@ class _Sidebar extends ConsumerWidget {
                 ),
                 _SidebarRow(
                   icon: Icons.check_circle_outline,
-                  label: 'Done',
+                  label: 'Completed',
                   tint: AppColour.green,
                   selected: current is DoneDestination,
                   onTap: () => go(const DoneDestination()),
                 ),
-                _SidebarRow(
-                  icon: Icons.speed_outlined,
-                  label: 'Capacity',
-                  tint: AppColour.purple,
-                  selected: current is CapacityDestination,
-                  onTap: () => go(const CapacityDestination()),
-                ),
 
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpace.md,
-                    AppSpace.xl,
-                    AppSpace.md,
-                    AppSpace.sm,
-                  ),
-                  child: Text('Lists', style: AppText.caption),
-                ),
+                const _SectionLabel('Projects'),
 
-                for (final list in lists)
+                for (final project in projects)
                   _SidebarRow(
-                    icon: Icons.circle,
-                    iconSize: 10,
-                    label: list.name,
-                    tint: AppColour.purple,
-                    badge: openIn(list.id),
+                    emoji: project.icon ?? '○',
+                    label: project.name,
+                    tint: project.colour == null
+                        ? AppColour.purple
+                        : Color(project.colour!),
+                    badge: openIn(project.id),
                     selected:
-                        current is ListDestination &&
-                        current.listId == list.id,
-                    onTap: () => go(ListDestination(list.id)),
+                        current is ProjectDestination &&
+                        current.projectId == project.id,
+                    onTap: () => go(ProjectDestination(project.id)),
                   ),
 
                 _SidebarRow(
                   icon: Icons.add,
-                  label: 'New list',
+                  label: 'New project',
                   tint: AppColour.labelTertiary,
                   muted: true,
                   selected: false,
-                  onTap: () => _createList(ref),
+                  onTap: () {
+                    ref.read(newProjectOpenProvider.notifier).open();
+                    onNavigate?.call();
+                  },
+                ),
+
+                const _SectionLabel('Planning'),
+
+                _SidebarRow(
+                  icon: Icons.speed_outlined,
+                  label: 'Time budget',
+                  tint: AppColour.purple,
+                  selected: current is CapacityDestination,
+                  onTap: () => go(const CapacityDestination()),
                 ),
               ],
             ),
@@ -297,45 +308,48 @@ class _Sidebar extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _createList(WidgetRef ref) async {
-    final scope = ref.read(appScopeProvider).value;
-    if (scope == null) return;
-    final boards = await scope.db.select(scope.db.boards).get();
-    if (boards.isEmpty) return;
-
-    final created = await scope.workspaces.createList(
-      workspaceId: scope.workspace.id,
-      boardId: boards.first.id,
-      name: 'New list',
-    );
-    ref.read(destinationProvider.notifier).go(ListDestination(created.id));
-  }
 }
 
-/// A sidebar item: tinted glyph, label, optional count.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AppSpace.md,
+      AppSpace.xl,
+      AppSpace.md,
+      AppSpace.sm,
+    ),
+    child: Text(label, style: AppText.caption),
+  );
+}
+
+/// A sidebar item: tinted glyph or emoji, label, optional count.
 ///
 /// The selected state is a filled pill rather than a colour change, which is what Apple
 /// does and what keeps the label legible at every tint.
 class _SidebarRow extends StatefulWidget {
   const _SidebarRow({
-    required this.icon,
     required this.label,
     required this.tint,
     required this.selected,
     required this.onTap,
+    this.icon,
+    this.emoji,
     this.badge,
-    this.iconSize = 17,
     this.muted = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final String? emoji;
   final String label;
   final Color tint;
   final bool selected;
   final VoidCallback onTap;
   final int? badge;
-  final double iconSize;
   final bool muted;
 
   @override
@@ -376,11 +390,18 @@ class _SidebarRowState extends State<_SidebarRow> {
             children: [
               SizedBox(
                 width: 22,
-                child: Icon(
-                  widget.icon,
-                  size: widget.iconSize,
-                  color: widget.muted ? AppColour.labelTertiary : widget.tint,
-                ),
+                child: widget.emoji != null
+                    ? Text(
+                        widget.emoji!,
+                        style: TextStyle(fontSize: 13, color: widget.tint),
+                      )
+                    : Icon(
+                        widget.icon,
+                        size: 17,
+                        color: widget.muted
+                            ? AppColour.labelTertiary
+                            : widget.tint,
+                      ),
               ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
@@ -418,21 +439,24 @@ class _Content extends ConsumerWidget {
     final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
 
     final Widget screen;
-    if (!searching && destination is TodayDestination) {
+    Object key = destination.runtimeType;
+
+    if (searching) {
+      screen = ListScreen(onMenu: onMenu);
+      key = 'search';
+    } else if (destination is TodayDestination) {
       screen = TodayScreen(onMenu: onMenu);
-    } else if (!searching && destination is CapacityDestination) {
+    } else if (destination is CapacityDestination) {
       screen = CapacityScreen(onMenu: onMenu);
+    } else if (destination is ProjectDestination) {
+      screen = ProjectScreen(projectId: destination.projectId, onMenu: onMenu);
+      key = destination.projectId;
     } else {
       screen = ListScreen(onMenu: onMenu);
     }
 
-    // Keyed so the switcher treats a change of destination as a new screen, not a
-    // rebuild of the same one.
     return ScreenSwitcher(
-      child: KeyedSubtree(
-        key: ValueKey(searching ? 'search' : destination.runtimeType),
-        child: screen,
-      ),
+      child: KeyedSubtree(key: ValueKey(key), child: screen),
     );
   }
 }

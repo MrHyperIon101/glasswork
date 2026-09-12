@@ -14,7 +14,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     final workspaces = WorkspaceRepository(db);
     final ws = await workspaces.ensureSeeded();
-    final listId = (await workspaces.watchLists(ws.id).first).single.id;
+    final listId = (await workspaces.watchLists(ws.id).first).first.id;
     final clientId = await workspaces.clientId();
 
     steps = SubtaskRepository(db, clientId: clientId);

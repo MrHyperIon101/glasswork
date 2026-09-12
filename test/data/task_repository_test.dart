@@ -17,7 +17,7 @@ void main() {
     workspaces = WorkspaceRepository(db);
     final ws = await workspaces.ensureSeeded();
     workspaceId = ws.id;
-    listId = (await workspaces.watchLists(workspaceId).first).single.id;
+    listId = (await workspaces.watchLists(workspaceId).first).first.id;
     tasks = TaskRepository(db, clientId: await workspaces.clientId());
   });
 
@@ -30,7 +30,10 @@ void main() {
     final again = await workspaces.ensureSeeded();
     expect(again.id, workspaceId);
     expect(await db.select(db.workspaces).get(), hasLength(1));
-    expect(await db.select(db.lists).get(), hasLength(1));
+    // One project seeded with three sections — calling ensureSeeded again must not
+    // duplicate any of them.
+    expect(await db.select(db.boards).get(), hasLength(1));
+    expect(await db.select(db.lists).get(), hasLength(3));
   });
 
   test('clientId is stable across calls', () async {

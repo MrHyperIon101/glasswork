@@ -50,8 +50,16 @@ class Workspaces extends Table with SyncColumns {
 @TableIndex(name: 'board_workspace', columns: {#workspaceId})
 class Boards extends Table with SyncColumns, WorkspaceScoped {
   TextColumn get name => text()();
+
+  /// One-line statement of what the project is for. Shown under its title, because a
+  /// project name alone rarely says enough six weeks later.
+  TextColumn get purpose => text().nullable()();
+
   TextColumn get icon => text().nullable()();
   IntColumn get colour => integer().nullable()();
+
+  /// Archived projects stay queryable but leave the sidebar.
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
   TextColumn get viewDefault =>
       textEnum<BoardView>().withDefault(const Constant('list'))();
 
@@ -219,4 +227,64 @@ class Commitments extends Table with SyncColumns, WorkspaceScoped {
   TextColumn get location => text().nullable()();
   TextColumn get kind =>
       textEnum<CommitmentKind>().withDefault(const Constant('classes'))();
+}
+
+/// What a custom field holds.
+enum FieldType { text, number, select, multiSelect, date, checkbox, url }
+
+/// How a saved view renders its tasks.
+enum ViewKind { list, board, calendar, timeline }
+
+/// A user-defined column on a project's tasks.
+///
+/// Fields belong to a project, not to the workspace: a design project wants Stage and
+/// Figma link, a dev project wants Component and PR. Sharing one global set would force
+/// every project to carry every other project's vocabulary.
+@TableIndex(name: 'fielddef_board', columns: {#boardId})
+class FieldDefs extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get boardId => text().references(Boards, #id)();
+  TextColumn get name => text()();
+  TextColumn get type => textEnum<FieldType>()();
+
+  /// JSON array of choices, for [FieldType.select] and [FieldType.multiSelect].
+  /// Each entry is `{"label": ..., "colour": ...}`.
+  TextColumn get optionsJson => text().withDefault(const Constant('[]'))();
+
+  TextColumn get orderKey => text()();
+
+  /// Whether it appears as a column in list and board views, or only in the detail sheet.
+  BoolColumn get showInline => boolean().withDefault(const Constant(true))();
+}
+
+/// One task's value for one field.
+///
+/// Stored as text and decoded per [FieldDefs.type]. A column-per-type table would be
+/// faster to query and far worse to extend; fields are read in small batches alongside
+/// their tasks, so the decode cost is irrelevant here.
+@TableIndex(name: 'fieldvalue_task', columns: {#taskId})
+@TableIndex(name: 'fieldvalue_field', columns: {#fieldId})
+class FieldValues extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get taskId => text().references(Tasks, #id)();
+  TextColumn get fieldId => text().references(FieldDefs, #id)();
+  TextColumn get value => text().nullable()();
+}
+
+/// A saved way of looking at a project.
+///
+/// Views are queries plus a renderer, never new screens — adding one must not require a
+/// new widget class, which is the same rule the smart views follow.
+@TableIndex(name: 'projectview_board', columns: {#boardId})
+class ProjectViews extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get boardId => text().references(Boards, #id)();
+  TextColumn get name => text()();
+  TextColumn get kind => textEnum<ViewKind>()();
+
+  /// The query DSL: `{"status": "open", "labels": ["uni"], "due": "<=7d"}`.
+  TextColumn get filterJson => text().withDefault(const Constant('{}'))();
+
+  /// Field id or built-in key ('list', 'priority', 'due') to group columns by in a
+  /// board view.
+  TextColumn get groupBy => text().nullable()();
+
+  TextColumn get orderKey => text()();
 }
