@@ -229,7 +229,7 @@ class _FocusCard extends ConsumerWidget {
                           task.id,
                           done: task.status != TaskStatus.done,
                         ),
-                        onTap: () {},
+                        onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
                         onDelete: () async {
                           if (scope == null) return;
                           await scope.tasks.softDelete(task.id);

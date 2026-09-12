@@ -89,48 +89,84 @@ class _Rows extends ConsumerWidget {
     // move it out of the way without making it vanish.
     final open = tasks.where((t) => t.status != TaskStatus.done).toList();
     final done = tasks.where((t) => t.status == TaskStatus.done).toList();
-    final ordered = [...open, ...done];
 
-    return ListView.builder(
-      itemCount: ordered.length + (done.isEmpty || open.isEmpty ? 0 : 1),
-      itemBuilder: (context, i) {
-        // Divider between the open block and the done block.
-        if (open.isNotEmpty && done.isNotEmpty && i == open.length) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.md,
-              AppSpace.lg,
-              AppSpace.md,
-              AppSpace.sm,
-            ),
-            child: Text('Completed', style: AppText.caption),
-          );
-        }
+    // Manual order only means something inside a real list. Smart views are queries, and
+    // letting you drag rows there would imply an ordering the app cannot store.
+    final reorderable =
+        ref.watch(destinationProvider) is ListDestination &&
+        ref.watch(searchQueryProvider).trim().isEmpty;
 
-        final index = open.isNotEmpty && done.isNotEmpty && i > open.length
-            ? i - 1
-            : i;
-        final task = ordered[index];
-
-        return TaskRow(
-          key: ValueKey(task.id),
-          task: task,
-          onToggle: () => scope.tasks.setDone(
-            task.id,
-            done: task.status != TaskStatus.done,
-          ),
-          onTap: () {},
-          onDelete: () async {
-            await scope.tasks.softDelete(task.id);
-            ref
-                .read(undoProvider.notifier)
-                .offer(
-                  'Deleted "${task.title}"',
-                  () => scope.tasks.restore(task.id),
-                );
-          },
-        );
+    Widget row(Task task) => TaskRow(
+      key: ValueKey(task.id),
+      task: task,
+      onToggle: () =>
+          scope.tasks.setDone(task.id, done: task.status != TaskStatus.done),
+      onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
+      onDelete: () async {
+        await scope.tasks.softDelete(task.id);
+        ref
+            .read(undoProvider.notifier)
+            .offer(
+              'Deleted "${task.title}"',
+              () => scope.tasks.restore(task.id),
+            );
       },
+    );
+
+    // onReorderItem hands back a newIndex already adjusted for the removed row, so no
+    // off-by-one correction here.
+    Future<void> onReorder(int oldIndex, int newIndex) async {
+      if (newIndex == oldIndex) return;
+
+      // Work on a copy to find the new neighbours, then write the single moved row.
+      // Fractional indexing means exactly one row changes, whatever the distance.
+      final after = [...open];
+      final moved = after.removeAt(oldIndex);
+      after.insert(newIndex, moved);
+
+      await scope.tasks.moveBetween(
+        moved.id,
+        afterId: newIndex > 0 ? after[newIndex - 1].id : null,
+        beforeId: newIndex < after.length - 1 ? after[newIndex + 1].id : null,
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (reorderable)
+          SliverReorderableList(
+            itemCount: open.length,
+            onReorderItem: onReorder,
+            itemBuilder: (context, i) => ReorderableDelayedDragStartListener(
+              key: ValueKey(open[i].id),
+              index: i,
+              child: row(open[i]),
+            ),
+          )
+        else
+          SliverList.builder(
+            itemCount: open.length,
+            itemBuilder: (context, i) => row(open[i]),
+          ),
+
+        if (done.isNotEmpty && open.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.md,
+                AppSpace.lg,
+                AppSpace.md,
+                AppSpace.sm,
+              ),
+              child: Text('Completed', style: AppText.caption),
+            ),
+          ),
+
+        SliverList.builder(
+          itemCount: done.length,
+          itemBuilder: (context, i) => row(done[i]),
+        ),
+      ],
     );
   }
 }

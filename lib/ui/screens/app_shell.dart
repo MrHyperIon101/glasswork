@@ -6,6 +6,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../surface.dart';
+import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
 import 'list_screen.dart';
 import 'today_screen.dart';
@@ -95,6 +96,8 @@ class _ShellState extends ConsumerState<_Shell> {
                 ),
               ),
             ],
+
+            const Positioned.fill(child: TaskDetailSheet()),
 
             const Positioned(
               left: 0,

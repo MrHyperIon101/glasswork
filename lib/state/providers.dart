@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/db/database.dart';
 import '../data/db/tables.dart';
+import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
 import '../data/task_stats.dart';
@@ -15,12 +16,14 @@ class AppScope {
     required this.db,
     required this.workspaces,
     required this.tasks,
+    required this.subtasks,
     required this.workspace,
   });
 
   final AppDatabase db;
   final WorkspaceRepository workspaces;
   final TaskRepository tasks;
+  final SubtaskRepository subtasks;
   final Workspace workspace;
 }
 
@@ -41,6 +44,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     db: db,
     workspaces: workspaces,
     tasks: TaskRepository(db, clientId: clientId),
+    subtasks: SubtaskRepository(db, clientId: clientId),
     workspace: workspace,
   );
 });
@@ -169,4 +173,34 @@ final captureListIdProvider = Provider<String?>((ref) {
   if (destination is ListDestination) return destination.listId;
   final lists = ref.watch(listsProvider).value;
   return (lists == null || lists.isEmpty) ? null : lists.first.id;
+});
+
+/// The task whose detail sheet is open, if any.
+class OpenTask extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void open(String taskId) => state = taskId;
+  void close() => state = null;
+}
+
+final openTaskProvider = NotifierProvider<OpenTask, String?>(OpenTask.new);
+
+/// Live view of the task the sheet is showing, so edits reflect immediately.
+final openTaskDetailProvider = StreamProvider<Task?>((ref) async* {
+  final id = ref.watch(openTaskProvider);
+  if (id == null) {
+    yield null;
+    return;
+  }
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.tasks.watchTask(id);
+});
+
+final subtasksProvider = StreamProvider.family<List<Subtask>, String>((
+  ref,
+  taskId,
+) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.subtasks.watchFor(taskId);
 });
