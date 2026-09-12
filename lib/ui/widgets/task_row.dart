@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
@@ -7,8 +7,9 @@ import '../format.dart';
 
 /// One task in a list.
 ///
-/// Deliberately **not** a glass surface. Glass is capped at about four on screen and a
-/// list has dozens of rows; rows live inside the panel's glass instead.
+/// Rows are plain surfaces, never vibrancy: a list has dozens of them and each
+/// `BackdropFilter` costs a capture. Depth here comes from a hover fill, the way a
+/// Finder or Mail row behaves.
 class TaskRow extends StatefulWidget {
   const TaskRow({
     required this.task,
@@ -35,8 +36,10 @@ class _TaskRowState extends State<TaskRow> {
     final task = widget.task;
     final done = task.status == TaskStatus.done;
     final due = Format.due(task, DateTime.now());
+    final hasMeta = due != null || task.estimateMin != null;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
@@ -44,13 +47,14 @@ class _TaskRowState extends State<TaskRow> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: AppMotion.quick,
+          curve: AppMotion.standard,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpace.md,
             vertical: AppSpace.md,
           ),
           decoration: BoxDecoration(
-            color: _hovered ? AppGlass.flatFill : null,
-            borderRadius: AppRadius.surfaceAll,
+            color: _hovered ? AppColour.fill : null,
+            borderRadius: AppRadius.mediumAll,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,45 +68,49 @@ class _TaskRowState extends State<TaskRow> {
                     Text(
                       task.title,
                       style: AppText.body.copyWith(
-                        color: done ? AppColour.textDim : AppColour.text,
+                        color: done
+                            ? AppColour.labelTertiary
+                            : AppColour.label,
                         decoration: done ? TextDecoration.lineThrough : null,
-                        decorationColor: AppColour.textDim,
+                        decorationColor: AppColour.labelTertiary,
                       ),
                     ),
-                    if (due != null || task.estimateMin != null) ...[
-                      const SizedBox(height: AppSpace.xs),
+                    if (hasMeta && !done) ...[
+                      const SizedBox(height: 3),
                       Row(
                         children: [
                           if (due != null)
                             Text(
                               due.label,
                               style: AppText.numeric.copyWith(
-                                color: done ? AppColour.textDim : due.colour,
+                                color: due.colour,
                               ),
                             ),
                           if (due != null && task.estimateMin != null)
-                            Text('  ·  ', style: AppText.numeric),
-                          if (task.estimateMin case final mins?)
                             Text(
-                              Format.estimate(mins),
-                              style: AppText.numeric,
+                              '  ·  ',
+                              style: AppText.numeric.copyWith(
+                                color: AppColour.labelQuaternary,
+                              ),
                             ),
+                          if (task.estimateMin case final mins?)
+                            Text(Format.estimate(mins), style: AppText.numeric),
                         ],
                       ),
                     ],
                   ],
                 ),
               ),
-              if (task.priority > 0) ...[
+              if (task.priority > 0 && !done) ...[
                 const SizedBox(width: AppSpace.sm),
-                _PriorityDot(priority: task.priority),
+                _PriorityFlag(priority: task.priority),
               ],
-              // Revealed on hover so the row stays quiet at rest. Touch users reach it
-              // through the detail sheet instead.
+              // Revealed on hover so the row stays quiet at rest.
               AnimatedOpacity(
                 duration: AppMotion.quick,
                 opacity: _hovered ? 1 : 0,
-                child: _DeleteButton(
+                child: _RowButton(
+                  icon: Icons.close,
                   onTap: _hovered ? widget.onDelete : null,
                 ),
               ),
@@ -114,74 +122,89 @@ class _TaskRowState extends State<TaskRow> {
   }
 }
 
-class _Checkbox extends StatelessWidget {
+class _Checkbox extends StatefulWidget {
   const _Checkbox({required this.done, required this.onTap});
 
   final bool done;
   final VoidCallback onTap;
 
   @override
+  State<_Checkbox> createState() => _CheckboxState();
+}
+
+class _CheckboxState extends State<_Checkbox> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: AppMotion.quick,
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: done ? AppColour.done : null,
-          border: Border.all(
-            color: done ? AppColour.done : AppColour.textDim,
-            width: 1.5,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: AnimatedContainer(
+            duration: AppMotion.quick,
+            curve: AppMotion.standard,
+            width: 19,
+            height: 19,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.done ? AppColour.green : null,
+              border: Border.all(
+                color: widget.done
+                    ? AppColour.green
+                    : _hovered
+                    ? AppColour.labelSecondary
+                    : AppColour.labelQuaternary,
+                width: 1.5,
+              ),
+            ),
+            child: widget.done
+                ? const Icon(Icons.check, size: 12, color: AppColour.base)
+                : null,
           ),
         ),
-        child: done
-            ? const Center(
-                child: Icon(
-                  _CheckIcon.check,
-                  size: 12,
-                  color: AppColour.base,
-                ),
-              )
-            : null,
       ),
     );
   }
 }
 
-/// Material's icon font ships with the app already; this pulls the two glyphs needed
-/// without dragging in the whole Material widget layer.
-abstract final class _CheckIcon {
-  static const check = IconData(0xe5ca, fontFamily: 'MaterialIcons');
-  static const close = IconData(0xe5cd, fontFamily: 'MaterialIcons');
-}
-
-class _PriorityDot extends StatelessWidget {
-  const _PriorityDot({required this.priority});
+class _PriorityFlag extends StatelessWidget {
+  const _PriorityFlag({required this.priority});
 
   final int priority;
 
   @override
   Widget build(BuildContext context) {
-    final colour = switch (priority) {
-      3 => AppColour.overdue,
-      2 => AppColour.soon,
-      _ => AppColour.textDim,
+    final (colour, label) = switch (priority) {
+      3 => (AppColour.red, 'High'),
+      2 => (AppColour.orange, 'Med'),
+      _ => (AppColour.grey, 'Low'),
     };
+
     return Container(
-      width: AppSpace.sm,
-      height: AppSpace.sm,
-      margin: const EdgeInsets.only(top: AppSpace.xs),
-      decoration: BoxDecoration(color: colour, borderRadius: AppRadius.controlAll),
+      margin: const EdgeInsets.only(top: 1),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: colour.withValues(alpha: 0.16),
+        borderRadius: AppRadius.smallAll,
+      ),
+      child: Text(
+        label,
+        style: AppText.numeric.copyWith(color: colour),
+      ),
     );
   }
 }
 
-class _DeleteButton extends StatelessWidget {
-  const _DeleteButton({required this.onTap});
+class _RowButton extends StatelessWidget {
+  const _RowButton({required this.icon, required this.onTap});
 
+  final IconData icon;
   final VoidCallback? onTap;
 
   @override
@@ -189,9 +212,9 @@ class _DeleteButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: const Padding(
-        padding: EdgeInsets.only(left: AppSpace.sm),
-        child: Icon(_CheckIcon.close, size: 16, color: AppColour.textDim),
+      child: Padding(
+        padding: const EdgeInsets.only(left: AppSpace.sm, top: 1),
+        child: Icon(icon, size: 15, color: AppColour.labelTertiary),
       ),
     );
   }

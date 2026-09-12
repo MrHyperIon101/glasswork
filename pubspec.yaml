@@ -25,8 +25,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # mesh_common.glsl is deliberately absent: it is an #include resolved at build time,
-  # not a shader entry point, so it must not be listed here.
-  shaders:
-    - shaders/mesh.frag
-    - shaders/glass.frag
+  # Variable font: one file covering every weight. Styles must set fontVariations as
+  # well as fontWeight — see AppText — because fontWeight alone does not reliably drive
+  # the wght axis.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: fonts/InterVariable.ttf
