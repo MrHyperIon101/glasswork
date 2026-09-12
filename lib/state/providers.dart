@@ -11,6 +11,7 @@ import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
+import '../data/project_filter.dart';
 import '../data/task_stats.dart';
 
 /// Everything the app needs once the database is open and seeded.
@@ -487,49 +488,12 @@ final labelsForTaskProvider = Provider.family<List<Label>, String>((
 
 /// Filters applied to the project currently open.
 ///
-/// Held in memory per project rather than persisted: a filter is how you are looking
-/// right now, and one that survived a restart would quietly hide work.
-class ProjectFilter {
-  const ProjectFilter({
-    this.labelIds = const {},
-    this.priorities = const {},
-    this.hideCompleted = false,
-    this.onlyAtRisk = false,
-  });
-
-  final Set<String> labelIds;
-  final Set<int> priorities;
-  final bool hideCompleted;
-  final bool onlyAtRisk;
-
-  bool get isEmpty =>
-      labelIds.isEmpty &&
-      priorities.isEmpty &&
-      !hideCompleted &&
-      !onlyAtRisk;
-
-  int get activeCount =>
-      labelIds.length +
-      priorities.length +
-      (hideCompleted ? 1 : 0) +
-      (onlyAtRisk ? 1 : 0);
-
-  ProjectFilter copyWith({
-    Set<String>? labelIds,
-    Set<int>? priorities,
-    bool? hideCompleted,
-    bool? onlyAtRisk,
-  }) => ProjectFilter(
-    labelIds: labelIds ?? this.labelIds,
-    priorities: priorities ?? this.priorities,
-    hideCompleted: hideCompleted ?? this.hideCompleted,
-    onlyAtRisk: onlyAtRisk ?? this.onlyAtRisk,
-  );
-}
-
+/// Held in memory rather than persisted: a filter is how you are looking right now, and
+/// one that survived a restart would quietly hide work. Saved views are the deliberate
+/// way to keep one.
 class ProjectFilterState extends Notifier<ProjectFilter> {
   @override
-  ProjectFilter build() => const ProjectFilter();
+  ProjectFilter build() => ProjectFilter.empty;
 
   void toggleLabel(String id) => state = state.copyWith(
     labelIds: state.labelIds.contains(id)
@@ -545,17 +509,34 @@ class ProjectFilterState extends Notifier<ProjectFilter> {
 
   void setHideCompleted(bool v) => state = state.copyWith(hideCompleted: v);
   void setOnlyAtRisk(bool v) => state = state.copyWith(onlyAtRisk: v);
-  void clear() => state = const ProjectFilter();
+  void clear() => state = ProjectFilter.empty;
+
+  /// Applies a saved view's filter wholesale.
+  void replace(ProjectFilter filter) => state = filter;
 }
 
 final projectFilterProvider =
     NotifierProvider<ProjectFilterState, ProjectFilter>(ProjectFilterState.new);
 
-/// Tasks for the open project after filters. Board and list views both read this, so
-/// a filter cannot apply in one view and not the other.
+/// The filter as it can actually be applied.
+///
+/// Label ids for labels that have since been deleted are dropped. Left in, they would
+/// hide tasks with no visible cause — the chip is gone from the bar, so there would be
+/// nothing to un-tick.
+final effectiveProjectFilterProvider = Provider<ProjectFilter>((ref) {
+  final filter = ref.watch(projectFilterProvider);
+  if (filter.labelIds.isEmpty) return filter;
+  final known = {
+    for (final l in ref.watch(labelsProvider).value ?? const <Label>[]) l.id,
+  };
+  return filter.pruned(known);
+});
+
+/// Tasks for the open project after filters. Every view reads this, so a filter cannot
+/// apply in one and not another.
 final filteredProjectTasksProvider = Provider<List<Task>>((ref) {
   final tasks = ref.watch(visibleTasksProvider);
-  final filter = ref.watch(projectFilterProvider);
+  final filter = ref.watch(effectiveProjectFilterProvider);
   if (filter.isEmpty) return tasks;
 
   final assignments = ref.watch(labelAssignmentsProvider).value ?? const {};
@@ -613,3 +594,47 @@ class ProjectSettingsOpen extends Notifier<String?> {
 
 final projectSettingsOpenProvider =
     NotifierProvider<ProjectSettingsOpen, String?>(ProjectSettingsOpen.new);
+
+// --- saved views ------------------------------------------------------------
+
+final projectViewsProvider =
+    StreamProvider.family<List<ProjectView>, String>((ref, projectId) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.projects.watchViews(projectId);
+});
+
+/// The saved view matching the current kind and filter exactly, if any.
+///
+/// Compared rather than remembered by id, so nudging a filter shows the view as no
+/// longer selected instead of claiming you are still in it.
+final matchingSavedViewProvider = Provider.family<ProjectView?, String>((
+  ref,
+  projectId,
+) {
+  final views = ref.watch(projectViewsProvider(projectId)).value ?? const [];
+  final filter = ref.watch(projectFilterProvider);
+  final kind = ref.watch(projectViewModeProvider)[projectId];
+
+  for (final view in views) {
+    if (ProjectFilter.decode(view.filterJson) != filter) continue;
+    if (kind != null && _kindOf(view.kind) != kind) continue;
+    return view;
+  }
+  return null;
+});
+
+BoardView _kindOf(ViewKind kind) => switch (kind) {
+  ViewKind.board => BoardView.board,
+  ViewKind.list => BoardView.list,
+  ViewKind.calendar => BoardView.calendar,
+  ViewKind.timeline => BoardView.timeline,
+};
+
+ViewKind viewKindOf(BoardView view) => switch (view) {
+  BoardView.board => ViewKind.board,
+  BoardView.list => ViewKind.list,
+  BoardView.calendar => ViewKind.calendar,
+  BoardView.timeline => ViewKind.timeline,
+};
+
+BoardView boardViewOf(ViewKind kind) => _kindOf(kind);

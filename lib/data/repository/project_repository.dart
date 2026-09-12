@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../db/tables.dart';
+import '../project_filter.dart';
 import '../order_key.dart';
 
 /// One choice in a select field.
@@ -388,6 +389,91 @@ class ProjectRepository {
             ))
             .get();
     return rows.length;
+  }
+
+  // --- saved views ---
+
+  Stream<List<ProjectView>> watchViews(String boardId) =>
+      (_db.select(_db.projectViews)
+            ..where((v) => v.boardId.equals(boardId) & v.deletedAt.isNull())
+            ..orderBy([(v) => OrderingTerm(expression: v.orderKey)]))
+          .watch();
+
+  /// Saves the current way of looking at a project under a name.
+  Future<ProjectView> addView({
+    required String workspaceId,
+    required String boardId,
+    required String name,
+    required ViewKind kind,
+    required ProjectFilter filter,
+  }) async {
+    final last =
+        await (_db.select(_db.projectViews)
+              ..where((v) => v.boardId.equals(boardId) & v.deletedAt.isNull())
+              ..orderBy([
+                (v) => OrderingTerm(
+                  expression: v.orderKey,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(1))
+            .getSingleOrNull();
+
+    return _db
+        .into(_db.projectViews)
+        .insertReturning(
+          ProjectViewsCompanion.insert(
+            id: _uuid.v4(),
+            workspaceId: workspaceId,
+            boardId: boardId,
+            name: name,
+            kind: kind,
+            filterJson: Value(filter.encode()),
+            orderKey: last == null
+                ? OrderKey.first
+                : OrderKey.after(last.orderKey),
+            clientId: Value(clientId),
+          ),
+        );
+  }
+
+  Future<void> updateView(
+    String id, {
+    String? name,
+    ViewKind? kind,
+    ProjectFilter? filter,
+  }) async {
+    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
+      ProjectViewsCompanion(
+        name: Value.absentIfNull(name),
+        kind: Value.absentIfNull(kind),
+        filterJson: filter == null
+            ? const Value.absent()
+            : Value(filter.encode()),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> deleteView(String id) async {
+    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
+      ProjectViewsCompanion(
+        deletedAt: Value(DateTime.now()),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> restoreView(String id) async {
+    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
+      ProjectViewsCompanion(
+        deletedAt: const Value(null),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   // --- custom fields ---

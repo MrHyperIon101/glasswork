@@ -15,6 +15,7 @@ import '../widgets/calendar_view.dart';
 import '../widgets/content_header.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/filter_bar.dart';
+import '../widgets/saved_views_bar.dart';
 import '../widgets/task_row.dart';
 import '../widgets/timeline_view.dart';
 
@@ -72,6 +73,7 @@ class ProjectScreen extends ConsumerWidget {
           const SizedBox(height: AppSpace.lg),
           _ProjectPulse(projectId: projectId, tasks: tasks),
           const SizedBox(height: AppSpace.lg),
+          SavedViewsBar(projectId: projectId),
           const FilterBar(),
           const SizedBox(height: AppSpace.lg),
           Expanded(
