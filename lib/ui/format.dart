@@ -86,6 +86,14 @@ abstract final class Format {
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 
+  static String shortDate(DateTime d) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
   static String estimate(int minutes) {
     if (minutes < 60) return '${minutes}m';
     final h = minutes ~/ 60;
