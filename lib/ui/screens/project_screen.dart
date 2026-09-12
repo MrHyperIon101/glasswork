@@ -56,9 +56,13 @@ class ProjectScreen extends ConsumerWidget {
             title: project.name,
             subtitle: project.purpose ?? '${sections.length} sections',
             onMenu: onMenu,
-            trailing: _ViewSwitcher(
-              projectId: projectId,
-              current: view,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ViewSwitcher(projectId: projectId, current: view),
+                const SizedBox(width: AppSpace.sm),
+                _SettingsButton(projectId: projectId),
+              ],
             ),
           ),
           const SizedBox(height: AppSpace.lg),
@@ -235,6 +239,45 @@ class _Divider extends StatelessWidget {
     height: 34,
     margin: const EdgeInsets.symmetric(horizontal: AppSpace.xl),
     color: AppColour.separator,
+  );
+}
+
+class _SettingsButton extends ConsumerStatefulWidget {
+  const _SettingsButton({required this.projectId});
+
+  final String projectId;
+
+  @override
+  ConsumerState<_SettingsButton> createState() => _SettingsButtonState();
+}
+
+class _SettingsButtonState extends ConsumerState<_SettingsButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: () => ref
+          .read(projectSettingsOpenProvider.notifier)
+          .open(widget.projectId),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: AppMotion.quick,
+        padding: const EdgeInsets.all(AppSpace.sm),
+        decoration: BoxDecoration(
+          color: _hovered ? AppColour.fill : null,
+          borderRadius: AppRadius.smallAll,
+        ),
+        child: const Icon(
+          Icons.tune,
+          size: 17,
+          color: AppColour.labelSecondary,
+        ),
+      ),
+    ),
   );
 }
 

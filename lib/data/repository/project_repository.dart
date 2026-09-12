@@ -224,14 +224,170 @@ class ProjectRepository {
     );
   }
 
-  Future<void> deleteSection(String id) async {
-    await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
-      ListsCompanion(
-        deletedAt: Value(DateTime.now()),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  /// Why deleting a section is not just a tombstone.
+  ///
+  /// Tasks point at a section. Removing one without moving its tasks leaves them
+  /// pointing at a row nothing renders — they vanish from every view while still
+  /// counting in totals, which is the worst kind of bug: invisible, and it makes the
+  /// numbers lie.
+  ///
+  /// Returns false when this is the only section left, since its tasks would have
+  /// nowhere to go.
+  Future<bool> deleteSection(String id) async {
+    final section =
+        await (_db.select(_db.lists)..where((l) => l.id.equals(id)))
+            .getSingleOrNull();
+    if (section == null) return false;
+
+    final siblings =
+        await (_db.select(_db.lists)..where(
+              (l) =>
+                  l.boardId.equals(section.boardId) &
+                  l.deletedAt.isNull() &
+                  l.id.equals(id).not(),
+            ))
+            .get();
+    if (siblings.isEmpty) return false;
+
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      // Tasks move rather than disappear.
+      await (_db.update(_db.tasks)..where((t) => t.listId.equals(id))).write(
+        TasksCompanion(
+          listId: Value(siblings.first.id),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+      await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
+        ListsCompanion(
+          deletedAt: Value(now),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+    return true;
+  }
+
+  /// How many tasks a section holds, for the confirmation copy.
+  Future<int> taskCountIn(String sectionId) async {
+    final rows =
+        await (_db.select(_db.tasks)..where(
+              (t) => t.listId.equals(sectionId) & t.deletedAt.isNull(),
+            ))
+            .get();
+    return rows.length;
+  }
+
+  /// Soft-deletes a project along with its sections, fields and tasks.
+  ///
+  /// Everything is tombstoned rather than removed, so [restoreProject] can put the
+  /// whole thing back and sync has something to replicate.
+  Future<void> deleteProject(String id) async {
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      final sections =
+          await (_db.select(_db.lists)..where((l) => l.boardId.equals(id)))
+              .get();
+      final sectionIds = sections.map((s) => s.id).toList();
+
+      if (sectionIds.isNotEmpty) {
+        await (_db.update(_db.tasks)..where((t) => t.listId.isIn(sectionIds)))
+            .write(
+              TasksCompanion(
+                deletedAt: Value(now),
+                clientId: Value(clientId),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+
+      await (_db.update(_db.lists)..where((l) => l.boardId.equals(id))).write(
+        ListsCompanion(
+          deletedAt: Value(now),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+      await (_db.update(_db.fieldDefs)..where((f) => f.boardId.equals(id)))
+          .write(
+            FieldDefsCompanion(
+              deletedAt: Value(now),
+              clientId: Value(clientId),
+              updatedAt: Value(now),
+            ),
+          );
+      await (_db.update(_db.boards)..where((b) => b.id.equals(id))).write(
+        BoardsCompanion(
+          deletedAt: Value(now),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  Future<void> restoreProject(String id) async {
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      final sections =
+          await (_db.select(_db.lists)..where((l) => l.boardId.equals(id)))
+              .get();
+      final sectionIds = sections.map((s) => s.id).toList();
+
+      if (sectionIds.isNotEmpty) {
+        await (_db.update(_db.tasks)..where((t) => t.listId.isIn(sectionIds)))
+            .write(
+              TasksCompanion(
+                deletedAt: const Value(null),
+                clientId: Value(clientId),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+      await (_db.update(_db.lists)..where((l) => l.boardId.equals(id))).write(
+        ListsCompanion(
+          deletedAt: const Value(null),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+      await (_db.update(_db.fieldDefs)..where((f) => f.boardId.equals(id)))
+          .write(
+            FieldDefsCompanion(
+              deletedAt: const Value(null),
+              clientId: Value(clientId),
+              updatedAt: Value(now),
+            ),
+          );
+      await (_db.update(_db.boards)..where((b) => b.id.equals(id))).write(
+        BoardsCompanion(
+          deletedAt: const Value(null),
+          clientId: Value(clientId),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// How many live tasks a project holds, for the confirmation copy.
+  Future<int> projectTaskCount(String projectId) async {
+    final sections =
+        await (_db.select(_db.lists)..where(
+              (l) => l.boardId.equals(projectId) & l.deletedAt.isNull(),
+            ))
+            .get();
+    if (sections.isEmpty) return 0;
+
+    final rows =
+        await (_db.select(_db.tasks)..where(
+              (t) =>
+                  t.listId.isIn(sections.map((s) => s.id).toList()) &
+                  t.deletedAt.isNull(),
+            ))
+            .get();
+    return rows.length;
   }
 
   // --- custom fields ---
@@ -279,6 +435,26 @@ class ProjectRepository {
             clientId: Value(clientId),
           ),
         );
+  }
+
+  Future<void> restoreField(String id) async {
+    await (_db.update(_db.fieldDefs)..where((f) => f.id.equals(id))).write(
+      FieldDefsCompanion(
+        deletedAt: const Value(null),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> restoreSection(String id) async {
+    await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
+      ListsCompanion(
+        deletedAt: const Value(null),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   Future<void> deleteField(String id) async {
