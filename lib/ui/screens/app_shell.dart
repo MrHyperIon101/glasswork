@@ -9,6 +9,7 @@ import '../../theme/tokens.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/new_project_sheet.dart';
+import '../widgets/project_settings_sheet.dart';
 import '../widgets/task_composer.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
@@ -168,6 +169,7 @@ class _ShellState extends ConsumerState<_Shell> {
                 const Positioned.fill(child: TaskDetailSheet()),
                 const Positioned.fill(child: TaskComposer()),
                 const Positioned.fill(child: NewProjectSheet()),
+                const Positioned.fill(child: ProjectSettingsSheet()),
 
                 const Positioned(
                   left: 0,

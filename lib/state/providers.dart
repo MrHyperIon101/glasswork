@@ -601,3 +601,15 @@ final editingScheduleIdProvider = Provider<String?>((ref) {
       .firstOrNull
       ?.id;
 });
+
+/// Which project's settings sheet is open, if any.
+class ProjectSettingsOpen extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void open(String projectId) => state = projectId;
+  void close() => state = null;
+}
+
+final projectSettingsOpenProvider =
+    NotifierProvider<ProjectSettingsOpen, String?>(ProjectSettingsOpen.new);

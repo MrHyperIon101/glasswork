@@ -133,6 +133,16 @@ class LabelRepository {
     );
   }
 
+  Future<void> restore(String id) async {
+    await (_db.update(_db.labels)..where((l) => l.id.equals(id))).write(
+      LabelsCompanion(
+        deletedAt: const Value(null),
+        clientId: Value(clientId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<void> delete(String id) async {
     await (_db.update(_db.labels)..where((l) => l.id.equals(id))).write(
       LabelsCompanion(
