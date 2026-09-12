@@ -178,7 +178,12 @@ class _FormState extends ConsumerState<_Form> {
 
   @override
   Widget build(BuildContext context) {
-    final lists = ref.watch(listsProvider).value ?? const <BoardList>[];
+    final projectId =
+        ref.watch(currentProjectIdProvider) ??
+        (ref.watch(projectsProvider).value ?? const <Board>[]).firstOrNull?.id;
+    final lists = projectId == null
+        ? const <BoardList>[]
+        : ref.watch(sectionsProvider(projectId)).value ?? const <BoardList>[];
     final fallbackListId = ref.watch(captureListIdProvider);
     final selectedList = _listId ?? fallbackListId;
     final preview = _preview;
@@ -245,7 +250,7 @@ class _FormState extends ConsumerState<_Form> {
               children: [
                 if (lists.length > 1) ...[
                   _FieldRow(
-                    label: 'List',
+                    label: 'Section',
                     child: Wrap(
                       spacing: AppSpace.sm,
                       runSpacing: AppSpace.sm,

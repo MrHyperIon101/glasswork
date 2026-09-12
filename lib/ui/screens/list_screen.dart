@@ -22,18 +22,14 @@ class ListScreen extends ConsumerWidget {
     final tasks = ref.watch(visibleTasksProvider);
     final query = ref.watch(searchQueryProvider).trim();
     final destination = ref.watch(destinationProvider);
-    final lists = ref.watch(listsProvider).value ?? const <BoardList>[];
-
     final title = switch (destination) {
       _ when query.isNotEmpty => 'Search',
       TodayDestination() => 'Today',
-      UpcomingDestination() => 'Upcoming',
-      AllDestination() => 'All tasks',
-      DoneDestination() => 'Done',
-      CapacityDestination() => 'Capacity',
-      ListDestination(:final listId) =>
-        lists.where((l) => l.id == listId).map((l) => l.name).firstOrNull ??
-            'List',
+      UpcomingDestination() => 'Next 7 days',
+      AllDestination() => 'All open work',
+      DoneDestination() => 'Completed',
+      CapacityDestination() => 'Time budget',
+      ProjectDestination() => 'Project',
     };
 
     final open = tasks.where((t) => t.status != TaskStatus.done).length;
@@ -94,8 +90,10 @@ class _Rows extends ConsumerWidget {
 
     // Manual order only means something inside a real list. Smart views are queries, and
     // letting you drag rows there would imply an ordering the app cannot store.
+    // Manual order only means something inside a project. Smart views are queries, and
+    // letting you drag rows there would imply an ordering the app cannot store.
     final reorderable =
-        ref.watch(destinationProvider) is ListDestination &&
+        ref.watch(destinationProvider) is ProjectDestination &&
         ref.watch(searchQueryProvider).trim().isEmpty;
 
     Widget row(Task task) => FadeSlideIn(

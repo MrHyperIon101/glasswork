@@ -58,24 +58,31 @@ class WorkspaceRepository {
             BoardsCompanion.insert(
               id: boardId,
               workspaceId: workspaceId,
-              name: 'Tasks',
+              name: 'Personal',
+              purpose: const Value('Everything with nowhere better to go'),
+              icon: const Value('◍'),
+              colour: const Value(0xFF0A84FF),
               orderKey: OrderKey.first,
               clientId: Value(client),
             ),
           );
 
-      await _db
-          .into(_db.lists)
-          .insert(
-            ListsCompanion.insert(
-              id: _uuid.v4(),
-              workspaceId: workspaceId,
-              boardId: boardId,
-              name: 'Inbox',
-              orderKey: OrderKey.first,
-              clientId: Value(client),
-            ),
-          );
+      // "Inbox" says nothing about what it holds. These name the state of the work.
+      var key = OrderKey.first;
+      for (final (i, section) in ['To do', 'Doing', 'Done'].indexed) {
+        await _db.into(_db.lists).insert(
+          ListsCompanion.insert(
+            id: _uuid.v4(),
+            workspaceId: workspaceId,
+            boardId: boardId,
+            name: section,
+            orderKey: key,
+            isDoneColumn: Value(i == 2),
+            clientId: Value(client),
+          ),
+        );
+        key = OrderKey.after(key);
+      }
 
       return workspace;
     });

@@ -153,6 +153,35 @@ class TaskRepository {
     await _write(id, TasksCompanion(orderKey: Value(OrderKey.between(lower, upper))));
   }
 
+  /// Moves a task into another section, optionally between two neighbours there.
+  ///
+  /// Still one row: the section change and the new order key are the same write. A board
+  /// drag across columns is not a delete-and-recreate, which matters because recreating
+  /// would lose the task's identity, its steps and its history.
+  Future<void> moveToSection(
+    String id,
+    String sectionId, {
+    String? afterId,
+    String? beforeId,
+  }) async {
+    final lower = afterId == null ? null : (await _taskById(afterId))?.orderKey;
+    final upper = beforeId == null ? null : (await _taskById(beforeId))?.orderKey;
+
+    // Dropping onto an empty column, or below everything in it.
+    final String key;
+    if (lower == null && upper == null) {
+      final last = await _lastKeyIn(sectionId);
+      key = last == null ? OrderKey.first : OrderKey.after(last);
+    } else {
+      key = OrderKey.between(lower, upper);
+    }
+
+    await _write(
+      id,
+      TasksCompanion(listId: Value(sectionId), orderKey: Value(key)),
+    );
+  }
+
   // --- internals ---
 
   /// Every write stamps [clientId] and bumps [updatedAt], so no caller can forget.

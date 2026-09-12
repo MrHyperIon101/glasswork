@@ -5,6 +5,7 @@ import '../data/db/tables.dart';
 import '../capacity/ledger.dart';
 import '../capacity/scheduler.dart';
 import '../data/repository/capacity_repository.dart';
+import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
@@ -21,6 +22,7 @@ class AppScope {
     required this.tasks,
     required this.subtasks,
     required this.capacity,
+    required this.projects,
     required this.workspace,
   });
 
@@ -29,6 +31,7 @@ class AppScope {
   final TaskRepository tasks;
   final SubtaskRepository subtasks;
   final CapacityRepository capacity;
+  final ProjectRepository projects;
   final Workspace workspace;
 }
 
@@ -54,6 +57,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     tasks: TaskRepository(db, clientId: clientId),
     subtasks: SubtaskRepository(db, clientId: clientId),
     capacity: capacityRepo,
+    projects: ProjectRepository(db, clientId: clientId),
     workspace: workspace,
   );
 });
@@ -89,16 +93,18 @@ class CapacityDestination extends Destination {
   const CapacityDestination();
 }
 
-class ListDestination extends Destination {
-  const ListDestination(this.listId);
-  final String listId;
+/// A project. Sections live inside it rather than being navigated to directly — a
+/// section is a column of a project, not a place.
+class ProjectDestination extends Destination {
+  const ProjectDestination(this.projectId);
+  final String projectId;
 
   @override
   bool operator ==(Object other) =>
-      other is ListDestination && other.listId == listId;
+      other is ProjectDestination && other.projectId == projectId;
 
   @override
-  int get hashCode => listId.hashCode;
+  int get hashCode => projectId.hashCode;
 }
 
 class SelectedDestination extends Notifier<Destination> {
@@ -113,10 +119,72 @@ final destinationProvider =
 
 // --- data -------------------------------------------------------------------
 
-final listsProvider = StreamProvider<List<BoardList>>((ref) async* {
+final projectsProvider = StreamProvider<List<Board>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.projects.watchProjects(scope.workspace.id);
+});
+
+/// Every section in the workspace, so task rows can name their column without a
+/// query each.
+final allSectionsProvider = StreamProvider<List<BoardList>>((ref) async* {
   final scope = await ref.watch(appScopeProvider.future);
   yield* scope.workspaces.watchLists(scope.workspace.id);
 });
+
+/// The project currently open, if any.
+final currentProjectIdProvider = Provider<String?>((ref) {
+  final d = ref.watch(destinationProvider);
+  return d is ProjectDestination ? d.projectId : null;
+});
+
+final currentProjectProvider = Provider<Board?>((ref) {
+  final id = ref.watch(currentProjectIdProvider);
+  if (id == null) return null;
+  for (final p in ref.watch(projectsProvider).value ?? const <Board>[]) {
+    if (p.id == id) return p;
+  }
+  return null;
+});
+
+final sectionsProvider = StreamProvider.family<List<BoardList>, String>((
+  ref,
+  projectId,
+) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.projects.watchSections(projectId);
+});
+
+final fieldsProvider = StreamProvider.family<List<FieldDef>, String>((
+  ref,
+  projectId,
+) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.projects.watchFields(projectId);
+});
+
+/// task id -> field id -> raw value.
+final fieldValuesProvider =
+    StreamProvider.family<Map<String, Map<String, String?>>, String>((
+  ref,
+  projectId,
+) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.projects.watchFieldValues(projectId);
+});
+
+/// Which view a project is being shown in. Remembered per project for the session.
+class ProjectViewMode extends Notifier<Map<String, BoardView>> {
+  @override
+  Map<String, BoardView> build() => {};
+
+  void set(String projectId, BoardView view) =>
+      state = {...state, projectId: view};
+}
+
+final projectViewModeProvider =
+    NotifierProvider<ProjectViewMode, Map<String, BoardView>>(
+  ProjectViewMode.new,
+);
 
 /// Every live task in the workspace. The smart views and the dashboard all derive from
 /// this one stream rather than each running their own query.
@@ -174,19 +242,35 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
       return !due.isBefore(startOfToday) &&
           due.isBefore(startOfToday.add(const Duration(days: 8)));
     }).toList(),
-    ListDestination(:final listId) => all
-        .where((t) => t.listId == listId)
-        .toList(),
+    ProjectDestination(:final projectId) => _tasksInProject(ref, all, projectId),
   };
 });
 
-/// The list new tasks go into. Smart views have no list of their own, so capture falls
-/// back to the first list — an inbox.
+List<Task> _tasksInProject(Ref ref, List<Task> all, String projectId) {
+  final sections = ref
+      .watch(sectionsProvider(projectId))
+      .value
+      ?.map((s) => s.id)
+      .toSet();
+  if (sections == null) return const [];
+  return all.where((t) => sections.contains(t.listId)).toList();
+}
+
+/// The section new tasks land in.
+///
+/// Inside a project that is its first section. From a smart view there is no project in
+/// context, so capture falls back to the first section of the first project — the
+/// composer always shows which, and lets you change it.
 final captureListIdProvider = Provider<String?>((ref) {
-  final destination = ref.watch(destinationProvider);
-  if (destination is ListDestination) return destination.listId;
-  final lists = ref.watch(listsProvider).value;
-  return (lists == null || lists.isEmpty) ? null : lists.first.id;
+  final projectId =
+      ref.watch(currentProjectIdProvider) ??
+      (ref.watch(projectsProvider).value ?? const <Board>[])
+          .firstOrNull
+          ?.id;
+  if (projectId == null) return null;
+
+  final sections = ref.watch(sectionsProvider(projectId)).value;
+  return (sections == null || sections.isEmpty) ? null : sections.first.id;
 });
 
 /// The task whose detail sheet is open, if any.
@@ -335,4 +419,17 @@ class ComposerOpen extends Notifier<bool> {
 
 final composerOpenProvider = NotifierProvider<ComposerOpen, bool>(
   ComposerOpen.new,
+);
+
+/// Whether the new-project sheet is open.
+class NewProjectOpen extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void open() => state = true;
+  void close() => state = false;
+}
+
+final newProjectOpenProvider = NotifierProvider<NewProjectOpen, bool>(
+  NewProjectOpen.new,
 );
