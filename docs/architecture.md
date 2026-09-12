@@ -12,12 +12,14 @@ The app name lives in `lib/app_config.dart` and nowhere else. Nothing else depen
 immediately, then queues in the outbox. If a repository method can throw on network failure, it's
 wrong.
 
-**One `GlassSurface` widget.** No ad-hoc `BackdropFilter` anywhere else in the tree.
+**Two surface primitives only** — `AppSurface` and `VibrancyMaterial`. No ad-hoc `BackdropFilter`
+anywhere else in the tree. See Materials below.
 
-**Two radii: `20` and `999`.** Surfaces get 20, controls get 999. Nothing in between, no exceptions.
-
-**All colours and spacing come from `lib/theme/tokens.dart`.** No literal hex, no magic padding
-numbers in widget files.
+**All colours, spacing, radii and control heights come from `lib/theme/tokens.dart`.** No literal
+hex, no magic padding numbers, no bare pixel heights in widget files. Controls that sit side by side
+in a toolbar take an explicit height from `AppSize` — padding plus line-height is not enough to align
+a text field against a button, because each computes its height from a different font size and they
+land a pixel or two apart.
 
 **Ordering is always a fractional index string.** Never an int column, never a reindex loop. Sort by
 `(order_key, client_id)` — the client_id tiebreak is required, because two offline clients inserting

@@ -81,6 +81,19 @@ abstract final class AppRadius {
   static const roundAll = BorderRadius.all(Radius.circular(round));
 }
 
+/// Heights for controls that sit side by side.
+///
+/// Padding plus line-height is not enough to align a text field against a button: each
+/// computes its own height from a different font size, and they land a pixel or two
+/// apart. Anything in a toolbar row gets an explicit height from here instead.
+abstract final class AppSize {
+  /// Toolbar controls — search, buttons, segmented switches.
+  static const control = 34.0;
+
+  /// Inline chips inside a form.
+  static const chip = 28.0;
+}
+
 /// 4pt grid, 8pt preferred. Apple's layouts are mostly multiples of 8, with 4 as the
 /// half-step for tight vertical rhythm.
 abstract final class AppSpace {
