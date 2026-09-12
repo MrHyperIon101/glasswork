@@ -6298,6 +6298,1565 @@ class LocalSettingsCompanion extends UpdateCompanion<LocalSetting> {
   }
 }
 
+class $CapacityProfilesTable extends CapacityProfiles
+    with TableInfo<$CapacityProfilesTable, CapacityProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CapacityProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sleepTargetMinMeta = const VerificationMeta(
+    'sleepTargetMin',
+  );
+  @override
+  late final GeneratedColumn<int> sleepTargetMin = GeneratedColumn<int>(
+    'sleep_target_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(450),
+  );
+  static const VerificationMeta _sleepStartMinMeta = const VerificationMeta(
+    'sleepStartMin',
+  );
+  @override
+  late final GeneratedColumn<int> sleepStartMin = GeneratedColumn<int>(
+    'sleep_start_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(23 * 60 + 30),
+  );
+  static const VerificationMeta _mealsMinMeta = const VerificationMeta(
+    'mealsMin',
+  );
+  @override
+  late final GeneratedColumn<int> mealsMin = GeneratedColumn<int>(
+    'meals_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(90),
+  );
+  static const VerificationMeta _bufferMinMeta = const VerificationMeta(
+    'bufferMin',
+  );
+  @override
+  late final GeneratedColumn<int> bufferMin = GeneratedColumn<int>(
+    'buffer_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(60),
+  );
+  static const VerificationMeta _focusFactorMeta = const VerificationMeta(
+    'focusFactor',
+  );
+  @override
+  late final GeneratedColumn<double> focusFactor = GeneratedColumn<double>(
+    'focus_factor',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.65),
+  );
+  static const VerificationMeta _minGapMinMeta = const VerificationMeta(
+    'minGapMin',
+  );
+  @override
+  late final GeneratedColumn<int> minGapMin = GeneratedColumn<int>(
+    'min_gap_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(25),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    sleepTargetMin,
+    sleepStartMin,
+    mealsMin,
+    bufferMin,
+    focusFactor,
+    minGapMin,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'capacity_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CapacityProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('sleep_target_min')) {
+      context.handle(
+        _sleepTargetMinMeta,
+        sleepTargetMin.isAcceptableOrUnknown(
+          data['sleep_target_min']!,
+          _sleepTargetMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sleep_start_min')) {
+      context.handle(
+        _sleepStartMinMeta,
+        sleepStartMin.isAcceptableOrUnknown(
+          data['sleep_start_min']!,
+          _sleepStartMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('meals_min')) {
+      context.handle(
+        _mealsMinMeta,
+        mealsMin.isAcceptableOrUnknown(data['meals_min']!, _mealsMinMeta),
+      );
+    }
+    if (data.containsKey('buffer_min')) {
+      context.handle(
+        _bufferMinMeta,
+        bufferMin.isAcceptableOrUnknown(data['buffer_min']!, _bufferMinMeta),
+      );
+    }
+    if (data.containsKey('focus_factor')) {
+      context.handle(
+        _focusFactorMeta,
+        focusFactor.isAcceptableOrUnknown(
+          data['focus_factor']!,
+          _focusFactorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('min_gap_min')) {
+      context.handle(
+        _minGapMinMeta,
+        minGapMin.isAcceptableOrUnknown(data['min_gap_min']!, _minGapMinMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CapacityProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CapacityProfile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      sleepTargetMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sleep_target_min'],
+      )!,
+      sleepStartMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sleep_start_min'],
+      )!,
+      mealsMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}meals_min'],
+      )!,
+      bufferMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}buffer_min'],
+      )!,
+      focusFactor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}focus_factor'],
+      )!,
+      minGapMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}min_gap_min'],
+      )!,
+    );
+  }
+
+  @override
+  $CapacityProfilesTable createAlias(String alias) {
+    return $CapacityProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+
+  /// Protected floor, not a resource. No code path may schedule into it or offer it as a
+  /// way to make something fit.
+  final int sleepTargetMin;
+
+  /// When sleep begins, as minutes past midnight. Needed because gaps are computed over
+  /// a real waking window, not just a duration subtracted from 1440.
+  final int sleepStartMin;
+  final int mealsMin;
+
+  /// Transit, admin, life.
+  final int bufferMin;
+
+  /// Six free hours is not six hours of assignment. Tuned from completion data later.
+  final double focusFactor;
+
+  /// A gap shorter than this yields nothing usable. Fragmentation costs more than the
+  /// raw minutes suggest, and pretending otherwise is how a day looks fine on paper and
+  /// isn't.
+  final int minGapMin;
+  const CapacityProfile({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.sleepTargetMin,
+    required this.sleepStartMin,
+    required this.mealsMin,
+    required this.bufferMin,
+    required this.focusFactor,
+    required this.minGapMin,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['sleep_target_min'] = Variable<int>(sleepTargetMin);
+    map['sleep_start_min'] = Variable<int>(sleepStartMin);
+    map['meals_min'] = Variable<int>(mealsMin);
+    map['buffer_min'] = Variable<int>(bufferMin);
+    map['focus_factor'] = Variable<double>(focusFactor);
+    map['min_gap_min'] = Variable<int>(minGapMin);
+    return map;
+  }
+
+  CapacityProfilesCompanion toCompanion(bool nullToAbsent) {
+    return CapacityProfilesCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      sleepTargetMin: Value(sleepTargetMin),
+      sleepStartMin: Value(sleepStartMin),
+      mealsMin: Value(mealsMin),
+      bufferMin: Value(bufferMin),
+      focusFactor: Value(focusFactor),
+      minGapMin: Value(minGapMin),
+    );
+  }
+
+  factory CapacityProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CapacityProfile(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      sleepTargetMin: serializer.fromJson<int>(json['sleepTargetMin']),
+      sleepStartMin: serializer.fromJson<int>(json['sleepStartMin']),
+      mealsMin: serializer.fromJson<int>(json['mealsMin']),
+      bufferMin: serializer.fromJson<int>(json['bufferMin']),
+      focusFactor: serializer.fromJson<double>(json['focusFactor']),
+      minGapMin: serializer.fromJson<int>(json['minGapMin']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'sleepTargetMin': serializer.toJson<int>(sleepTargetMin),
+      'sleepStartMin': serializer.toJson<int>(sleepStartMin),
+      'mealsMin': serializer.toJson<int>(mealsMin),
+      'bufferMin': serializer.toJson<int>(bufferMin),
+      'focusFactor': serializer.toJson<double>(focusFactor),
+      'minGapMin': serializer.toJson<int>(minGapMin),
+    };
+  }
+
+  CapacityProfile copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    int? sleepTargetMin,
+    int? sleepStartMin,
+    int? mealsMin,
+    int? bufferMin,
+    double? focusFactor,
+    int? minGapMin,
+  }) => CapacityProfile(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    sleepTargetMin: sleepTargetMin ?? this.sleepTargetMin,
+    sleepStartMin: sleepStartMin ?? this.sleepStartMin,
+    mealsMin: mealsMin ?? this.mealsMin,
+    bufferMin: bufferMin ?? this.bufferMin,
+    focusFactor: focusFactor ?? this.focusFactor,
+    minGapMin: minGapMin ?? this.minGapMin,
+  );
+  CapacityProfile copyWithCompanion(CapacityProfilesCompanion data) {
+    return CapacityProfile(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      sleepTargetMin: data.sleepTargetMin.present
+          ? data.sleepTargetMin.value
+          : this.sleepTargetMin,
+      sleepStartMin: data.sleepStartMin.present
+          ? data.sleepStartMin.value
+          : this.sleepStartMin,
+      mealsMin: data.mealsMin.present ? data.mealsMin.value : this.mealsMin,
+      bufferMin: data.bufferMin.present ? data.bufferMin.value : this.bufferMin,
+      focusFactor: data.focusFactor.present
+          ? data.focusFactor.value
+          : this.focusFactor,
+      minGapMin: data.minGapMin.present ? data.minGapMin.value : this.minGapMin,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CapacityProfile(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('sleepTargetMin: $sleepTargetMin, ')
+          ..write('sleepStartMin: $sleepStartMin, ')
+          ..write('mealsMin: $mealsMin, ')
+          ..write('bufferMin: $bufferMin, ')
+          ..write('focusFactor: $focusFactor, ')
+          ..write('minGapMin: $minGapMin')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    sleepTargetMin,
+    sleepStartMin,
+    mealsMin,
+    bufferMin,
+    focusFactor,
+    minGapMin,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CapacityProfile &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.sleepTargetMin == this.sleepTargetMin &&
+          other.sleepStartMin == this.sleepStartMin &&
+          other.mealsMin == this.mealsMin &&
+          other.bufferMin == this.bufferMin &&
+          other.focusFactor == this.focusFactor &&
+          other.minGapMin == this.minGapMin);
+}
+
+class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<int> sleepTargetMin;
+  final Value<int> sleepStartMin;
+  final Value<int> mealsMin;
+  final Value<int> bufferMin;
+  final Value<double> focusFactor;
+  final Value<int> minGapMin;
+  final Value<int> rowid;
+  const CapacityProfilesCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.sleepTargetMin = const Value.absent(),
+    this.sleepStartMin = const Value.absent(),
+    this.mealsMin = const Value.absent(),
+    this.bufferMin = const Value.absent(),
+    this.focusFactor = const Value.absent(),
+    this.minGapMin = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CapacityProfilesCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    this.sleepTargetMin = const Value.absent(),
+    this.sleepStartMin = const Value.absent(),
+    this.mealsMin = const Value.absent(),
+    this.bufferMin = const Value.absent(),
+    this.focusFactor = const Value.absent(),
+    this.minGapMin = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId);
+  static Insertable<CapacityProfile> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<int>? sleepTargetMin,
+    Expression<int>? sleepStartMin,
+    Expression<int>? mealsMin,
+    Expression<int>? bufferMin,
+    Expression<double>? focusFactor,
+    Expression<int>? minGapMin,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (sleepTargetMin != null) 'sleep_target_min': sleepTargetMin,
+      if (sleepStartMin != null) 'sleep_start_min': sleepStartMin,
+      if (mealsMin != null) 'meals_min': mealsMin,
+      if (bufferMin != null) 'buffer_min': bufferMin,
+      if (focusFactor != null) 'focus_factor': focusFactor,
+      if (minGapMin != null) 'min_gap_min': minGapMin,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CapacityProfilesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<int>? sleepTargetMin,
+    Value<int>? sleepStartMin,
+    Value<int>? mealsMin,
+    Value<int>? bufferMin,
+    Value<double>? focusFactor,
+    Value<int>? minGapMin,
+    Value<int>? rowid,
+  }) {
+    return CapacityProfilesCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      sleepTargetMin: sleepTargetMin ?? this.sleepTargetMin,
+      sleepStartMin: sleepStartMin ?? this.sleepStartMin,
+      mealsMin: mealsMin ?? this.mealsMin,
+      bufferMin: bufferMin ?? this.bufferMin,
+      focusFactor: focusFactor ?? this.focusFactor,
+      minGapMin: minGapMin ?? this.minGapMin,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (sleepTargetMin.present) {
+      map['sleep_target_min'] = Variable<int>(sleepTargetMin.value);
+    }
+    if (sleepStartMin.present) {
+      map['sleep_start_min'] = Variable<int>(sleepStartMin.value);
+    }
+    if (mealsMin.present) {
+      map['meals_min'] = Variable<int>(mealsMin.value);
+    }
+    if (bufferMin.present) {
+      map['buffer_min'] = Variable<int>(bufferMin.value);
+    }
+    if (focusFactor.present) {
+      map['focus_factor'] = Variable<double>(focusFactor.value);
+    }
+    if (minGapMin.present) {
+      map['min_gap_min'] = Variable<int>(minGapMin.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CapacityProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('sleepTargetMin: $sleepTargetMin, ')
+          ..write('sleepStartMin: $sleepStartMin, ')
+          ..write('mealsMin: $mealsMin, ')
+          ..write('bufferMin: $bufferMin, ')
+          ..write('focusFactor: $focusFactor, ')
+          ..write('minGapMin: $minGapMin, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CommitmentsTable extends Commitments
+    with TableInfo<$CommitmentsTable, Commitment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CommitmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rruleMeta = const VerificationMeta('rrule');
+  @override
+  late final GeneratedColumn<String> rrule = GeneratedColumn<String>(
+    'rrule',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMinMeta = const VerificationMeta(
+    'startMin',
+  );
+  @override
+  late final GeneratedColumn<int> startMin = GeneratedColumn<int>(
+    'start_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationMinMeta = const VerificationMeta(
+    'durationMin',
+  );
+  @override
+  late final GeneratedColumn<int> durationMin = GeneratedColumn<int>(
+    'duration_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _locationMeta = const VerificationMeta(
+    'location',
+  );
+  @override
+  late final GeneratedColumn<String> location = GeneratedColumn<String>(
+    'location',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CommitmentKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('classes'),
+      ).withConverter<CommitmentKind>($CommitmentsTable.$converterkind);
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    title,
+    rrule,
+    startMin,
+    durationMin,
+    location,
+    kind,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'commitments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Commitment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('rrule')) {
+      context.handle(
+        _rruleMeta,
+        rrule.isAcceptableOrUnknown(data['rrule']!, _rruleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rruleMeta);
+    }
+    if (data.containsKey('start_min')) {
+      context.handle(
+        _startMinMeta,
+        startMin.isAcceptableOrUnknown(data['start_min']!, _startMinMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startMinMeta);
+    }
+    if (data.containsKey('duration_min')) {
+      context.handle(
+        _durationMinMeta,
+        durationMin.isAcceptableOrUnknown(
+          data['duration_min']!,
+          _durationMinMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationMinMeta);
+    }
+    if (data.containsKey('location')) {
+      context.handle(
+        _locationMeta,
+        location.isAcceptableOrUnknown(data['location']!, _locationMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Commitment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Commitment(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      rrule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rrule'],
+      )!,
+      startMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_min'],
+      )!,
+      durationMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_min'],
+      )!,
+      location: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location'],
+      ),
+      kind: $CommitmentsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $CommitmentsTable createAlias(String alias) {
+    return $CommitmentsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CommitmentKind, String, String> $converterkind =
+      const EnumNameConverter<CommitmentKind>(CommitmentKind.values);
+}
+
+class Commitment extends DataClass implements Insertable<Commitment> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String title;
+
+  /// Recurrence. Only `FREQ=WEEKLY` with `BYDAY` is understood today; see
+  /// `capacity/recurrence.dart`, which rejects anything else rather than guessing.
+  final String rrule;
+
+  /// Minutes past midnight.
+  final int startMin;
+  final int durationMin;
+  final String? location;
+  final CommitmentKind kind;
+  const Commitment({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.title,
+    required this.rrule,
+    required this.startMin,
+    required this.durationMin,
+    this.location,
+    required this.kind,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['title'] = Variable<String>(title);
+    map['rrule'] = Variable<String>(rrule);
+    map['start_min'] = Variable<int>(startMin);
+    map['duration_min'] = Variable<int>(durationMin);
+    if (!nullToAbsent || location != null) {
+      map['location'] = Variable<String>(location);
+    }
+    {
+      map['kind'] = Variable<String>(
+        $CommitmentsTable.$converterkind.toSql(kind),
+      );
+    }
+    return map;
+  }
+
+  CommitmentsCompanion toCompanion(bool nullToAbsent) {
+    return CommitmentsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      title: Value(title),
+      rrule: Value(rrule),
+      startMin: Value(startMin),
+      durationMin: Value(durationMin),
+      location: location == null && nullToAbsent
+          ? const Value.absent()
+          : Value(location),
+      kind: Value(kind),
+    );
+  }
+
+  factory Commitment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Commitment(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      title: serializer.fromJson<String>(json['title']),
+      rrule: serializer.fromJson<String>(json['rrule']),
+      startMin: serializer.fromJson<int>(json['startMin']),
+      durationMin: serializer.fromJson<int>(json['durationMin']),
+      location: serializer.fromJson<String?>(json['location']),
+      kind: $CommitmentsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'title': serializer.toJson<String>(title),
+      'rrule': serializer.toJson<String>(rrule),
+      'startMin': serializer.toJson<int>(startMin),
+      'durationMin': serializer.toJson<int>(durationMin),
+      'location': serializer.toJson<String?>(location),
+      'kind': serializer.toJson<String>(
+        $CommitmentsTable.$converterkind.toJson(kind),
+      ),
+    };
+  }
+
+  Commitment copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? title,
+    String? rrule,
+    int? startMin,
+    int? durationMin,
+    Value<String?> location = const Value.absent(),
+    CommitmentKind? kind,
+  }) => Commitment(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    title: title ?? this.title,
+    rrule: rrule ?? this.rrule,
+    startMin: startMin ?? this.startMin,
+    durationMin: durationMin ?? this.durationMin,
+    location: location.present ? location.value : this.location,
+    kind: kind ?? this.kind,
+  );
+  Commitment copyWithCompanion(CommitmentsCompanion data) {
+    return Commitment(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      title: data.title.present ? data.title.value : this.title,
+      rrule: data.rrule.present ? data.rrule.value : this.rrule,
+      startMin: data.startMin.present ? data.startMin.value : this.startMin,
+      durationMin: data.durationMin.present
+          ? data.durationMin.value
+          : this.durationMin,
+      location: data.location.present ? data.location.value : this.location,
+      kind: data.kind.present ? data.kind.value : this.kind,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Commitment(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('title: $title, ')
+          ..write('rrule: $rrule, ')
+          ..write('startMin: $startMin, ')
+          ..write('durationMin: $durationMin, ')
+          ..write('location: $location, ')
+          ..write('kind: $kind')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    title,
+    rrule,
+    startMin,
+    durationMin,
+    location,
+    kind,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Commitment &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.title == this.title &&
+          other.rrule == this.rrule &&
+          other.startMin == this.startMin &&
+          other.durationMin == this.durationMin &&
+          other.location == this.location &&
+          other.kind == this.kind);
+}
+
+class CommitmentsCompanion extends UpdateCompanion<Commitment> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> title;
+  final Value<String> rrule;
+  final Value<int> startMin;
+  final Value<int> durationMin;
+  final Value<String?> location;
+  final Value<CommitmentKind> kind;
+  final Value<int> rowid;
+  const CommitmentsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.rrule = const Value.absent(),
+    this.startMin = const Value.absent(),
+    this.durationMin = const Value.absent(),
+    this.location = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CommitmentsCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String title,
+    required String rrule,
+    required int startMin,
+    required int durationMin,
+    this.location = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       title = Value(title),
+       rrule = Value(rrule),
+       startMin = Value(startMin),
+       durationMin = Value(durationMin);
+  static Insertable<Commitment> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? title,
+    Expression<String>? rrule,
+    Expression<int>? startMin,
+    Expression<int>? durationMin,
+    Expression<String>? location,
+    Expression<String>? kind,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (title != null) 'title': title,
+      if (rrule != null) 'rrule': rrule,
+      if (startMin != null) 'start_min': startMin,
+      if (durationMin != null) 'duration_min': durationMin,
+      if (location != null) 'location': location,
+      if (kind != null) 'kind': kind,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CommitmentsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? title,
+    Value<String>? rrule,
+    Value<int>? startMin,
+    Value<int>? durationMin,
+    Value<String?>? location,
+    Value<CommitmentKind>? kind,
+    Value<int>? rowid,
+  }) {
+    return CommitmentsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      title: title ?? this.title,
+      rrule: rrule ?? this.rrule,
+      startMin: startMin ?? this.startMin,
+      durationMin: durationMin ?? this.durationMin,
+      location: location ?? this.location,
+      kind: kind ?? this.kind,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (rrule.present) {
+      map['rrule'] = Variable<String>(rrule.value);
+    }
+    if (startMin.present) {
+      map['start_min'] = Variable<int>(startMin.value);
+    }
+    if (durationMin.present) {
+      map['duration_min'] = Variable<int>(durationMin.value);
+    }
+    if (location.present) {
+      map['location'] = Variable<String>(location.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $CommitmentsTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommitmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('title: $title, ')
+          ..write('rrule: $rrule, ')
+          ..write('startMin: $startMin, ')
+          ..write('durationMin: $durationMin, ')
+          ..write('location: $location, ')
+          ..write('kind: $kind, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6311,6 +7870,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $NotesTable notes = $NotesTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $LocalSettingsTable localSettings = $LocalSettingsTable(this);
+  late final $CapacityProfilesTable capacityProfiles = $CapacityProfilesTable(
+    this,
+  );
+  late final $CommitmentsTable commitments = $CommitmentsTable(this);
   late final Index boardWorkspace = Index(
     'board_workspace',
     'CREATE INDEX board_workspace ON boards (workspace_id)',
@@ -6339,6 +7902,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'tasklabel_label',
     'CREATE INDEX tasklabel_label ON task_labels (label_id)',
   );
+  late final Index commitmentWorkspace = Index(
+    'commitment_workspace',
+    'CREATE INDEX commitment_workspace ON commitments (workspace_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6354,6 +7921,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     notes,
     outbox,
     localSettings,
+    capacityProfiles,
+    commitments,
     boardWorkspace,
     listBoard,
     taskListOrder,
@@ -6361,6 +7930,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     taskWorkspaceUpdated,
     subtaskTaskOrder,
     tasklabelLabel,
+    commitmentWorkspace,
   ];
 }
 
@@ -10392,6 +11962,751 @@ typedef $$LocalSettingsTableProcessedTableManager =
       LocalSetting,
       PrefetchHooks Function()
     >;
+typedef $$CapacityProfilesTableCreateCompanionBuilder =
+    CapacityProfilesCompanion Function({
+      required String id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      required String workspaceId,
+      Value<int> sleepTargetMin,
+      Value<int> sleepStartMin,
+      Value<int> mealsMin,
+      Value<int> bufferMin,
+      Value<double> focusFactor,
+      Value<int> minGapMin,
+      Value<int> rowid,
+    });
+typedef $$CapacityProfilesTableUpdateCompanionBuilder =
+    CapacityProfilesCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      Value<String> workspaceId,
+      Value<int> sleepTargetMin,
+      Value<int> sleepStartMin,
+      Value<int> mealsMin,
+      Value<int> bufferMin,
+      Value<double> focusFactor,
+      Value<int> minGapMin,
+      Value<int> rowid,
+    });
+
+class $$CapacityProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $CapacityProfilesTable> {
+  $$CapacityProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sleepTargetMin => $composableBuilder(
+    column: $table.sleepTargetMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sleepStartMin => $composableBuilder(
+    column: $table.sleepStartMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mealsMin => $composableBuilder(
+    column: $table.mealsMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bufferMin => $composableBuilder(
+    column: $table.bufferMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get focusFactor => $composableBuilder(
+    column: $table.focusFactor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get minGapMin => $composableBuilder(
+    column: $table.minGapMin,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CapacityProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CapacityProfilesTable> {
+  $$CapacityProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sleepTargetMin => $composableBuilder(
+    column: $table.sleepTargetMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sleepStartMin => $composableBuilder(
+    column: $table.sleepStartMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mealsMin => $composableBuilder(
+    column: $table.mealsMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bufferMin => $composableBuilder(
+    column: $table.bufferMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get focusFactor => $composableBuilder(
+    column: $table.focusFactor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get minGapMin => $composableBuilder(
+    column: $table.minGapMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CapacityProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CapacityProfilesTable> {
+  $$CapacityProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sleepTargetMin => $composableBuilder(
+    column: $table.sleepTargetMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sleepStartMin => $composableBuilder(
+    column: $table.sleepStartMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mealsMin =>
+      $composableBuilder(column: $table.mealsMin, builder: (column) => column);
+
+  GeneratedColumn<int> get bufferMin =>
+      $composableBuilder(column: $table.bufferMin, builder: (column) => column);
+
+  GeneratedColumn<double> get focusFactor => $composableBuilder(
+    column: $table.focusFactor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get minGapMin =>
+      $composableBuilder(column: $table.minGapMin, builder: (column) => column);
+}
+
+class $$CapacityProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CapacityProfilesTable,
+          CapacityProfile,
+          $$CapacityProfilesTableFilterComposer,
+          $$CapacityProfilesTableOrderingComposer,
+          $$CapacityProfilesTableAnnotationComposer,
+          $$CapacityProfilesTableCreateCompanionBuilder,
+          $$CapacityProfilesTableUpdateCompanionBuilder,
+          (
+            CapacityProfile,
+            BaseReferences<
+              _$AppDatabase,
+              $CapacityProfilesTable,
+              CapacityProfile
+            >,
+          ),
+          CapacityProfile,
+          PrefetchHooks Function()
+        > {
+  $$CapacityProfilesTableTableManager(
+    _$AppDatabase db,
+    $CapacityProfilesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CapacityProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CapacityProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CapacityProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<int> sleepTargetMin = const Value.absent(),
+                Value<int> sleepStartMin = const Value.absent(),
+                Value<int> mealsMin = const Value.absent(),
+                Value<int> bufferMin = const Value.absent(),
+                Value<double> focusFactor = const Value.absent(),
+                Value<int> minGapMin = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CapacityProfilesCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                sleepTargetMin: sleepTargetMin,
+                sleepStartMin: sleepStartMin,
+                mealsMin: mealsMin,
+                bufferMin: bufferMin,
+                focusFactor: focusFactor,
+                minGapMin: minGapMin,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                Value<int> sleepTargetMin = const Value.absent(),
+                Value<int> sleepStartMin = const Value.absent(),
+                Value<int> mealsMin = const Value.absent(),
+                Value<int> bufferMin = const Value.absent(),
+                Value<double> focusFactor = const Value.absent(),
+                Value<int> minGapMin = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CapacityProfilesCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                sleepTargetMin: sleepTargetMin,
+                sleepStartMin: sleepStartMin,
+                mealsMin: mealsMin,
+                bufferMin: bufferMin,
+                focusFactor: focusFactor,
+                minGapMin: minGapMin,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CapacityProfilesTable, CapacityProfile>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $CapacityProfilesTable,
+                    CapacityProfile
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CapacityProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CapacityProfilesTable,
+      CapacityProfile,
+      $$CapacityProfilesTableFilterComposer,
+      $$CapacityProfilesTableOrderingComposer,
+      $$CapacityProfilesTableAnnotationComposer,
+      $$CapacityProfilesTableCreateCompanionBuilder,
+      $$CapacityProfilesTableUpdateCompanionBuilder,
+      (
+        CapacityProfile,
+        BaseReferences<_$AppDatabase, $CapacityProfilesTable, CapacityProfile>,
+      ),
+      CapacityProfile,
+      PrefetchHooks Function()
+    >;
+typedef $$CommitmentsTableCreateCompanionBuilder =
+    CommitmentsCompanion Function({
+      required String id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      required String workspaceId,
+      required String title,
+      required String rrule,
+      required int startMin,
+      required int durationMin,
+      Value<String?> location,
+      Value<CommitmentKind> kind,
+      Value<int> rowid,
+    });
+typedef $$CommitmentsTableUpdateCompanionBuilder =
+    CommitmentsCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> clientId,
+      Value<String> fieldVersions,
+      Value<String> workspaceId,
+      Value<String> title,
+      Value<String> rrule,
+      Value<int> startMin,
+      Value<int> durationMin,
+      Value<String?> location,
+      Value<CommitmentKind> kind,
+      Value<int> rowid,
+    });
+
+class $$CommitmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $CommitmentsTable> {
+  $$CommitmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMin => $composableBuilder(
+    column: $table.startMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationMin => $composableBuilder(
+    column: $table.durationMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get location => $composableBuilder(
+    column: $table.location,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<CommitmentKind, CommitmentKind, String>
+  get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$CommitmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CommitmentsTable> {
+  $$CommitmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMin => $composableBuilder(
+    column: $table.startMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationMin => $composableBuilder(
+    column: $table.durationMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get location => $composableBuilder(
+    column: $table.location,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CommitmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CommitmentsTable> {
+  $$CommitmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get rrule =>
+      $composableBuilder(column: $table.rrule, builder: (column) => column);
+
+  GeneratedColumn<int> get startMin =>
+      $composableBuilder(column: $table.startMin, builder: (column) => column);
+
+  GeneratedColumn<int> get durationMin => $composableBuilder(
+    column: $table.durationMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get location =>
+      $composableBuilder(column: $table.location, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<CommitmentKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+}
+
+class $$CommitmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CommitmentsTable,
+          Commitment,
+          $$CommitmentsTableFilterComposer,
+          $$CommitmentsTableOrderingComposer,
+          $$CommitmentsTableAnnotationComposer,
+          $$CommitmentsTableCreateCompanionBuilder,
+          $$CommitmentsTableUpdateCompanionBuilder,
+          (
+            Commitment,
+            BaseReferences<_$AppDatabase, $CommitmentsTable, Commitment>,
+          ),
+          Commitment,
+          PrefetchHooks Function()
+        > {
+  $$CommitmentsTableTableManager(_$AppDatabase db, $CommitmentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CommitmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CommitmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CommitmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> rrule = const Value.absent(),
+                Value<int> startMin = const Value.absent(),
+                Value<int> durationMin = const Value.absent(),
+                Value<String?> location = const Value.absent(),
+                Value<CommitmentKind> kind = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommitmentsCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                title: title,
+                rrule: rrule,
+                startMin: startMin,
+                durationMin: durationMin,
+                location: location,
+                kind: kind,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String title,
+                required String rrule,
+                required int startMin,
+                required int durationMin,
+                Value<String?> location = const Value.absent(),
+                Value<CommitmentKind> kind = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommitmentsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                title: title,
+                rrule: rrule,
+                startMin: startMin,
+                durationMin: durationMin,
+                location: location,
+                kind: kind,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CommitmentsTable, Commitment>(table),
+                  BaseReferences<_$AppDatabase, $CommitmentsTable, Commitment>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CommitmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CommitmentsTable,
+      Commitment,
+      $$CommitmentsTableFilterComposer,
+      $$CommitmentsTableOrderingComposer,
+      $$CommitmentsTableAnnotationComposer,
+      $$CommitmentsTableCreateCompanionBuilder,
+      $$CommitmentsTableUpdateCompanionBuilder,
+      (
+        Commitment,
+        BaseReferences<_$AppDatabase, $CommitmentsTable, Commitment>,
+      ),
+      Commitment,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10416,4 +12731,8 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$LocalSettingsTableTableManager get localSettings =>
       $$LocalSettingsTableTableManager(_db, _db.localSettings);
+  $$CapacityProfilesTableTableManager get capacityProfiles =>
+      $$CapacityProfilesTableTableManager(_db, _db.capacityProfiles);
+  $$CommitmentsTableTableManager get commitments =>
+      $$CommitmentsTableTableManager(_db, _db.commitments);
 }

@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/db/database.dart';
 import '../data/db/tables.dart';
+import '../capacity/ledger.dart';
+import '../capacity/scheduler.dart';
+import '../data/repository/capacity_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
@@ -17,6 +20,7 @@ class AppScope {
     required this.workspaces,
     required this.tasks,
     required this.subtasks,
+    required this.capacity,
     required this.workspace,
   });
 
@@ -24,6 +28,7 @@ class AppScope {
   final WorkspaceRepository workspaces;
   final TaskRepository tasks;
   final SubtaskRepository subtasks;
+  final CapacityRepository capacity;
   final Workspace workspace;
 }
 
@@ -40,11 +45,15 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
   final workspace = await workspaces.ensureSeeded();
   final clientId = await workspaces.clientId();
 
+  final capacityRepo = CapacityRepository(db, clientId: clientId);
+  await capacityRepo.ensureProfile(workspace.id);
+
   return AppScope(
     db: db,
     workspaces: workspaces,
     tasks: TaskRepository(db, clientId: clientId),
     subtasks: SubtaskRepository(db, clientId: clientId),
+    capacity: capacityRepo,
     workspace: workspace,
   );
 });
@@ -73,6 +82,11 @@ class AllDestination extends Destination {
 
 class DoneDestination extends Destination {
   const DoneDestination();
+}
+
+/// The capacity ledger and timetable.
+class CapacityDestination extends Destination {
+  const CapacityDestination();
 }
 
 class ListDestination extends Destination {
@@ -149,7 +163,7 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
   final startOfToday = DateTime(today.year, today.month, today.day);
 
   return switch (ref.watch(destinationProvider)) {
-    TodayDestination() => const <Task>[],
+    TodayDestination() || CapacityDestination() => const <Task>[],
     DoneDestination() =>
       all.where((t) => t.status == TaskStatus.done).toList(),
     AllDestination() => all.where((t) => t.status != TaskStatus.done).toList(),
@@ -203,4 +217,109 @@ final subtasksProvider = StreamProvider.family<List<Subtask>, String>((
 ) async* {
   final scope = await ref.watch(appScopeProvider.future);
   yield* scope.subtasks.watchFor(taskId);
+});
+
+// --- capacity ---------------------------------------------------------------
+
+/// How far ahead the scheduler plans. Beyond this a deadline is too distant for the
+/// arithmetic to say anything useful.
+const capacityHorizonDays = 28;
+
+final capacityProfileProvider = StreamProvider<CapacityProfile?>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.capacity.watchProfile(scope.workspace.id);
+});
+
+final commitmentsProvider = StreamProvider<List<Commitment>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.capacity.watchCommitments(scope.workspace.id);
+});
+
+/// Per-day capacity across the horizon. Pure derivation from profile + timetable.
+final dayCapacityProvider = Provider<List<DayCapacity>>((ref) {
+  final profile = ref.watch(capacityProfileProvider).value;
+  final commitments = ref.watch(commitmentsProvider).value ?? const [];
+  final (blocks, _) = CapacityMapping.blocks(commitments);
+
+  return CapacityLedger.forRange(
+    DateTime.now(),
+    capacityHorizonDays,
+    CapacityMapping.settings(profile),
+    blocks,
+  );
+});
+
+/// Commitments whose recurrence could not be read. Surfaced rather than swallowed.
+final rejectedCommitmentsProvider = Provider<List<String>>((ref) {
+  final commitments = ref.watch(commitmentsProvider).value ?? const [];
+  final (_, rejected) = CapacityMapping.blocks(commitments);
+  return rejected;
+});
+
+/// Open, dated tasks in the form the scheduler understands.
+///
+/// Shared by the live schedule and by the at-capture preview, so a warning shown before
+/// you commit is computed exactly the same way as the badge shown afterwards.
+final plannedTasksProvider = Provider<List<PlannedTask>>((ref) {
+  final tasks = ref.watch(allTasksProvider).value ?? const <Task>[];
+  final today = DateTime.now();
+  final startOfToday = DateTime(today.year, today.month, today.day);
+
+  final planned = <PlannedTask>[];
+  for (final task in tasks) {
+    if (task.status == TaskStatus.done) continue;
+    final due = TaskStats.dueDayOf(task);
+    if (due == null) continue;
+
+    // Beyond the horizon the arithmetic cannot say anything honest, so it says nothing.
+    if (due.difference(startOfToday).inDays > capacityHorizonDays) continue;
+
+    planned.add(
+      PlannedTask(
+        id: task.id,
+        title: task.title,
+        dueDay: due,
+        estimateMin: task.estimateMin ?? CapacityScheduler.assumedEstimateMin,
+        priority: task.priority,
+        estimateAssumed: task.estimateMin == null,
+      ),
+    );
+  }
+  return planned;
+});
+
+/// The plan: what fits, what does not, and how each day is loaded.
+final scheduleProvider = Provider<Schedule>((ref) {
+  return CapacityScheduler.run(
+    ref.watch(plannedTasksProvider),
+    ref.watch(dayCapacityProvider),
+  );
+});
+
+/// What would happen if [candidate] were added.
+///
+/// Runs before the write, so the app can say "this does not fit" at the moment you commit
+/// rather than after — which is the entire difference between an advisor and a report.
+/// Returns null when the candidate carries no deadline for the arithmetic to work against.
+ScheduledTask? previewFeasibility(WidgetRef ref, PlannedTask candidate) {
+  final schedule = CapacityScheduler.run(
+    [...ref.read(plannedTasksProvider), candidate],
+    ref.read(dayCapacityProvider),
+  );
+  for (final t in schedule.tasks) {
+    if (t.task.id == candidate.id) return t;
+  }
+  return null;
+}
+
+/// Feasibility for one task, for the row and the detail sheet.
+final taskFeasibilityProvider = Provider.family<ScheduledTask?, String>((
+  ref,
+  taskId,
+) {
+  final schedule = ref.watch(scheduleProvider);
+  for (final t in schedule.tasks) {
+    if (t.task.id == taskId) return t;
+  }
+  return null;
 });

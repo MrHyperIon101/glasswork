@@ -21,6 +21,8 @@ part 'database.g.dart';
     Notes,
     Outbox,
     LocalSettings,
+    CapacityProfiles,
+    Commitments,
   ],
 )
 class AppDatabase extends _$AppDatabase {
