@@ -167,3 +167,56 @@ class LocalSettings extends Table {
   @override
   Set<Column> get primaryKey => {key};
 }
+
+/// What kind of fixed block a commitment is.
+enum CommitmentKind { classes, lab, work, travel, personal }
+
+/// The capacity ledger's constants. One row per workspace.
+///
+/// These are the numbers every capacity figure in the app is derived from, so they are
+/// deliberately explicit rather than hidden behind heuristics.
+class CapacityProfiles extends Table with SyncColumns, WorkspaceScoped {
+  /// Protected floor, not a resource. No code path may schedule into it or offer it as a
+  /// way to make something fit.
+  IntColumn get sleepTargetMin =>
+      integer().withDefault(const Constant(450))();
+
+  /// When sleep begins, as minutes past midnight. Needed because gaps are computed over
+  /// a real waking window, not just a duration subtracted from 1440.
+  IntColumn get sleepStartMin =>
+      integer().withDefault(const Constant(23 * 60 + 30))();
+
+  IntColumn get mealsMin => integer().withDefault(const Constant(90))();
+
+  /// Transit, admin, life.
+  IntColumn get bufferMin => integer().withDefault(const Constant(60))();
+
+  /// Six free hours is not six hours of assignment. Tuned from completion data later.
+  RealColumn get focusFactor => real().withDefault(const Constant(0.65))();
+
+  /// A gap shorter than this yields nothing usable. Fragmentation costs more than the
+  /// raw minutes suggest, and pretending otherwise is how a day looks fine on paper and
+  /// isn't.
+  IntColumn get minGapMin => integer().withDefault(const Constant(25))();
+}
+
+/// Fixed blocks: classes, labs, travel, work.
+///
+/// Commitments are things that happen to you; tasks are things you choose. Keeping them
+/// in separate tables is what makes the arithmetic clean — a timetable is not a backlog.
+@TableIndex(name: 'commitment_workspace', columns: {#workspaceId})
+class Commitments extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get title => text()();
+
+  /// Recurrence. Only `FREQ=WEEKLY` with `BYDAY` is understood today; see
+  /// `capacity/recurrence.dart`, which rejects anything else rather than guessing.
+  TextColumn get rrule => text()();
+
+  /// Minutes past midnight.
+  IntColumn get startMin => integer()();
+  IntColumn get durationMin => integer()();
+
+  TextColumn get location => text().nullable()();
+  TextColumn get kind =>
+      textEnum<CommitmentKind>().withDefault(const Constant('classes'))();
+}

@@ -11,6 +11,7 @@ import '../surface.dart';
 import '../widgets/content_header.dart';
 import '../widgets/quick_add.dart';
 import '../widgets/task_row.dart';
+import '../widgets/week_load_strip.dart';
 
 /// The Today dashboard.
 ///
@@ -47,8 +48,11 @@ class TodayScreen extends ConsumerWidget {
           const SizedBox(height: AppSpace.xxl),
           if (stats == null)
             const Spacer()
-          else
+          else ...[
             Expanded(child: _Bento(stats: stats)),
+            const SizedBox(height: AppSpace.lg),
+            const WeekLoadStrip(),
+          ],
           const SizedBox(height: AppSpace.lg),
           const QuickAdd(),
         ],
@@ -104,15 +108,7 @@ class _Bento extends StatelessWidget {
 
         final sideCards = [
           _OverdueCard(stats: stats),
-          _MetricCard(
-            label: 'Done this week',
-            value: '${stats.completedThisWeek}',
-            caption: stats.completedToday > 0
-                ? '${stats.completedToday} today'
-                : 'None yet today',
-            tint: AppColour.green,
-            icon: Icons.check_circle_outline,
-          ),
+          const _AtRiskCard(),
           _NextUpCard(stats: stats),
         ];
 
@@ -430,6 +426,36 @@ class _NextUpCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// What the arithmetic says will not fit.
+///
+/// This is the card the whole capacity engine exists to produce. It counts tasks the
+/// scheduler could not place before their deadline at the current commitments — not tasks
+/// that are merely late, which is what Overdue already covers.
+class _AtRiskCard extends ConsumerWidget {
+  const _AtRiskCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final schedule = ref.watch(scheduleProvider);
+    final impossible = schedule.impossible;
+    final tight = schedule.tight;
+
+    final caption = switch ((impossible.length, tight.length)) {
+      (0, 0) => 'Everything fits',
+      (0, final t) => '$t with no slack',
+      (_, _) => impossible.first.task.title,
+    };
+
+    return _MetricCard(
+      label: "Won't fit",
+      value: '${impossible.length}',
+      caption: caption,
+      tint: impossible.isEmpty ? AppColour.grey : AppColour.red,
+      icon: Icons.warning_amber_rounded,
     );
   }
 }

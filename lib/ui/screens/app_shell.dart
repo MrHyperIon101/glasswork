@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../surface.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
+import 'capacity_screen.dart';
 import 'list_screen.dart';
 import 'today_screen.dart';
 
@@ -181,6 +182,13 @@ class _Sidebar extends ConsumerWidget {
                   selected: current is DoneDestination,
                   onTap: () => go(const DoneDestination()),
                 ),
+                _SidebarRow(
+                  icon: Icons.speed_outlined,
+                  label: 'Capacity',
+                  tint: AppColour.purple,
+                  selected: current is CapacityDestination,
+                  onTap: () => go(const CapacityDestination()),
+                ),
 
                 const Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -340,8 +348,11 @@ class _Content extends ConsumerWidget {
     final destination = ref.watch(destinationProvider);
     final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
 
-    if (destination is TodayDestination && !searching) {
-      return TodayScreen(onMenu: onMenu);
+    if (!searching) {
+      if (destination is TodayDestination) return TodayScreen(onMenu: onMenu);
+      if (destination is CapacityDestination) {
+        return CapacityScreen(onMenu: onMenu);
+      }
     }
     return ListScreen(onMenu: onMenu);
   }

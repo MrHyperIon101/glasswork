@@ -30,6 +30,7 @@ class ListScreen extends ConsumerWidget {
       UpcomingDestination() => 'Upcoming',
       AllDestination() => 'All tasks',
       DoneDestination() => 'Done',
+      CapacityDestination() => 'Capacity',
       ListDestination(:final listId) =>
         lists.where((l) => l.id == listId).map((l) => l.name).firstOrNull ??
             'List',

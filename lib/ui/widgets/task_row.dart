@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../capacity/scheduler.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 
@@ -10,7 +13,7 @@ import '../format.dart';
 /// Rows are plain surfaces, never vibrancy: a list has dozens of them and each
 /// `BackdropFilter` costs a capture. Depth here comes from a hover fill, the way a
 /// Finder or Mail row behaves.
-class TaskRow extends StatefulWidget {
+class TaskRow extends ConsumerStatefulWidget {
   const TaskRow({
     required this.task,
     required this.onToggle,
@@ -25,10 +28,10 @@ class TaskRow extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<TaskRow> createState() => _TaskRowState();
+  ConsumerState<TaskRow> createState() => _TaskRowState();
 }
 
-class _TaskRowState extends State<TaskRow> {
+class _TaskRowState extends ConsumerState<TaskRow> {
   bool _hovered = false;
 
   @override
@@ -101,9 +104,23 @@ class _TaskRowState extends State<TaskRow> {
                   ],
                 ),
               ),
-              if (task.priority > 0 && !done) ...[
-                const SizedBox(width: AppSpace.sm),
-                _PriorityFlag(priority: task.priority),
+              if (!done) ...[
+                Builder(
+                  builder: (context) {
+                    final plan = ref.watch(taskFeasibilityProvider(task.id));
+                    if (plan == null || plan.state == Feasibility.fine) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(left: AppSpace.sm),
+                      child: _FeasibilityFlag(plan: plan),
+                    );
+                  },
+                ),
+                if (task.priority > 0) ...[
+                  const SizedBox(width: AppSpace.sm),
+                  _PriorityFlag(priority: task.priority),
+                ],
               ],
               // Revealed on hover so the row stays quiet at rest.
               AnimatedOpacity(
@@ -168,6 +185,45 @@ class _CheckboxState extends State<_Checkbox> {
                 : null,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Says what the arithmetic concluded, and by how much.
+///
+/// "Won't fit" on its own invites an argument; "2h 30m short" is a fact you can act on.
+class _FeasibilityFlag extends StatelessWidget {
+  const _FeasibilityFlag({required this.plan});
+
+  final ScheduledTask plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final impossible = plan.state == Feasibility.impossible;
+    final colour = impossible ? AppColour.red : AppColour.orange;
+
+    final label = impossible
+        ? (plan.shortfallMin > 0
+              ? '${Format.estimate(plan.shortfallMin)} short'
+              : "Won't fit")
+        : 'No slack';
+
+    return Tooltip(
+      message: impossible
+          ? 'At your current commitments this does not fit before the deadline.'
+          : 'This finishes on the day it is due. Nothing can go wrong.',
+      child: Container(
+        margin: const EdgeInsets.only(top: 1),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.sm,
+          vertical: 2,
+        ),
+        decoration: BoxDecoration(
+          color: colour.withValues(alpha: 0.16),
+          borderRadius: AppRadius.smallAll,
+        ),
+        child: Text(label, style: AppText.numeric.copyWith(color: colour)),
       ),
     );
   }
