@@ -24,7 +24,7 @@ class _FilterBarState extends ConsumerState<FilterBar> {
 
   @override
   Widget build(BuildContext context) {
-    final filter = ref.watch(projectFilterProvider);
+    final filter = ref.watch(effectiveProjectFilterProvider);
     final labels = ref.watch(labelsProvider).value ?? const <Label>[];
     final notifier = ref.read(projectFilterProvider.notifier);
 
