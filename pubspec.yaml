@@ -1,0 +1,32 @@
+name: glasswork
+description: "Local-first task app with a capacity engine. Linux + Android."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  drift: ^2.35.0
+  drift_flutter: ^0.3.1
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.4.3
+  go_router: ^18.0.1
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.35.0
+  build_runner: ^2.16.1
+
+flutter:
+  uses-material-design: true
+
+  # mesh_common.glsl is deliberately absent: it is an #include resolved at build time,
+  # not a shader entry point, so it must not be listed here.
+  shaders:
+    - shaders/mesh.frag
+    - shaders/glass.frag
