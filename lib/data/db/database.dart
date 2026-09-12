@@ -27,6 +27,7 @@ part 'database.g.dart';
     FieldDefs,
     FieldValues,
     ProjectViews,
+    Schedules,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -47,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -66,6 +67,12 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(fieldDefs);
         await m.createTable(fieldValues);
         await m.createTable(projectViews);
+      }
+
+      // v4: timetables become named, date-ranged sets.
+      if (from < 4) {
+        await m.createTable(schedules);
+        await m.addColumn(commitments, commitments.scheduleId);
       }
     },
     beforeOpen: (details) async {

@@ -8,7 +8,9 @@ import '../../theme/tokens.dart';
 import '../format.dart';
 import '../surface.dart';
 import '../../data/repository/capacity_repository.dart';
+import '../../state/undo_controller.dart';
 import '../widgets/content_header.dart';
+import '../widgets/field_controls.dart';
 import '../widgets/day_timeline.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
@@ -60,6 +62,8 @@ class CapacityScreen extends ConsumerWidget {
                 ],
                 if (profile != null) _ProfileCard(profile: profile),
                 const SizedBox(height: AppSpace.lg),
+                _ScheduleSets(),
+                const SizedBox(height: AppSpace.lg),
                 _CommitmentsCard(commitments: commitments),
               ],
             ),
@@ -88,8 +92,7 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
     final day = widget.day;
     final profile = ref.watch(capacityProfileProvider).value;
     final settings = CapacityMapping.settings(profile);
-    final commitments = ref.watch(commitmentsProvider).value ?? const [];
-    final (blocks, _) = CapacityMapping.blocks(commitments);
+    final timetable = ref.watch(timetableProvider);
     final planned = ref.watch(scheduleProvider).allocatedOn(day.date);
 
     final over = planned - day.usableMin;
@@ -122,7 +125,7 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
           DayTimeline(
             day: day,
             settings: settings,
-            blocks: blocks,
+            blocks: timetable.blocksOn(day.date),
             allocatedMin: planned,
           ),
 
@@ -226,8 +229,7 @@ class _WeekCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(capacityProfileProvider).value;
     final settings = CapacityMapping.settings(profile);
-    final commitments = ref.watch(commitmentsProvider).value ?? const [];
-    final (blocks, _) = CapacityMapping.blocks(commitments);
+    final timetable = ref.watch(timetableProvider);
     final schedule = ref.watch(scheduleProvider);
 
     return AppSurface(
@@ -270,7 +272,7 @@ class _WeekCard extends ConsumerWidget {
                     child: DayTimeline(
                       day: day,
                       settings: settings,
-                      blocks: blocks,
+                      blocks: timetable.blocksOn(day.date),
                       allocatedMin: schedule.allocatedOn(day.date),
                       showHours: false,
                     ),
@@ -442,25 +444,41 @@ class _CommitmentsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Only the set being edited, so a semester's blocks are never mixed with another's.
+    final editingId = ref.watch(editingScheduleIdProvider);
+    final visible = commitments
+        .where((c) => c.scheduleId == editingId)
+        .toList();
+
+    final name = (ref.watch(schedulesProvider).value ?? const <TimetableSet>[])
+        .where((s) => s.id == editingId)
+        .map((s) => s.name)
+        .firstOrNull;
+
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text('Timetable', style: AppText.caption)),
+              Expanded(
+                child: Text(
+                  name == null ? 'Blocks' : 'Blocks in $name',
+                  style: AppText.caption,
+                ),
+              ),
               _AddCommitmentButton(),
             ],
           ),
           const SizedBox(height: AppSpace.md),
-          if (commitments.isEmpty)
+          if (visible.isEmpty)
             Text(
               'No fixed blocks yet. Add your classes and labs — until then every day '
               'looks completely free, and the load figures will flatter you.',
               style: AppText.callout,
             )
           else
-            for (final c in commitments)
+            for (final c in visible)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                 child: Row(
@@ -564,8 +582,12 @@ class _AddCommitmentButton extends ConsumerWidget {
     );
     if (result == null) return;
 
+    final scheduleId = ref.read(editingScheduleIdProvider);
+    if (scheduleId == null) return;
+
     await scope.capacity.addCommitment(
       workspaceId: scope.workspace.id,
+      scheduleId: scheduleId,
       title: result.title,
       weekdays: result.weekdays,
       startMin: result.startMin,
@@ -773,6 +795,497 @@ class _RejectedRules extends StatelessWidget {
           style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
         ),
       ],
+    ),
+  );
+}
+
+/// Named timetable sets, and the tools to stop rebuilding them by hand.
+///
+/// Each set carries its own dates, so the ledger picks whichever governs a given day.
+/// That is what makes this more than a switch: the horizon runs four weeks out, and on
+/// the last week of a semester a manual switch would still be subtracting classes that
+/// have finished.
+class _ScheduleSets extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sets = ref.watch(schedulesProvider).value ?? const <TimetableSet>[];
+    final active = ref.watch(activeScheduleProvider);
+    final editingId = ref.watch(editingScheduleIdProvider);
+
+    return AppSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('Timetables', style: AppText.caption)),
+              _SmallAction(
+                label: 'New',
+                onTap: () => _edit(context, ref, null),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            active == null
+                ? 'No timetable covers today, so nothing is being subtracted.'
+                : 'In force today: ${active.name}',
+            style: AppText.footnote.copyWith(
+              color: active == null
+                  ? AppColour.orange
+                  : AppColour.labelTertiary,
+            ),
+          ),
+          const SizedBox(height: AppSpace.md),
+
+          for (final set in sets)
+            _ScheduleRow(
+              set: set,
+              editing: set.id == editingId,
+              inForce: active?.id == set.id,
+              onSelect: () =>
+                  ref.read(editingScheduleProvider.notifier).select(set.id),
+              onEdit: () => _edit(context, ref, set),
+              onDuplicate: () => _duplicate(context, ref, set),
+              onDelete: () => _delete(ref, set),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _edit(
+    BuildContext context,
+    WidgetRef ref,
+    TimetableSet? existing,
+  ) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+
+    final result = await showDialog<_ScheduleDraft>(
+      context: context,
+      builder: (context) => _ScheduleDialog(existing: existing),
+    );
+    if (result == null) return;
+
+    if (existing == null) {
+      final created = await scope.capacity.addSchedule(
+        workspaceId: scope.workspace.id,
+        name: result.name,
+        startsOn: result.startsOn,
+        endsOn: result.endsOn,
+      );
+      ref.read(editingScheduleProvider.notifier).select(created.id);
+    } else {
+      await scope.capacity.updateSchedule(
+        existing.id,
+        name: result.name,
+        startsOn: result.startsOn,
+        endsOn: result.endsOn,
+        clearDates: result.startsOn == null && result.endsOn == null,
+      );
+    }
+  }
+
+  /// The time-saver. Next term usually rhymes with this one.
+  Future<void> _duplicate(
+    BuildContext context,
+    WidgetRef ref,
+    TimetableSet source,
+  ) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+
+    final result = await showDialog<_ScheduleDraft>(
+      context: context,
+      builder: (context) => _ScheduleDialog(
+        existing: null,
+        suggestedName: _nextName(source.name),
+        title: 'Duplicate ${source.name}',
+      ),
+    );
+    if (result == null) return;
+
+    final created = await scope.capacity.duplicateSchedule(
+      workspaceId: scope.workspace.id,
+      sourceId: source.id,
+      name: result.name,
+      startsOn: result.startsOn,
+      endsOn: result.endsOn,
+    );
+    ref.read(editingScheduleProvider.notifier).select(created.id);
+  }
+
+  Future<void> _delete(WidgetRef ref, TimetableSet set) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+    await scope.capacity.deleteSchedule(set.id);
+    ref
+        .read(undoProvider.notifier)
+        .offer(
+          'Deleted "${set.name}"',
+          () => scope.capacity.restoreSchedule(set.id),
+        );
+  }
+
+  /// "Sem V" -> "Sem VI" is beyond a regex, but numbers are the common case.
+  static String _nextName(String name) {
+    final match = RegExp(r'(\d+)\s*$').firstMatch(name);
+    if (match == null) return '$name copy';
+    final n = int.parse(match.group(1)!);
+    return name.replaceRange(match.start, match.end, '${n + 1}');
+  }
+}
+
+class _ScheduleRow extends StatefulWidget {
+  const _ScheduleRow({
+    required this.set,
+    required this.editing,
+    required this.inForce,
+    required this.onSelect,
+    required this.onEdit,
+    required this.onDuplicate,
+    required this.onDelete,
+  });
+
+  final TimetableSet set;
+  final bool editing;
+  final bool inForce;
+  final VoidCallback onSelect;
+  final VoidCallback onEdit;
+  final VoidCallback onDuplicate;
+  final VoidCallback onDelete;
+
+  @override
+  State<_ScheduleRow> createState() => _ScheduleRowState();
+}
+
+class _ScheduleRowState extends State<_ScheduleRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final set = widget.set;
+
+    final dates = set.isFallback
+        ? 'Any day no other timetable covers'
+        : (set.startsOn == null && set.endsOn == null)
+        ? 'Every day'
+        : '${set.startsOn ?? '…'}  →  ${set.endsOn ?? '…'}';
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onSelect,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.quick,
+          curve: AppMotion.standard,
+          margin: const EdgeInsets.only(bottom: AppSpace.xs),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.sm,
+          ),
+          decoration: BoxDecoration(
+            color: widget.editing
+                ? AppColour.fillStrong
+                : _hovered
+                ? AppColour.fill
+                : null,
+            borderRadius: AppRadius.mediumAll,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(set.name, style: AppText.headline),
+                        if (widget.inForce) ...[
+                          const SizedBox(width: AppSpace.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpace.sm,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColour.green.withValues(alpha: 0.18),
+                              borderRadius: AppRadius.smallAll,
+                            ),
+                            child: Text(
+                              'in force',
+                              style: AppText.numeric.copyWith(
+                                color: AppColour.green,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(dates, style: AppText.numeric),
+                  ],
+                ),
+              ),
+              AnimatedOpacity(
+                duration: AppMotion.quick,
+                opacity: _hovered || widget.editing ? 1 : 0,
+                child: Row(
+                  children: [
+                    _SmallAction(label: 'Duplicate', onTap: widget.onDuplicate),
+                    _SmallAction(label: 'Edit', onTap: widget.onEdit),
+                    if (!set.isFallback)
+                      _SmallAction(
+                        label: 'Delete',
+                        tint: AppColour.red,
+                        onTap: widget.onDelete,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SmallAction extends StatelessWidget {
+  const _SmallAction({required this.label, required this.onTap, this.tint});
+
+  final String label;
+  final VoidCallback onTap;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.sm,
+          vertical: AppSpace.xs,
+        ),
+        child: Text(
+          label,
+          style: AppText.numeric.copyWith(color: tint ?? AppColour.accent),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ScheduleDraft {
+  const _ScheduleDraft({required this.name, this.startsOn, this.endsOn});
+
+  final String name;
+  final DateTime? startsOn;
+  final DateTime? endsOn;
+}
+
+class _ScheduleDialog extends StatefulWidget {
+  const _ScheduleDialog({
+    required this.existing,
+    this.suggestedName,
+    this.title,
+  });
+
+  final TimetableSet? existing;
+  final String? suggestedName;
+  final String? title;
+
+  @override
+  State<_ScheduleDialog> createState() => _ScheduleDialogState();
+}
+
+class _ScheduleDialogState extends State<_ScheduleDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.suggestedName ?? widget.existing?.name ?? '',
+  );
+  DateTime? _startsOn;
+  DateTime? _endsOn;
+
+  @override
+  void initState() {
+    super.initState();
+    _startsOn = _parse(widget.existing?.startsOn);
+    _endsOn = _parse(widget.existing?.endsOn);
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  static DateTime? _parse(String? iso) =>
+      iso == null || iso.isEmpty ? null : DateTime.tryParse(iso);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColour.elevated,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.largeAll),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.title ??
+                    (widget.existing == null ? 'New timetable' : 'Edit timetable'),
+                style: AppText.title3,
+              ),
+              const SizedBox(height: AppSpace.lg),
+              TextField(
+                controller: _name,
+                autofocus: true,
+                style: AppText.body,
+                cursorColor: AppColour.accent,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColour.fill,
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.mediumAll,
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Sem V',
+                  hintStyle: AppText.body.copyWith(
+                    color: AppColour.labelTertiary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Text('In force between', style: AppText.caption),
+              const SizedBox(height: AppSpace.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DateButton(
+                      label: 'From',
+                      value: _startsOn,
+                      onPick: (d) => setState(() => _startsOn = d),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: _DateButton(
+                      label: 'Until',
+                      value: _endsOn,
+                      onPick: (d) => setState(() => _endsOn = d),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                'Leave both blank for a timetable that always applies. With dates, the '
+                'planner uses it only on the days it covers — so a semester ending does '
+                'not need you to remember anything.',
+                style: AppText.footnote.copyWith(
+                  color: AppColour.labelTertiary,
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GhostButton(
+                    label: 'Cancel',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  PrimaryButton(
+                    label: widget.existing == null ? 'Create' : 'Save',
+                    enabled: _name.text.trim().isNotEmpty,
+                    onTap: () => Navigator.pop(
+                      context,
+                      _ScheduleDraft(
+                        name: _name.text.trim(),
+                        startsOn: _startsOn,
+                        endsOn: _endsOn,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DateButton extends StatelessWidget {
+  const _DateButton({
+    required this.label,
+    required this.value,
+    required this.onPick,
+  });
+
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onPick;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value ?? now,
+          firstDate: DateTime(now.year - 2),
+          lastDate: DateTime(now.year + 6),
+        );
+        if (picked != null) onPick(picked);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.md,
+          vertical: AppSpace.md,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColour.fill,
+          borderRadius: AppRadius.mediumAll,
+        ),
+        child: Row(
+          children: [
+            Text('$label  ', style: AppText.numeric),
+            Expanded(
+              child: Text(
+                value == null ? '—' : Format.shortDate(value!),
+                style: AppText.body.copyWith(
+                  color: value == null
+                      ? AppColour.labelTertiary
+                      : AppColour.label,
+                ),
+              ),
+            ),
+            if (value != null)
+              GestureDetector(
+                onTap: () => onPick(null),
+                child: const Icon(
+                  Icons.close,
+                  size: 14,
+                  color: AppColour.labelTertiary,
+                ),
+              ),
+          ],
+        ),
+      ),
     ),
   );
 }

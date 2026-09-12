@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/capacity/ledger.dart';
 import 'package:glasswork/capacity/recurrence.dart';
+import 'package:glasswork/capacity/timetable.dart';
 
 /// A Wednesday.
 final wed = DateTime(2026, 9, 16);
@@ -136,7 +137,12 @@ void main() {
   });
 
   test('forRange produces consecutive days', () {
-    final days = CapacityLedger.forRange(wed, 5, const CapacitySettings(), []);
+    final days = CapacityLedger.forRange(
+      wed,
+      5,
+      const CapacitySettings(),
+      const Timetable.empty(),
+    );
     expect(days, hasLength(5));
     expect(days.first.date, DateTime(2026, 9, 16));
     expect(days.last.date, DateTime(2026, 9, 20));

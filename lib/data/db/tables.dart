@@ -214,6 +214,10 @@ class CapacityProfiles extends Table with SyncColumns, WorkspaceScoped {
 /// in separate tables is what makes the arithmetic clean — a timetable is not a backlog.
 @TableIndex(name: 'commitment_workspace', columns: {#workspaceId})
 class Commitments extends Table with SyncColumns, WorkspaceScoped {
+  /// Which named set this block belongs to. Null means it predates schedules and is
+  /// treated as belonging to the fallback.
+  TextColumn get scheduleId => text().nullable()();
+
   TextColumn get title => text()();
 
   /// Recurrence. Only `FREQ=WEEKLY` with `BYDAY` is understood today; see
@@ -285,6 +289,29 @@ class ProjectViews extends Table with SyncColumns, WorkspaceScoped {
   /// Field id or built-in key ('list', 'priority', 'due') to group columns by in a
   /// board view.
   TextColumn get groupBy => text().nullable()();
+
+  TextColumn get orderKey => text()();
+}
+
+/// A named, date-ranged set of commitments — one semester's timetable, a placement, a
+/// holiday pattern.
+///
+/// The alternative is one flat list you rebuild by hand every term, which is both a chore
+/// and quietly wrong: the ledger plans four weeks ahead, so in the last week of a
+/// semester it would still be subtracting classes that have finished.
+// 'Schedule' is already the capacity scheduler's output; this is the stored set.
+@DataClassName('TimetableSet')
+@TableIndex(name: 'schedule_workspace', columns: {#workspaceId})
+class Schedules extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get name => text()();
+
+  /// Inclusive bounds as 'YYYY-MM-DD'. Text rather than timestamps for the same reason
+  /// all-day dates are: a semester starts on a date, not at an instant in a timezone.
+  TextColumn get startsOn => text().nullable()();
+  TextColumn get endsOn => text().nullable()();
+
+  /// Applies to any day no dated set covers — the between-terms default.
+  BoolColumn get isFallback => boolean().withDefault(const Constant(false))();
 
   TextColumn get orderKey => text()();
 }

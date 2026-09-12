@@ -7267,6 +7267,17 @@ class $CommitmentsTable extends Commitments
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _scheduleIdMeta = const VerificationMeta(
+    'scheduleId',
+  );
+  @override
+  late final GeneratedColumn<String> scheduleId = GeneratedColumn<String>(
+    'schedule_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -7337,6 +7348,7 @@ class $CommitmentsTable extends Commitments
     clientId,
     fieldVersions,
     workspaceId,
+    scheduleId,
     title,
     rrule,
     startMin,
@@ -7404,6 +7416,12 @@ class $CommitmentsTable extends Commitments
       );
     } else if (isInserting) {
       context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('schedule_id')) {
+      context.handle(
+        _scheduleIdMeta,
+        scheduleId.isAcceptableOrUnknown(data['schedule_id']!, _scheduleIdMeta),
+      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -7483,6 +7501,10 @@ class $CommitmentsTable extends Commitments
         DriftSqlType.string,
         data['${effectivePrefix}workspace_id'],
       )!,
+      scheduleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}schedule_id'],
+      ),
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -7536,6 +7558,10 @@ class Commitment extends DataClass implements Insertable<Commitment> {
   /// JSON map of field name -> hybrid logical clock.
   final String fieldVersions;
   final String workspaceId;
+
+  /// Which named set this block belongs to. Null means it predates schedules and is
+  /// treated as belonging to the fallback.
+  final String? scheduleId;
   final String title;
 
   /// Recurrence. Only `FREQ=WEEKLY` with `BYDAY` is understood today; see
@@ -7555,6 +7581,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
     this.clientId,
     required this.fieldVersions,
     required this.workspaceId,
+    this.scheduleId,
     required this.title,
     required this.rrule,
     required this.startMin,
@@ -7576,6 +7603,9 @@ class Commitment extends DataClass implements Insertable<Commitment> {
     }
     map['field_versions'] = Variable<String>(fieldVersions);
     map['workspace_id'] = Variable<String>(workspaceId);
+    if (!nullToAbsent || scheduleId != null) {
+      map['schedule_id'] = Variable<String>(scheduleId);
+    }
     map['title'] = Variable<String>(title);
     map['rrule'] = Variable<String>(rrule);
     map['start_min'] = Variable<int>(startMin);
@@ -7604,6 +7634,9 @@ class Commitment extends DataClass implements Insertable<Commitment> {
           : Value(clientId),
       fieldVersions: Value(fieldVersions),
       workspaceId: Value(workspaceId),
+      scheduleId: scheduleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scheduleId),
       title: Value(title),
       rrule: Value(rrule),
       startMin: Value(startMin),
@@ -7628,6 +7661,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
       clientId: serializer.fromJson<String?>(json['clientId']),
       fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
       workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      scheduleId: serializer.fromJson<String?>(json['scheduleId']),
       title: serializer.fromJson<String>(json['title']),
       rrule: serializer.fromJson<String>(json['rrule']),
       startMin: serializer.fromJson<int>(json['startMin']),
@@ -7649,6 +7683,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
       'clientId': serializer.toJson<String?>(clientId),
       'fieldVersions': serializer.toJson<String>(fieldVersions),
       'workspaceId': serializer.toJson<String>(workspaceId),
+      'scheduleId': serializer.toJson<String?>(scheduleId),
       'title': serializer.toJson<String>(title),
       'rrule': serializer.toJson<String>(rrule),
       'startMin': serializer.toJson<int>(startMin),
@@ -7668,6 +7703,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
     Value<String?> clientId = const Value.absent(),
     String? fieldVersions,
     String? workspaceId,
+    Value<String?> scheduleId = const Value.absent(),
     String? title,
     String? rrule,
     int? startMin,
@@ -7682,6 +7718,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
     clientId: clientId.present ? clientId.value : this.clientId,
     fieldVersions: fieldVersions ?? this.fieldVersions,
     workspaceId: workspaceId ?? this.workspaceId,
+    scheduleId: scheduleId.present ? scheduleId.value : this.scheduleId,
     title: title ?? this.title,
     rrule: rrule ?? this.rrule,
     startMin: startMin ?? this.startMin,
@@ -7702,6 +7739,9 @@ class Commitment extends DataClass implements Insertable<Commitment> {
       workspaceId: data.workspaceId.present
           ? data.workspaceId.value
           : this.workspaceId,
+      scheduleId: data.scheduleId.present
+          ? data.scheduleId.value
+          : this.scheduleId,
       title: data.title.present ? data.title.value : this.title,
       rrule: data.rrule.present ? data.rrule.value : this.rrule,
       startMin: data.startMin.present ? data.startMin.value : this.startMin,
@@ -7723,6 +7763,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
           ..write('clientId: $clientId, ')
           ..write('fieldVersions: $fieldVersions, ')
           ..write('workspaceId: $workspaceId, ')
+          ..write('scheduleId: $scheduleId, ')
           ..write('title: $title, ')
           ..write('rrule: $rrule, ')
           ..write('startMin: $startMin, ')
@@ -7742,6 +7783,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
     clientId,
     fieldVersions,
     workspaceId,
+    scheduleId,
     title,
     rrule,
     startMin,
@@ -7760,6 +7802,7 @@ class Commitment extends DataClass implements Insertable<Commitment> {
           other.clientId == this.clientId &&
           other.fieldVersions == this.fieldVersions &&
           other.workspaceId == this.workspaceId &&
+          other.scheduleId == this.scheduleId &&
           other.title == this.title &&
           other.rrule == this.rrule &&
           other.startMin == this.startMin &&
@@ -7776,6 +7819,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
   final Value<String?> clientId;
   final Value<String> fieldVersions;
   final Value<String> workspaceId;
+  final Value<String?> scheduleId;
   final Value<String> title;
   final Value<String> rrule;
   final Value<int> startMin;
@@ -7791,6 +7835,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
     this.clientId = const Value.absent(),
     this.fieldVersions = const Value.absent(),
     this.workspaceId = const Value.absent(),
+    this.scheduleId = const Value.absent(),
     this.title = const Value.absent(),
     this.rrule = const Value.absent(),
     this.startMin = const Value.absent(),
@@ -7807,6 +7852,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
     this.clientId = const Value.absent(),
     this.fieldVersions = const Value.absent(),
     required String workspaceId,
+    this.scheduleId = const Value.absent(),
     required String title,
     required String rrule,
     required int startMin,
@@ -7828,6 +7874,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
     Expression<String>? clientId,
     Expression<String>? fieldVersions,
     Expression<String>? workspaceId,
+    Expression<String>? scheduleId,
     Expression<String>? title,
     Expression<String>? rrule,
     Expression<int>? startMin,
@@ -7844,6 +7891,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
       if (clientId != null) 'client_id': clientId,
       if (fieldVersions != null) 'field_versions': fieldVersions,
       if (workspaceId != null) 'workspace_id': workspaceId,
+      if (scheduleId != null) 'schedule_id': scheduleId,
       if (title != null) 'title': title,
       if (rrule != null) 'rrule': rrule,
       if (startMin != null) 'start_min': startMin,
@@ -7862,6 +7910,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
     Value<String?>? clientId,
     Value<String>? fieldVersions,
     Value<String>? workspaceId,
+    Value<String?>? scheduleId,
     Value<String>? title,
     Value<String>? rrule,
     Value<int>? startMin,
@@ -7878,6 +7927,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
       clientId: clientId ?? this.clientId,
       fieldVersions: fieldVersions ?? this.fieldVersions,
       workspaceId: workspaceId ?? this.workspaceId,
+      scheduleId: scheduleId ?? this.scheduleId,
       title: title ?? this.title,
       rrule: rrule ?? this.rrule,
       startMin: startMin ?? this.startMin,
@@ -7911,6 +7961,9 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
     }
     if (workspaceId.present) {
       map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (scheduleId.present) {
+      map['schedule_id'] = Variable<String>(scheduleId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -7948,6 +8001,7 @@ class CommitmentsCompanion extends UpdateCompanion<Commitment> {
           ..write('clientId: $clientId, ')
           ..write('fieldVersions: $fieldVersions, ')
           ..write('workspaceId: $workspaceId, ')
+          ..write('scheduleId: $scheduleId, ')
           ..write('title: $title, ')
           ..write('rrule: $rrule, ')
           ..write('startMin: $startMin, ')
@@ -10143,6 +10197,729 @@ class ProjectViewsCompanion extends UpdateCompanion<ProjectView> {
   }
 }
 
+class $SchedulesTable extends Schedules
+    with TableInfo<$SchedulesTable, TimetableSet> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SchedulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startsOnMeta = const VerificationMeta(
+    'startsOn',
+  );
+  @override
+  late final GeneratedColumn<String> startsOn = GeneratedColumn<String>(
+    'starts_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _endsOnMeta = const VerificationMeta('endsOn');
+  @override
+  late final GeneratedColumn<String> endsOn = GeneratedColumn<String>(
+    'ends_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isFallbackMeta = const VerificationMeta(
+    'isFallback',
+  );
+  @override
+  late final GeneratedColumn<bool> isFallback = GeneratedColumn<bool>(
+    'is_fallback',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_fallback" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _orderKeyMeta = const VerificationMeta(
+    'orderKey',
+  );
+  @override
+  late final GeneratedColumn<String> orderKey = GeneratedColumn<String>(
+    'order_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    name,
+    startsOn,
+    endsOn,
+    isFallback,
+    orderKey,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'schedules';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TimetableSet> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('starts_on')) {
+      context.handle(
+        _startsOnMeta,
+        startsOn.isAcceptableOrUnknown(data['starts_on']!, _startsOnMeta),
+      );
+    }
+    if (data.containsKey('ends_on')) {
+      context.handle(
+        _endsOnMeta,
+        endsOn.isAcceptableOrUnknown(data['ends_on']!, _endsOnMeta),
+      );
+    }
+    if (data.containsKey('is_fallback')) {
+      context.handle(
+        _isFallbackMeta,
+        isFallback.isAcceptableOrUnknown(data['is_fallback']!, _isFallbackMeta),
+      );
+    }
+    if (data.containsKey('order_key')) {
+      context.handle(
+        _orderKeyMeta,
+        orderKey.isAcceptableOrUnknown(data['order_key']!, _orderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TimetableSet map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TimetableSet(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      startsOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}starts_on'],
+      ),
+      endsOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ends_on'],
+      ),
+      isFallback: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_fallback'],
+      )!,
+      orderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_key'],
+      )!,
+    );
+  }
+
+  @override
+  $SchedulesTable createAlias(String alias) {
+    return $SchedulesTable(attachedDatabase, alias);
+  }
+}
+
+class TimetableSet extends DataClass implements Insertable<TimetableSet> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String name;
+
+  /// Inclusive bounds as 'YYYY-MM-DD'. Text rather than timestamps for the same reason
+  /// all-day dates are: a semester starts on a date, not at an instant in a timezone.
+  final String? startsOn;
+  final String? endsOn;
+
+  /// Applies to any day no dated set covers — the between-terms default.
+  final bool isFallback;
+  final String orderKey;
+  const TimetableSet({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.name,
+    this.startsOn,
+    this.endsOn,
+    required this.isFallback,
+    required this.orderKey,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || startsOn != null) {
+      map['starts_on'] = Variable<String>(startsOn);
+    }
+    if (!nullToAbsent || endsOn != null) {
+      map['ends_on'] = Variable<String>(endsOn);
+    }
+    map['is_fallback'] = Variable<bool>(isFallback);
+    map['order_key'] = Variable<String>(orderKey);
+    return map;
+  }
+
+  SchedulesCompanion toCompanion(bool nullToAbsent) {
+    return SchedulesCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      name: Value(name),
+      startsOn: startsOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startsOn),
+      endsOn: endsOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endsOn),
+      isFallback: Value(isFallback),
+      orderKey: Value(orderKey),
+    );
+  }
+
+  factory TimetableSet.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TimetableSet(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      name: serializer.fromJson<String>(json['name']),
+      startsOn: serializer.fromJson<String?>(json['startsOn']),
+      endsOn: serializer.fromJson<String?>(json['endsOn']),
+      isFallback: serializer.fromJson<bool>(json['isFallback']),
+      orderKey: serializer.fromJson<String>(json['orderKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'name': serializer.toJson<String>(name),
+      'startsOn': serializer.toJson<String?>(startsOn),
+      'endsOn': serializer.toJson<String?>(endsOn),
+      'isFallback': serializer.toJson<bool>(isFallback),
+      'orderKey': serializer.toJson<String>(orderKey),
+    };
+  }
+
+  TimetableSet copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? name,
+    Value<String?> startsOn = const Value.absent(),
+    Value<String?> endsOn = const Value.absent(),
+    bool? isFallback,
+    String? orderKey,
+  }) => TimetableSet(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    name: name ?? this.name,
+    startsOn: startsOn.present ? startsOn.value : this.startsOn,
+    endsOn: endsOn.present ? endsOn.value : this.endsOn,
+    isFallback: isFallback ?? this.isFallback,
+    orderKey: orderKey ?? this.orderKey,
+  );
+  TimetableSet copyWithCompanion(SchedulesCompanion data) {
+    return TimetableSet(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      name: data.name.present ? data.name.value : this.name,
+      startsOn: data.startsOn.present ? data.startsOn.value : this.startsOn,
+      endsOn: data.endsOn.present ? data.endsOn.value : this.endsOn,
+      isFallback: data.isFallback.present
+          ? data.isFallback.value
+          : this.isFallback,
+      orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TimetableSet(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('name: $name, ')
+          ..write('startsOn: $startsOn, ')
+          ..write('endsOn: $endsOn, ')
+          ..write('isFallback: $isFallback, ')
+          ..write('orderKey: $orderKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    name,
+    startsOn,
+    endsOn,
+    isFallback,
+    orderKey,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TimetableSet &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.name == this.name &&
+          other.startsOn == this.startsOn &&
+          other.endsOn == this.endsOn &&
+          other.isFallback == this.isFallback &&
+          other.orderKey == this.orderKey);
+}
+
+class SchedulesCompanion extends UpdateCompanion<TimetableSet> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> name;
+  final Value<String?> startsOn;
+  final Value<String?> endsOn;
+  final Value<bool> isFallback;
+  final Value<String> orderKey;
+  final Value<int> rowid;
+  const SchedulesCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.startsOn = const Value.absent(),
+    this.endsOn = const Value.absent(),
+    this.isFallback = const Value.absent(),
+    this.orderKey = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SchedulesCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String name,
+    this.startsOn = const Value.absent(),
+    this.endsOn = const Value.absent(),
+    this.isFallback = const Value.absent(),
+    required String orderKey,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       name = Value(name),
+       orderKey = Value(orderKey);
+  static Insertable<TimetableSet> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? name,
+    Expression<String>? startsOn,
+    Expression<String>? endsOn,
+    Expression<bool>? isFallback,
+    Expression<String>? orderKey,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (name != null) 'name': name,
+      if (startsOn != null) 'starts_on': startsOn,
+      if (endsOn != null) 'ends_on': endsOn,
+      if (isFallback != null) 'is_fallback': isFallback,
+      if (orderKey != null) 'order_key': orderKey,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SchedulesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? name,
+    Value<String?>? startsOn,
+    Value<String?>? endsOn,
+    Value<bool>? isFallback,
+    Value<String>? orderKey,
+    Value<int>? rowid,
+  }) {
+    return SchedulesCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      name: name ?? this.name,
+      startsOn: startsOn ?? this.startsOn,
+      endsOn: endsOn ?? this.endsOn,
+      isFallback: isFallback ?? this.isFallback,
+      orderKey: orderKey ?? this.orderKey,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (startsOn.present) {
+      map['starts_on'] = Variable<String>(startsOn.value);
+    }
+    if (endsOn.present) {
+      map['ends_on'] = Variable<String>(endsOn.value);
+    }
+    if (isFallback.present) {
+      map['is_fallback'] = Variable<bool>(isFallback.value);
+    }
+    if (orderKey.present) {
+      map['order_key'] = Variable<String>(orderKey.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SchedulesCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('name: $name, ')
+          ..write('startsOn: $startsOn, ')
+          ..write('endsOn: $endsOn, ')
+          ..write('isFallback: $isFallback, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10163,6 +10940,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FieldDefsTable fieldDefs = $FieldDefsTable(this);
   late final $FieldValuesTable fieldValues = $FieldValuesTable(this);
   late final $ProjectViewsTable projectViews = $ProjectViewsTable(this);
+  late final $SchedulesTable schedules = $SchedulesTable(this);
   late final Index boardWorkspace = Index(
     'board_workspace',
     'CREATE INDEX board_workspace ON boards (workspace_id)',
@@ -10211,6 +10989,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'projectview_board',
     'CREATE INDEX projectview_board ON project_views (board_id)',
   );
+  late final Index scheduleWorkspace = Index(
+    'schedule_workspace',
+    'CREATE INDEX schedule_workspace ON schedules (workspace_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10231,6 +11013,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fieldDefs,
     fieldValues,
     projectViews,
+    schedules,
     boardWorkspace,
     listBoard,
     taskListOrder,
@@ -10243,6 +11026,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fieldvalueTask,
     fieldvalueField,
     projectviewBoard,
+    scheduleWorkspace,
   ];
 }
 
@@ -14995,6 +15779,7 @@ typedef $$CommitmentsTableCreateCompanionBuilder =
       Value<String?> clientId,
       Value<String> fieldVersions,
       required String workspaceId,
+      Value<String?> scheduleId,
       required String title,
       required String rrule,
       required int startMin,
@@ -15012,6 +15797,7 @@ typedef $$CommitmentsTableUpdateCompanionBuilder =
       Value<String?> clientId,
       Value<String> fieldVersions,
       Value<String> workspaceId,
+      Value<String?> scheduleId,
       Value<String> title,
       Value<String> rrule,
       Value<int> startMin,
@@ -15062,6 +15848,11 @@ class $$CommitmentsTableFilterComposer
 
   ColumnFilters<String> get workspaceId => $composableBuilder(
     column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scheduleId => $composableBuilder(
+    column: $table.scheduleId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15141,6 +15932,11 @@ class $$CommitmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get scheduleId => $composableBuilder(
+    column: $table.scheduleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -15206,6 +16002,11 @@ class $$CommitmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get scheduleId => $composableBuilder(
+    column: $table.scheduleId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
 
@@ -15265,6 +16066,7 @@ class $$CommitmentsTableTableManager
                 Value<String?> clientId = const Value.absent(),
                 Value<String> fieldVersions = const Value.absent(),
                 Value<String> workspaceId = const Value.absent(),
+                Value<String?> scheduleId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> rrule = const Value.absent(),
                 Value<int> startMin = const Value.absent(),
@@ -15280,6 +16082,7 @@ class $$CommitmentsTableTableManager
                 clientId: clientId,
                 fieldVersions: fieldVersions,
                 workspaceId: workspaceId,
+                scheduleId: scheduleId,
                 title: title,
                 rrule: rrule,
                 startMin: startMin,
@@ -15297,6 +16100,7 @@ class $$CommitmentsTableTableManager
                 Value<String?> clientId = const Value.absent(),
                 Value<String> fieldVersions = const Value.absent(),
                 required String workspaceId,
+                Value<String?> scheduleId = const Value.absent(),
                 required String title,
                 required String rrule,
                 required int startMin,
@@ -15312,6 +16116,7 @@ class $$CommitmentsTableTableManager
                 clientId: clientId,
                 fieldVersions: fieldVersions,
                 workspaceId: workspaceId,
+                scheduleId: scheduleId,
                 title: title,
                 rrule: rrule,
                 startMin: startMin,
@@ -16888,6 +17693,352 @@ typedef $$ProjectViewsTableProcessedTableManager =
       ProjectView,
       PrefetchHooks Function({bool boardId})
     >;
+typedef $$SchedulesTableCreateCompanionBuilder = SchedulesCompanion Function({
+  required String id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  required String workspaceId,
+  required String name,
+  Value<String?> startsOn,
+  Value<String?> endsOn,
+  Value<bool> isFallback,
+  required String orderKey,
+  Value<int> rowid,
+});
+typedef $$SchedulesTableUpdateCompanionBuilder = SchedulesCompanion Function({
+  Value<String> id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  Value<String> workspaceId,
+  Value<String> name,
+  Value<String?> startsOn,
+  Value<String?> endsOn,
+  Value<bool> isFallback,
+  Value<String> orderKey,
+  Value<int> rowid,
+});
+
+class $$SchedulesTableFilterComposer
+    extends Composer<_$AppDatabase, $SchedulesTable> {
+  $$SchedulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startsOn => $composableBuilder(
+    column: $table.startsOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get endsOn => $composableBuilder(
+    column: $table.endsOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFallback => $composableBuilder(
+    column: $table.isFallback,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SchedulesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SchedulesTable> {
+  $$SchedulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startsOn => $composableBuilder(
+    column: $table.startsOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get endsOn => $composableBuilder(
+    column: $table.endsOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFallback => $composableBuilder(
+    column: $table.isFallback,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SchedulesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SchedulesTable> {
+  $$SchedulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get startsOn =>
+      $composableBuilder(column: $table.startsOn, builder: (column) => column);
+
+  GeneratedColumn<String> get endsOn =>
+      $composableBuilder(column: $table.endsOn, builder: (column) => column);
+
+  GeneratedColumn<bool> get isFallback => $composableBuilder(
+    column: $table.isFallback,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get orderKey =>
+      $composableBuilder(column: $table.orderKey, builder: (column) => column);
+}
+
+class $$SchedulesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SchedulesTable,
+          TimetableSet,
+          $$SchedulesTableFilterComposer,
+          $$SchedulesTableOrderingComposer,
+          $$SchedulesTableAnnotationComposer,
+          $$SchedulesTableCreateCompanionBuilder,
+          $$SchedulesTableUpdateCompanionBuilder,
+          (
+            TimetableSet,
+            BaseReferences<_$AppDatabase, $SchedulesTable, TimetableSet>,
+          ),
+          TimetableSet,
+          PrefetchHooks Function()
+        > {
+  $$SchedulesTableTableManager(_$AppDatabase db, $SchedulesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SchedulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SchedulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SchedulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> startsOn = const Value.absent(),
+                Value<String?> endsOn = const Value.absent(),
+                Value<bool> isFallback = const Value.absent(),
+                Value<String> orderKey = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SchedulesCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                name: name,
+                startsOn: startsOn,
+                endsOn: endsOn,
+                isFallback: isFallback,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String name,
+                Value<String?> startsOn = const Value.absent(),
+                Value<String?> endsOn = const Value.absent(),
+                Value<bool> isFallback = const Value.absent(),
+                required String orderKey,
+                Value<int> rowid = const Value.absent(),
+              }) => SchedulesCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                name: name,
+                startsOn: startsOn,
+                endsOn: endsOn,
+                isFallback: isFallback,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SchedulesTable, TimetableSet>(table),
+                  BaseReferences<_$AppDatabase, $SchedulesTable, TimetableSet>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SchedulesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SchedulesTable,
+      TimetableSet,
+      $$SchedulesTableFilterComposer,
+      $$SchedulesTableOrderingComposer,
+      $$SchedulesTableAnnotationComposer,
+      $$SchedulesTableCreateCompanionBuilder,
+      $$SchedulesTableUpdateCompanionBuilder,
+      (
+        TimetableSet,
+        BaseReferences<_$AppDatabase, $SchedulesTable, TimetableSet>,
+      ),
+      TimetableSet,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16922,4 +18073,6 @@ class $AppDatabaseManager {
       $$FieldValuesTableTableManager(_db, _db.fieldValues);
   $$ProjectViewsTableTableManager get projectViews =>
       $$ProjectViewsTableTableManager(_db, _db.projectViews);
+  $$SchedulesTableTableManager get schedules =>
+      $$SchedulesTableTableManager(_db, _db.schedules);
 }
