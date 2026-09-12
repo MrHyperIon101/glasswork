@@ -24,18 +24,72 @@ class AppShell extends ConsumerWidget {
     final scope = ref.watch(appScopeProvider);
 
     return scope.when(
-      loading: () => const SizedBox.shrink(),
-      error: (e, _) => Center(
+      // Not an empty box. A blank window is indistinguishable from a crash, and that is
+      // exactly how a missing migration hid itself once already.
+      loading: () => const _Status(
+        icon: Icons.hourglass_empty,
+        title: 'Opening your data',
+        detail: 'This should take a moment.',
+      ),
+      error: (e, stack) => _Status(
+        icon: Icons.error_outline,
+        tint: AppColour.red,
+        title: "The local database didn't open",
+        detail: '$e',
+        selectable: true,
+      ),
+      data: (_) => const _Shell(),
+    );
+  }
+}
+
+/// Whole-screen state, used when there is nothing else to show. Always says something —
+/// silence is the one thing it must never do.
+class _Status extends StatelessWidget {
+  const _Status({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    this.tint = AppColour.labelTertiary,
+    this.selectable = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final Color tint;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.xxxl),
-          child: Text(
-            "The local database didn't open.\n\n$e",
-            style: AppText.body,
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 28, color: tint),
+              const SizedBox(height: AppSpace.lg),
+              Text(title, style: AppText.title3, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpace.sm),
+              if (selectable)
+                SelectableText(
+                  detail,
+                  style: AppText.footnote,
+                  textAlign: TextAlign.center,
+                )
+              else
+                Text(
+                  detail,
+                  style: AppText.footnote,
+                  textAlign: TextAlign.center,
+                ),
+            ],
           ),
         ),
       ),
-      data: (_) => const _Shell(),
     );
   }
 }

@@ -125,6 +125,25 @@ void main() {
     expect(ordered.map((t) => t.id), ['t1', 't2', 't3', 't4']);
   });
 
+  test('every declared table actually exists after opening', () async {
+    // The failure this guards against is silent: adding a table without bumping
+    // schemaVersion leaves an existing database without it, and nothing complains until
+    // the app queries it at launch on a machine that already had data.
+    for (final table in db.allTables) {
+      final name = table.actualTableName;
+      await expectLater(
+        db.customSelect('SELECT 1 FROM "$name" LIMIT 1').get(),
+        completes,
+        reason: '$name is declared but was never created',
+      );
+    }
+  });
+
+  test('schemaVersion is ahead of the last migration step', () {
+    // A reminder in test form: bump this whenever tables change.
+    expect(db.schemaVersion, greaterThanOrEqualTo(2));
+  });
+
   test('foreign keys are enforced', () async {
     await expectLater(
       db.into(db.tasks).insert(
