@@ -50,7 +50,11 @@ class ContentHeader extends ConsumerWidget {
         ),
         const SizedBox(width: AppSpace.lg),
         if (trailing case final t?) ...[t, const SizedBox(width: AppSpace.md)],
-        const SizedBox(width: 220, child: SearchField()),
+        const SizedBox(
+          width: 220,
+          height: AppSize.control,
+          child: SearchField(),
+        ),
         if (showNewTask) ...[
           const SizedBox(width: AppSpace.md),
           const NewTaskButton(),
@@ -112,9 +116,9 @@ class _SearchFieldState extends ConsumerState<SearchField> {
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: AppSpace.sm,
-                  ),
+                  // Vertically centred in the fixed-height box rather than adding its
+                  // own padding, which is what made it shorter than the buttons.
+                  contentPadding: EdgeInsets.zero,
                   hintText: 'Search',
                   hintStyle: AppText.callout.copyWith(
                     color: AppColour.labelTertiary,
@@ -193,10 +197,8 @@ class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
         child: AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
-          ),
+          height: AppSize.control,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
           decoration: BoxDecoration(
             color: _hovered
                 ? AppColour.accent

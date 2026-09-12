@@ -11,9 +11,12 @@ import '../format.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/board_view.dart';
+import '../widgets/calendar_view.dart';
 import '../widgets/content_header.dart';
+import '../widgets/confirm_dialog.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/task_row.dart';
+import '../widgets/timeline_view.dart';
 
 /// One project: its own dashboard, its own views, its own sections.
 ///
@@ -74,7 +77,12 @@ class ProjectScreen extends ConsumerWidget {
           Expanded(
             child: switch (view) {
               BoardView.board => BoardKanban(projectId: projectId),
-              _ => _SectionedList(projectId: projectId, tasks: tasks),
+              BoardView.calendar => CalendarView(projectId: projectId),
+              BoardView.timeline => TimelineView(projectId: projectId),
+              BoardView.list => _SectionedList(
+                projectId: projectId,
+                tasks: tasks,
+              ),
             },
           ),
         ],
@@ -269,10 +277,12 @@ class _SettingsButtonState extends ConsumerState<_SettingsButton> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: AppMotion.quick,
-        padding: const EdgeInsets.all(AppSpace.sm),
+        width: AppSize.control,
+        height: AppSize.control,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: _hovered ? AppColour.fill : null,
-          borderRadius: AppRadius.smallAll,
+          borderRadius: AppRadius.mediumAll,
         ),
         child: const Icon(
           Icons.tune,
@@ -293,11 +303,14 @@ class _ViewSwitcher extends ConsumerWidget {
   static const _options = [
     (BoardView.board, Icons.view_kanban_outlined, 'Board'),
     (BoardView.list, Icons.format_list_bulleted, 'List'),
+    (BoardView.calendar, Icons.calendar_month_outlined, 'Calendar'),
+    (BoardView.timeline, Icons.timeline, 'Timeline'),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
+      height: AppSize.control,
       padding: const EdgeInsets.all(2),
       decoration: const BoxDecoration(
         color: AppColour.fill,
@@ -308,19 +321,24 @@ class _ViewSwitcher extends ConsumerWidget {
         children: [
           for (final (view, icon, label) in _options)
             GestureDetector(
-              onTap: () => ref
-                  .read(projectViewModeProvider.notifier)
-                  .set(projectId, view),
+              onTap: () {
+                ref.read(projectViewModeProvider.notifier).set(projectId, view);
+                // Persisted, so a project opens the way you last left it rather
+                // than resetting every launch.
+                ref
+                    .read(appScopeProvider)
+                    .value
+                    ?.projects
+                    .updateProject(projectId, viewDefault: view);
+              },
               behavior: HitTestBehavior.opaque,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: AnimatedContainer(
                   duration: AppMotion.quick,
                   curve: AppMotion.standard,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpace.md,
-                    vertical: 6,
-                  ),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
                   decoration: BoxDecoration(
                     color: view == current ? AppColour.elevated : null,
                     borderRadius: AppRadius.smallAll,
@@ -375,25 +393,9 @@ class _SectionedList extends ConsumerWidget {
       child: ListView(
         children: [
           for (final section in sections) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.md,
-                AppSpace.md,
-                AppSpace.md,
-                AppSpace.xs,
-              ),
-              child: Row(
-                children: [
-                  Text(section.name.toUpperCase(), style: AppText.caption),
-                  const SizedBox(width: AppSpace.sm),
-                  Text(
-                    '${tasks.where((t) => t.listId == section.id).length}',
-                    style: AppText.numeric.copyWith(
-                      color: AppColour.labelQuaternary,
-                    ),
-                  ),
-                ],
-              ),
+            _SectionHeader(
+              section: section,
+              count: tasks.where((t) => t.listId == section.id).length,
             ),
             for (final task in tasks.where((t) => t.listId == section.id))
               FadeSlideIn(
@@ -433,8 +435,202 @@ class _SectionedList extends ConsumerWidget {
                 ),
               ),
           ],
+
+          // Sections were only addable from the board. The same project cannot have
+          // different capabilities depending on which view you happen to be in.
+          _AddSectionRow(projectId: projectId),
         ],
       ),
     );
   }
+}
+
+/// A section heading with its own controls, so the list view is not a read-only
+/// rendering of a board.
+class _SectionHeader extends ConsumerStatefulWidget {
+  const _SectionHeader({required this.section, required this.count});
+
+  final BoardList section;
+  final int count;
+
+  @override
+  ConsumerState<_SectionHeader> createState() => _SectionHeaderState();
+}
+
+class _SectionHeaderState extends ConsumerState<_SectionHeader> {
+  bool _hovered = false;
+  bool _renaming = false;
+  TextEditingController? _name;
+
+  @override
+  void dispose() {
+    _name?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
+    final scope = ref.watch(appScopeProvider).value;
+    final sections =
+        ref.watch(sectionsProvider(section.boardId)).value ?? const [];
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.md,
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.xs,
+        ),
+        child: Row(
+          children: [
+            if (_renaming)
+              Expanded(
+                child: TextField(
+                  controller: _name ??= TextEditingController(
+                    text: section.name,
+                  ),
+                  autofocus: true,
+                  style: AppText.caption.copyWith(color: AppColour.label),
+                  cursorColor: AppColour.accent,
+                  onSubmitted: (v) {
+                    if (v.trim().isNotEmpty) {
+                      scope?.projects.renameSection(section.id, v.trim());
+                    }
+                    setState(() => _renaming = false);
+                  },
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              )
+            else ...[
+              Text(section.name.toUpperCase(), style: AppText.caption),
+              const SizedBox(width: AppSpace.sm),
+              Text(
+                '${widget.count}',
+                style: AppText.numeric.copyWith(
+                  color: AppColour.labelQuaternary,
+                ),
+              ),
+              const Spacer(),
+              AnimatedOpacity(
+                duration: AppMotion.quick,
+                opacity: _hovered ? 1 : 0,
+                child: Row(
+                  children: [
+                    _TinyAction(
+                      label: 'Rename',
+                      onTap: () => setState(() => _renaming = true),
+                    ),
+                    if (sections.length > 1)
+                      _TinyAction(
+                        label: 'Delete',
+                        tint: AppColour.red,
+                        onTap: () => _delete(section, sections),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _delete(BoardList section, List<BoardList> siblings) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+
+    final count = await scope.projects.taskCountIn(section.id);
+    if (!mounted) return;
+
+    final ok = await confirm(
+      context,
+      title: 'Delete "${section.name}"?',
+      detail: count == 0
+          ? 'It has no tasks in it.'
+          : '$count ${count == 1 ? 'task moves' : 'tasks move'} to the first '
+                'remaining section. Nothing is lost.',
+      confirmLabel: 'Delete section',
+    );
+    if (!ok) return;
+
+    final moved = await scope.projects.deleteSection(section.id);
+    if (!moved) return;
+    ref
+        .read(undoProvider.notifier)
+        .offer(
+          'Deleted "${section.name}"',
+          () => scope.projects.restoreSection(section.id),
+        );
+  }
+}
+
+class _AddSectionRow extends ConsumerWidget {
+  const _AddSectionRow({required this.projectId});
+
+  final String projectId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.lg),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () async {
+            final scope = ref.read(appScopeProvider).value;
+            if (scope == null) return;
+            await scope.projects.addSection(
+              workspaceId: scope.workspace.id,
+              boardId: projectId,
+              name: 'New section',
+            );
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.md),
+            child: Row(
+              children: [
+                const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),
+                const SizedBox(width: AppSpace.sm),
+                Text('Add section', style: AppText.footnote),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TinyAction extends StatelessWidget {
+  const _TinyAction({required this.label, required this.onTap, this.tint});
+
+  final String label;
+  final VoidCallback onTap;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+        child: Text(
+          label,
+          style: AppText.numeric.copyWith(color: tint ?? AppColour.accent),
+        ),
+      ),
+    ),
+  );
 }

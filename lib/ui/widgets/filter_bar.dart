@@ -144,10 +144,9 @@ class _FilterToggleState extends State<_FilterToggle> {
         child: AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm - 1,
-          ),
+          height: AppSize.control,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
           decoration: BoxDecoration(
             color: active
                 ? AppColour.accent.withValues(alpha: 0.18)
