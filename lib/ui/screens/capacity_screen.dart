@@ -40,6 +40,7 @@ class CapacityScreen extends ConsumerWidget {
             title: 'Capacity',
             subtitle: 'What the day actually has room for',
             onMenu: onMenu,
+            showNewTask: false,
           ),
           const SizedBox(height: AppSpace.xl),
           Expanded(
