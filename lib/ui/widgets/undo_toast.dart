@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
-import '../glass/glass_surface.dart';
+import '../surface.dart';
 
 /// Shows the pending undo, if there is one.
 ///
@@ -32,8 +32,11 @@ class UndoToast extends ConsumerWidget {
       ),
       child: offer == null
           ? const SizedBox.shrink()
-          : GlassSurface.onBackdrop(
+          : AppSurface(
               key: ValueKey(offer),
+              colour: AppColour.elevated,
+              radius: AppRadius.round,
+              border: true,
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpace.xl,
                 vertical: AppSpace.md,
@@ -41,17 +44,14 @@ class UndoToast extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(offer.label, style: AppText.body),
+                  Text(offer.label, style: AppText.callout.copyWith(color: AppColour.label)),
                   const SizedBox(width: AppSpace.xl),
                   GestureDetector(
                     onTap: () => ref.read(undoProvider.notifier).undo(),
                     behavior: HitTestBehavior.opaque,
                     child: Text(
                       'Undo',
-                      style: AppText.body.copyWith(
-                        color: AppColour.accent,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppText.headline.copyWith(color: AppColour.accent),
                     ),
                   ),
                 ],

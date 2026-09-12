@@ -2,59 +2,87 @@ import 'package:flutter/widgets.dart';
 
 /// Design tokens. Every colour, radius, space and duration in the app comes from here —
 /// no literal hex and no magic padding in widget files.
+///
+/// The palette is Apple's dark-mode system palette rather than an invented one. Using the
+/// real values is most of what makes an interface read as native: people have seen
+/// #0A84FF and #FF453A ten thousand times, and an approximation of them reads as *almost*
+/// right, which is worse than not trying at all.
 
+/// Surfaces get lighter as they rise. Apple's dark mode builds depth from layered greys,
+/// not from shadow — shadow barely reads on a dark ground.
 abstract final class AppColour {
-  /// Root background, under the mesh backdrop.
-  static const base = Color(0xFF07080C);
+  /// Window background. Deliberately not pure black: #000 makes every border and shadow
+  /// invisible and the whole interface read as a void.
+  static const base = Color(0xFF1C1C1E);
 
-  // Backdrop blobs. Kept in sync with shaders/mesh_common.glsl by hand; if you change one,
-  // change both. They are duplicated because the shader cannot read Dart constants.
-  static const meshViolet = Color(0xFF2A1B5E);
-  static const meshTeal = Color(0xFF0B4F6C);
-  static const meshPlum = Color(0xFF6B2D5C);
+  /// Cards and grouped content sitting on [base].
+  static const surface = Color(0xFF2C2C2E);
 
-  static const accent = Color(0xFF7C8CFF);
-  static const text = Color(0xFFECEDF2);
-  static const textDim = Color(0xFF8B90A3);
+  /// Popovers, sheets, menus — anything floating above a card.
+  static const elevated = Color(0xFF3A3A3C);
 
-  static const overdue = Color(0xFFFF6B81);
-  static const soon = Color(0xFFFFB86B);
-  static const done = Color(0xFF5BD6A0);
+  /// Hover and pressed states on an otherwise flat surface.
+  static const fill = Color(0x1FFFFFFF);
+  static const fillStrong = Color(0x2EFFFFFF);
+
+  /// Hairlines. Apple's separators are barely there by design; if you can clearly see
+  /// one, it is too strong.
+  static const separator = Color(0x26FFFFFF);
+
+  // Text. Apple layers label opacity rather than picking different greys, so text keeps
+  // its relationship to whatever surface it happens to sit on.
+  static const label = Color(0xFFFFFFFF);
+  static const labelSecondary = Color(0x99EBEBF5);
+  static const labelTertiary = Color(0x4DEBEBF5);
+  static const labelQuaternary = Color(0x2EEBEBF5);
+
+  // System accents, dark variants.
+  static const accent = Color(0xFF0A84FF);
+  static const red = Color(0xFFFF453A);
+  static const orange = Color(0xFFFF9F0A);
+  static const yellow = Color(0xFFFFD60A);
+  static const green = Color(0xFF30D158);
+  static const purple = Color(0xFFBF5AF2);
+  static const grey = Color(0xFF8E8E93);
+
+  // Semantic aliases. Screens use these, never the raw colour, so "overdue" can change
+  // hue in exactly one place.
+  static const overdue = red;
+  static const soon = orange;
+  static const done = green;
 }
 
-/// Two radii only. Surfaces get [surface], controls get [control]. Nothing in between —
-/// a mix of arbitrary radii is what makes glass UIs look cheap.
+/// Corner radii.
+///
+/// This replaces the earlier "two radii only" rule. That rule existed to stop arbitrary
+/// mixing in a glass aesthetic; Apple uses a considered scale instead, and matching it
+/// matters more than the simpler constraint. The discipline is that these are the only
+/// values, each with a fixed job.
 abstract final class AppRadius {
-  static const surface = Radius.circular(20);
-  static const control = Radius.circular(999);
+  /// Inline chips, tags, small inputs.
+  static const small = 8.0;
 
-  static const surfaceAll = BorderRadius.all(surface);
-  static const controlAll = BorderRadius.all(control);
+  /// Buttons, fields, list-row selection.
+  static const medium = 12.0;
 
-  /// Same two values as doubles, for the shader uniform and for widgets that need a
-  /// number rather than a [Radius].
-  static const surfaceValue = 20.0;
-  static const controlValue = 999.0;
+  /// Cards and panels.
+  static const large = 20.0;
+
+  /// Sheets and outer window chrome.
+  static const xlarge = 28.0;
+
+  /// Pills and circles only — avatars, toggles, badges.
+  static const round = 999.0;
+
+  static const smallAll = BorderRadius.all(Radius.circular(small));
+  static const mediumAll = BorderRadius.all(Radius.circular(medium));
+  static const largeAll = BorderRadius.all(Radius.circular(large));
+  static const xlargeAll = BorderRadius.all(Radius.circular(xlarge));
+  static const roundAll = BorderRadius.all(Radius.circular(round));
 }
 
-/// Glass material constants. Shared by the shader path and the flat fallback so the
-/// three quality levels stay recognisably the same material.
-abstract final class AppGlass {
-  /// Tinted solid used by [GlassQuality.flat].
-  static const flatFill = Color(0x1AFFFFFF);
-
-  /// 1px inner stroke — rgba(255,255,255,0.18).
-  static const edge = Color(0x2EFFFFFF);
-
-  /// Backdrop blur for surfaces that genuinely overlap content.
-  static const blurSigma = 18.0;
-
-  /// No more than this many glass surfaces on screen at once. It is fill-rate expensive
-  /// and the whole effect collapses if the app drops frames.
-  static const maxOnScreen = 4;
-}
-
-/// 4px base scale.
+/// 4pt grid, 8pt preferred. Apple's layouts are mostly multiples of 8, with 4 as the
+/// half-step for tight vertical rhythm.
 abstract final class AppSpace {
   static const xs = 4.0;
   static const sm = 8.0;
@@ -66,76 +94,155 @@ abstract final class AppSpace {
   static const huge = 48.0;
 }
 
-/// One family for UI, one for anything numeric.
+/// Inter, standing in for SF Pro.
 ///
-/// The font files are not bundled yet — until Geist is added to pubspec.yaml under
-/// `fonts:`, these names fall back to the platform default. See README for the download
-/// step; Geist is MIT-licensed.
+/// SF Pro is licensed for Apple-platform apps only and cannot legally ship in a Linux or
+/// Android build. Inter was drawn with SF-adjacent metrics and is the honest substitute.
 abstract final class AppFont {
-  static const ui = 'Geist';
-  static const mono = 'GeistMono';
+  static const ui = 'Inter';
 }
 
-/// Scale from the design system: 32 / 24 / 18 / 15 / 13 / 11.
+/// Type scale, close to iOS with the display sizes tightened slightly for desktop
+/// density.
 ///
-/// Anything numeric — dates, counts, durations, keyboard hints — uses [numeric], which
-/// carries tabular figures so due-date columns do not shimmer as they re-render.
+/// Weight carries hierarchy more than size does, which is very characteristic of Apple:
+/// two adjacent levels often differ by a point or two of size but a clear step of weight.
 abstract final class AppText {
-  static const _bodyHeight = 1.45;
+  static const _f = AppFont.ui;
 
-  static const display = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 32,
+  static const largeTitle = TextStyle(
+    fontFamily: _f,
+    fontSize: 30,
     height: 1.2,
-    color: AppColour.text,
-  );
-  static const title = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 24,
-    height: 1.25,
-    color: AppColour.text,
-  );
-  static const heading = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 18,
-    height: 1.3,
-    color: AppColour.text,
-  );
-  static const body = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 15,
-    height: _bodyHeight,
-    color: AppColour.text,
-  );
-  static const small = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 13,
-    height: _bodyHeight,
-    color: AppColour.textDim,
-  );
-  static const tiny = TextStyle(
-    fontFamily: AppFont.ui,
-    fontSize: 11,
-    height: _bodyHeight,
-    color: AppColour.textDim,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.6,
+    fontVariations: [FontVariation('wght', 700)],
+    color: AppColour.label,
   );
 
-  /// Tabular figures. Use for every number the user reads.
-  static const numeric = TextStyle(
-    fontFamily: AppFont.mono,
+  static const title = TextStyle(
+    fontFamily: _f,
+    fontSize: 22,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.4,
+    fontVariations: [FontVariation('wght', 600)],
+    color: AppColour.label,
+  );
+
+  static const title3 = TextStyle(
+    fontFamily: _f,
+    fontSize: 17,
+    height: 1.3,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    fontVariations: [FontVariation('wght', 600)],
+    color: AppColour.label,
+  );
+
+  /// Emphasised body — row titles, button labels.
+  static const headline = TextStyle(
+    fontFamily: _f,
+    fontSize: 15,
+    height: 1.35,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.1,
+    fontVariations: [FontVariation('wght', 600)],
+    color: AppColour.label,
+  );
+
+  static const body = TextStyle(
+    fontFamily: _f,
+    fontSize: 15,
+    height: 1.4,
+    fontVariations: [FontVariation('wght', 400)],
+    color: AppColour.label,
+  );
+
+  static const callout = TextStyle(
+    fontFamily: _f,
     fontSize: 13,
-    height: _bodyHeight,
-    color: AppColour.textDim,
+    height: 1.4,
+    fontVariations: [FontVariation('wght', 400)],
+    color: AppColour.labelSecondary,
+  );
+
+  static const footnote = TextStyle(
+    fontFamily: _f,
+    fontSize: 12,
+    height: 1.35,
+    fontVariations: [FontVariation('wght', 400)],
+    color: AppColour.labelSecondary,
+  );
+
+  /// Section headers above grouped content. Sentence case, never caps.
+  static const caption = TextStyle(
+    fontFamily: _f,
+    fontSize: 11,
+    height: 1.3,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.1,
+    fontVariations: [FontVariation('wght', 500)],
+    color: AppColour.labelTertiary,
+  );
+
+  /// Big dashboard figures. Tabular so a live update never makes the layout shimmer.
+  static const metric = TextStyle(
+    fontFamily: _f,
+    fontSize: 40,
+    height: 1.05,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -1.4,
+    fontVariations: [FontVariation('wght', 700)],
+    color: AppColour.label,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  static const metricSmall = TextStyle(
+    fontFamily: _f,
+    fontSize: 26,
+    height: 1.1,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.8,
+    fontVariations: [FontVariation('wght', 700)],
+    color: AppColour.label,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Numbers in running text — dates, counts, durations.
+  static const numeric = TextStyle(
+    fontFamily: _f,
+    fontSize: 12,
+    height: 1.35,
+    fontWeight: FontWeight.w500,
+    fontVariations: [FontVariation('wght', 500)],
+    color: AppColour.labelSecondary,
     fontFeatures: [FontFeature.tabularFigures()],
   );
 }
 
-/// Motion answers actions. Spring physics, not curves.
+/// Motion.
+///
+/// Apple's interface springs are quick and settle rather than bounce. Anything that
+/// visibly oscillates reads as a toy.
 abstract final class AppMotion {
-  /// The house spring. Reach for this before writing a new one.
-  static const spring = SpringDescription(mass: 1, stiffness: 180, damping: 22);
+  static const spring = SpringDescription(mass: 1, stiffness: 220, damping: 30);
 
-  /// For the few places a duration is unavoidable (cross-fades, undo toasts).
-  static const quick = Duration(milliseconds: 140);
+  static const quick = Duration(milliseconds: 160);
+  static const medium = Duration(milliseconds: 260);
+
+  static const standard = Cubic(0.2, 0, 0, 1);
+
   static const undoWindow = Duration(seconds: 5);
+}
+
+/// Vibrancy — the one place translucency is used.
+abstract final class AppMaterial {
+  /// macOS sidebar material is a heavy blur with a tint, not a light frost.
+  static const sidebarBlur = 30.0;
+  static const sheetBlur = 40.0;
+
+  /// Tint over the blur, so content behind never resolves into recognisable shapes.
+  static const sidebarTint = Color(0xCC1C1C1E);
+  static const sheetTint = Color(0xE62C2C2E);
 }

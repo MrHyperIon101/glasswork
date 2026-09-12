@@ -37,6 +37,18 @@ class TaskRepository {
     return q.watch();
   }
 
+  /// Every live task in the workspace, across all lists. Feeds the smart views and the
+  /// Today dashboard.
+  Stream<List<Task>> watchAll(String workspaceId) {
+    final q = _db.select(_db.tasks)
+      ..where((t) => t.workspaceId.equals(workspaceId) & t.deletedAt.isNull())
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.orderKey),
+        (t) => OrderingTerm(expression: t.clientId),
+      ]);
+    return q.watch();
+  }
+
   Stream<Task?> watchTask(String id) {
     final q = _db.select(_db.tasks)..where((t) => t.id.equals(id));
     return q.watchSingleOrNull();

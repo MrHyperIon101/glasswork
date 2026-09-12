@@ -43,7 +43,7 @@ abstract final class Format {
       }
       return DueInfo(
         label: '${_dayWord(days, day)} · $time',
-        colour: days == 0 ? AppColour.soon : AppColour.textDim,
+        colour: days == 0 ? AppColour.soon : AppColour.labelSecondary,
       );
     }
 
@@ -57,7 +57,7 @@ abstract final class Format {
       }
       return DueInfo(
         label: _dayWord(days, day),
-        colour: days == 0 ? AppColour.soon : AppColour.textDim,
+        colour: days == 0 ? AppColour.soon : AppColour.labelSecondary,
       );
     }
 

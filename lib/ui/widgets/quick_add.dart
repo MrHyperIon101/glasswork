@@ -53,7 +53,7 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
     if (parsed.title.isEmpty) return;
 
     final scope = ref.read(appScopeProvider).value;
-    final listId = ref.read(activeListIdProvider);
+    final listId = ref.read(captureListIdProvider);
     if (scope == null || listId == null) return;
 
     _controller.clear();
@@ -88,16 +88,16 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
                 if (parsed!.title.isNotEmpty)
                   Text(
                     '→ ${parsed.title}',
-                    style: AppText.small.copyWith(color: AppColour.text),
+                    style: AppText.callout.copyWith(color: AppColour.label),
                   ),
               ],
             ),
           ),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: AppGlass.flatFill,
-            borderRadius: AppRadius.controlAll,
-            border: Border.all(color: AppGlass.edge),
+            color: AppColour.fill,
+            borderRadius: AppRadius.mediumAll,
+            border: Border.all(color: AppColour.separator),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
@@ -127,7 +127,7 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
                       vertical: AppSpace.md,
                     ),
                     hintText: 'Add a task — try "lab report tmrw 5pm !high"',
-                    hintStyle: AppText.body.copyWith(color: AppColour.textDim),
+                    hintStyle: AppText.body.copyWith(color: AppColour.labelTertiary),
                   ),
                 ),
               ),
@@ -151,10 +151,10 @@ class _ParseChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colour = switch (span.kind) {
-      ParseKind.due => AppColour.soon,
-      ParseKind.priority => AppColour.overdue,
+      ParseKind.due => AppColour.orange,
+      ParseKind.priority => AppColour.red,
       ParseKind.label => AppColour.accent,
-      ParseKind.estimate => AppColour.done,
+      ParseKind.estimate => AppColour.green,
     };
 
     return Container(
@@ -163,8 +163,8 @@ class _ParseChip extends StatelessWidget {
         vertical: AppSpace.xs,
       ),
       decoration: BoxDecoration(
-        color: AppGlass.flatFill,
-        borderRadius: AppRadius.controlAll,
+        color: AppColour.fill,
+        borderRadius: AppRadius.mediumAll,
         border: Border.all(color: colour.withValues(alpha: 0.5)),
       ),
       child: Text(

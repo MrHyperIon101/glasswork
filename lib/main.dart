@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_config.dart';
 import 'dev/frame_stats.dart';
 import 'theme/tokens.dart';
-import 'ui/backdrop/mesh_backdrop.dart';
-import 'ui/screens/home_screen.dart';
+import 'ui/screens/app_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,12 +24,13 @@ class GlassworkApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColour.base,
         fontFamily: AppFont.ui,
+        // The app draws its own surfaces; Material's defaults would fight the palette.
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
       ),
-      home: const MeshBackdrop(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(child: HomeScreen()),
-        ),
+      home: const Scaffold(
+        backgroundColor: AppColour.base,
+        body: SafeArea(child: AppShell()),
       ),
     );
   }

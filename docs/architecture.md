@@ -36,33 +36,35 @@ dashboard. RLS is enabled on every table in the same migration that creates it.
 
 ---
 
-## Glass
+## Materials and surfaces
 
-Both v1 targets run Impeller, so `ui.ImageFilter.shader` (live backdrop sampling) *is* available —
-verified at runtime via `ui.ImageFilter.isShaderFilterSupported`. We still don't use it as the primary
-path, for cost rather than compatibility: every one of those costs a backdrop capture.
+The design language is **Apple's, dark**. The palette in `theme/tokens.dart` is Apple's real
+dark-mode system palette, not an approximation of it — people have seen `#0A84FF` ten thousand
+times, and an *almost* right version of it reads as wrong in a way nobody can name.
 
-Instead the backdrop is a **procedural mesh gradient**, and the glass shader evaluates that same
-gradient function at the refracted UV rather than sampling a captured texture. Measured at raster p50
-0.6ms for four surfaces at 1920x1116 — about 4% of a 60fps budget.
+Depth comes from **layered greys**, not shadow. `base` → `surface` → `elevated`; a lighter
+surface reads as nearer. Shadow barely registers on a dark ground and mostly looks like grime.
 
-The rule that follows:
+Two primitives, and reach for the first one:
 
-> **Glass on the backdrop uses the cheap procedural path. Glass over content uses the capture path,
-> and there should be very few of those on screen at once.**
+- `AppSurface` — an opaque card. The default. Almost everything is this.
+- `VibrancyMaterial` — blurred translucency, as macOS does a sidebar or a sheet. **The only
+  `BackdropFilter` in the app.** Each one forces the compositor to capture and blur what is
+  behind it, so it is reserved for surfaces that genuinely float above scrolling content. A
+  card in a grid is not one of those.
 
-Hence two modes, and they are not interchangeable:
+Rows are never vibrancy. A list has dozens of them; hover fill gives the depth instead.
 
-- `GlassSurface.onBackdrop` — procedural refraction. The common case: cards, panels, sidebar.
-- `GlassSurface.overContent` — real `BackdropFilter` blur plus the same edge treatment. Only for
-  sheets and modals that genuinely overlap a list.
+### What replaced the glass shader
 
-`GlassQuality.{full, blurOnly, flat}` degrades gracefully. `flat` is a tinted solid and **must still
-look deliberate** — it is a supported appearance, not a broken one.
+An earlier version used a procedural mesh gradient with a refraction shader. It was retired
+when the design moved to Apple's language: Apple's materials are a **blur of real content**,
+not a refraction of a decorative gradient, and against a calm neutral ground there is nothing
+worth refracting. The shader is in git history if it is ever wanted.
 
-Cap at ~4 simultaneous glass surfaces on screen.
-
----
+That change also retired the "two radii only" rule. Apple uses a considered radius scale
+instead, and matching it matters more than the simpler constraint — see `AppRadius`. The
+discipline is that those are the only values and each has a fixed job.
 
 ## Sync (phase 4 — read this before writing any of it)
 
@@ -135,6 +137,8 @@ All-day tasks store a `due_date` (date), **not** a timestamp. A timestamp for an
   entire value of the feature, and untested arithmetic is a confident liar.
 - Runs on Linux **and** a physical Android device. The emulator lies about fill rate; don't accept it
   as evidence for anything performance-related.
+- Numbers shown in the UI come from a tested pure function, never from arithmetic inline in a
+  widget. A dashboard figure nobody can trace is worse than no figure.
 - Nothing is called done on a claim. Every gate is a command run or a screenshot taken.
 
 ---
@@ -142,4 +146,4 @@ All-day tasks store a `due_date` (date), **not** a timestamp. A timestamp for an
 ## Out of scope for v1
 
 Web target. Teams and multi-user sharing (the schema allows it; the UI does not ship it). iOS, macOS,
-Windows. Attachments. Light mode.
+Windows. Attachments. Light mode (the palette is structured for it, but it is not built).
