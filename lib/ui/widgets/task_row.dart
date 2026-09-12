@@ -8,6 +8,7 @@ import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../motion.dart';
+import 'task_chips.dart';
 
 /// One task in a list.
 ///
@@ -40,7 +41,8 @@ class _TaskRowState extends ConsumerState<TaskRow> {
     final task = widget.task;
     final done = task.status == TaskStatus.done;
     final due = Format.due(task, DateTime.now());
-    final hasMeta = due != null || task.estimateMin != null;
+    final hasLabels = ref.watch(labelsForTaskProvider(task.id)).isNotEmpty;
+    final hasMeta = due != null || task.estimateMin != null || hasLabels;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -83,6 +85,9 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
+                          // Dots rather than names: a row already carries a due date and
+                          // an estimate, and four label names would push the title out.
+                          TaskLabelChips(taskId: task.id, dense: true),
                           if (due != null)
                             Text(
                               due.label,
