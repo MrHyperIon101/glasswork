@@ -1,4 +1,5 @@
 import 'recurrence.dart';
+import 'timetable.dart';
 
 /// The capacity ledger: how much of each day is actually yours.
 ///
@@ -112,6 +113,9 @@ class DayCapacity {
 
 abstract final class CapacityLedger {
   /// Capacity for a single day.
+  ///
+  /// [blocks] are the commitments already known to apply to this date. Callers with
+  /// multiple timetables should use [forRange], which resolves the right set per day.
   static DayCapacity forDay(
     DateTime date,
     CapacitySettings settings,
@@ -186,16 +190,24 @@ abstract final class CapacityLedger {
   }
 
   /// Capacity for a run of consecutive days starting at [from].
+  ///
+  /// Resolves the governing timetable per day rather than once for the range. This is
+  /// the point of dated timetables: a horizon that crosses a semester boundary gets the
+  /// right classes on each side of it, instead of being confidently wrong after the
+  /// changeover.
   static List<DayCapacity> forRange(
     DateTime from,
     int days,
     CapacitySettings settings,
-    List<FixedBlock> blocks,
+    Timetable timetable,
   ) {
     final start = DateTime(from.year, from.month, from.day);
     return [
       for (var i = 0; i < days; i++)
-        forDay(start.add(Duration(days: i)), settings, blocks),
+        () {
+          final day = start.add(Duration(days: i));
+          return forDay(day, settings, timetable.blocksOn(day));
+        }(),
     ];
   }
 }

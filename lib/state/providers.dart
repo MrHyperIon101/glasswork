@@ -4,6 +4,7 @@ import '../data/db/database.dart';
 import '../data/db/tables.dart';
 import '../capacity/ledger.dart';
 import '../capacity/scheduler.dart';
+import '../capacity/timetable.dart' as tt;
 import '../data/repository/capacity_repository.dart';
 import '../data/repository/label_repository.dart';
 import '../data/repository/project_repository.dart';
@@ -53,6 +54,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
 
   final capacityRepo = CapacityRepository(db, clientId: clientId);
   await capacityRepo.ensureProfile(workspace.id);
+  await capacityRepo.ensureFallbackSchedule(workspace.id);
 
   return AppScope(
     db: db,
@@ -323,24 +325,41 @@ final commitmentsProvider = StreamProvider<List<Commitment>>((ref) async* {
   yield* scope.capacity.watchCommitments(scope.workspace.id);
 });
 
+/// Named timetable sets — one per semester, placement, or holiday pattern.
+final schedulesProvider = StreamProvider<List<TimetableSet>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.capacity.watchSchedules(scope.workspace.id);
+});
+
+/// The day-resolving timetable. Which set applies can change partway through the
+/// horizon, which is exactly why this exists rather than one flat block list.
+final timetableProvider = Provider<tt.Timetable>((ref) {
+  final sets = ref.watch(schedulesProvider).value ?? const <TimetableSet>[];
+  final commitments = ref.watch(commitmentsProvider).value ?? const [];
+  return CapacityMapping.timetable(sets, commitments);
+});
+
+/// The set governing today, for the UI to name.
+final activeScheduleProvider = Provider<tt.ScheduleWindow?>((ref) {
+  return ref.watch(timetableProvider).windowFor(DateTime.now());
+});
+
 /// Per-day capacity across the horizon. Pure derivation from profile + timetable.
 final dayCapacityProvider = Provider<List<DayCapacity>>((ref) {
   final profile = ref.watch(capacityProfileProvider).value;
-  final commitments = ref.watch(commitmentsProvider).value ?? const [];
-  final (blocks, _) = CapacityMapping.blocks(commitments);
 
   return CapacityLedger.forRange(
     DateTime.now(),
     capacityHorizonDays,
     CapacityMapping.settings(profile),
-    blocks,
+    ref.watch(timetableProvider),
   );
 });
 
 /// Commitments whose recurrence could not be read. Surfaced rather than swallowed.
 final rejectedCommitmentsProvider = Provider<List<String>>((ref) {
   final commitments = ref.watch(commitmentsProvider).value ?? const [];
-  final (_, rejected) = CapacityMapping.blocks(commitments);
+  final (_, rejected) = CapacityMapping.blocksOf(commitments);
   return rejected;
 });
 
@@ -557,4 +576,28 @@ final filteredProjectTasksProvider = Provider<List<Task>>((ref) {
     }
     return true;
   }).toList();
+});
+
+/// Which timetable set the Time budget screen is editing.
+///
+/// Defaults to whichever governs today, so you land on the one in force rather than
+/// having to find it.
+class EditingSchedule extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? id) => state = id;
+}
+
+final editingScheduleProvider =
+    NotifierProvider<EditingSchedule, String?>(EditingSchedule.new);
+
+final editingScheduleIdProvider = Provider<String?>((ref) {
+  final chosen = ref.watch(editingScheduleProvider);
+  if (chosen != null) return chosen;
+  final active = ref.watch(activeScheduleProvider);
+  if (active != null) return active.id;
+  return (ref.watch(schedulesProvider).value ?? const <TimetableSet>[])
+      .firstOrNull
+      ?.id;
 });
