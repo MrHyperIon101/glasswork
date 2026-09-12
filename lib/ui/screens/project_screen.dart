@@ -12,6 +12,7 @@ import '../motion.dart';
 import '../surface.dart';
 import '../widgets/board_view.dart';
 import '../widgets/content_header.dart';
+import '../widgets/filter_bar.dart';
 import '../widgets/task_row.dart';
 
 /// One project: its own dashboard, its own views, its own sections.
@@ -28,7 +29,7 @@ class ProjectScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final project = ref.watch(currentProjectProvider);
-    final tasks = ref.watch(visibleTasksProvider);
+    final tasks = ref.watch(filteredProjectTasksProvider);
     final sections = ref.watch(sectionsProvider(projectId)).value ?? const [];
 
     final view =
@@ -67,6 +68,8 @@ class ProjectScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpace.lg),
           _ProjectPulse(projectId: projectId, tasks: tasks),
+          const SizedBox(height: AppSpace.lg),
+          const FilterBar(),
           const SizedBox(height: AppSpace.lg),
           Expanded(
             child: switch (view) {

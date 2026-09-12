@@ -7,6 +7,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import 'task_chips.dart';
 
 /// Kanban board for a project.
 ///
@@ -22,7 +23,7 @@ class BoardKanban extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sections = ref.watch(sectionsProvider(projectId)).value ?? const [];
-    final tasks = ref.watch(visibleTasksProvider);
+    final tasks = ref.watch(filteredProjectTasksProvider);
 
     if (sections.isEmpty) {
       return Center(
@@ -369,6 +370,28 @@ class _CardBodyState extends ConsumerState<_CardBody> {
                     ),
                   ],
                 ],
+              ),
+              // Labels and the project's inline fields, above the timing row: they say
+              // what kind of work this is, which is what you scan a board for.
+              Builder(
+                builder: (context) {
+                  final projectId = ref.watch(currentProjectIdProvider);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (ref
+                          .watch(labelsForTaskProvider(task.id))
+                          .isNotEmpty) ...[
+                        const SizedBox(height: AppSpace.sm),
+                        TaskLabelChips(taskId: task.id),
+                      ],
+                      if (projectId != null) ...[
+                        const SizedBox(height: AppSpace.xs),
+                        InlineFieldChips(task: task, projectId: projectId),
+                      ],
+                    ],
+                  );
+                },
               ),
               if (due != null ||
                   task.estimateMin != null ||
