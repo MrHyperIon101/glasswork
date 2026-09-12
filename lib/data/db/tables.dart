@@ -157,10 +157,18 @@ class Outbox extends Table {
   TextColumn get targetTable => text()();
   TextColumn get rowId => text()();
 
-  /// JSON object of changed field name -> new value.
+  /// JSON array of the dirty column names, e.g. `["priority","title"]`.
+  ///
+  /// Names, not values. Values are read from the row at push time together with their
+  /// real per-field clocks in `field_versions`, which is what lets repeated edits to one
+  /// row coalesce into a single entry without misstating when each field was written.
+  /// See `SyncWriter`.
   TextColumn get changedFields => text()();
 
-  /// Hybrid logical clock at the time of the edit, as 'wallMs:counter:clientId'.
+  /// The newest clock that touched this entry, as an encoded `Hlc`.
+  ///
+  /// Replaced on every coalesce. A push removes an entry only if this is unchanged since
+  /// it read it, so an edit landing mid-push is never lost.
   TextColumn get hlc => text()();
 
   DateTimeColumn get queuedAt => dateTime().withDefault(currentDateAndTime)();
