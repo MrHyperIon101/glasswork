@@ -7,6 +7,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../motion.dart';
 
 /// One task in a list.
 ///
@@ -163,7 +164,9 @@ class _CheckboxState extends State<_Checkbox> {
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: AnimatedContainer(
+          child: CheckPop(
+            done: widget.done,
+            child: AnimatedContainer(
             duration: AppMotion.quick,
             curve: AppMotion.standard,
             width: 19,
@@ -183,6 +186,7 @@ class _CheckboxState extends State<_Checkbox> {
             child: widget.done
                 ? const Icon(Icons.check, size: 12, color: AppColour.base)
                 : null,
+            ),
           ),
         ),
       ),

@@ -9,7 +9,6 @@ import '../../theme/tokens.dart';
 import '../format.dart';
 import '../surface.dart';
 import '../widgets/content_header.dart';
-import '../widgets/quick_add.dart';
 import '../widgets/task_row.dart';
 import '../widgets/week_load_strip.dart';
 
@@ -53,8 +52,6 @@ class TodayScreen extends ConsumerWidget {
             const SizedBox(height: AppSpace.lg),
             const WeekLoadStrip(),
           ],
-          const SizedBox(height: AppSpace.lg),
-          const QuickAdd(),
         ],
       ),
     );

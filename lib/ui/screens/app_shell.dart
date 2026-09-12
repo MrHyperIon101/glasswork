@@ -7,6 +7,8 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../surface.dart';
+import '../motion.dart';
+import '../widgets/task_composer.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
 import 'capacity_screen.dart';
@@ -114,9 +116,9 @@ class _ShellState extends ConsumerState<_Shell> {
         return CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.keyN, control: true): () =>
-                ref.read(captureFocusProvider.notifier).request(),
+                ref.read(composerOpenProvider.notifier).open(),
             const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
-                ref.read(captureFocusProvider.notifier).request(),
+                ref.read(composerOpenProvider.notifier).open(),
           },
           child: Focus(
             autofocus: true,
@@ -163,6 +165,7 @@ class _ShellState extends ConsumerState<_Shell> {
             ],
 
             const Positioned.fill(child: TaskDetailSheet()),
+            const Positioned.fill(child: TaskComposer()),
 
             const Positioned(
               left: 0,
@@ -414,12 +417,22 @@ class _Content extends ConsumerWidget {
     final destination = ref.watch(destinationProvider);
     final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
 
-    if (!searching) {
-      if (destination is TodayDestination) return TodayScreen(onMenu: onMenu);
-      if (destination is CapacityDestination) {
-        return CapacityScreen(onMenu: onMenu);
-      }
+    final Widget screen;
+    if (!searching && destination is TodayDestination) {
+      screen = TodayScreen(onMenu: onMenu);
+    } else if (!searching && destination is CapacityDestination) {
+      screen = CapacityScreen(onMenu: onMenu);
+    } else {
+      screen = ListScreen(onMenu: onMenu);
     }
-    return ListScreen(onMenu: onMenu);
+
+    // Keyed so the switcher treats a change of destination as a new screen, not a
+    // rebuild of the same one.
+    return ScreenSwitcher(
+      child: KeyedSubtree(
+        key: ValueKey(searching ? 'search' : destination.runtimeType),
+        child: screen,
+      ),
+    );
   }
 }
