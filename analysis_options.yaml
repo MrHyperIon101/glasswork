@@ -1,0 +1,15 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - linux/**
+
+linter:
+  rules:
+    # Render objects keep private backing fields with public constructor parameters so
+    # they can expose setters that call markNeedsPaint(). Satisfying this rule would force
+    # `_RenderGlass(_shader: ...)` at call sites. The Flutter framework's own render
+    # objects use the pattern this rule objects to.
+    prefer_initializing_formals: false
