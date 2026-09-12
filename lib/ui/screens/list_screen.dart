@@ -53,7 +53,12 @@ class ListScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ContentHeader(title: title, subtitle: subtitle, onMenu: onMenu),
+          ContentHeader(
+            title: title,
+            subtitle: subtitle,
+            onMenu: onMenu,
+            showNewTask: destination is! DoneDestination,
+          ),
           const SizedBox(height: AppSpace.xl),
           Expanded(
             child: AppSurface(
@@ -172,6 +177,59 @@ class _Rows extends ConsumerWidget {
   }
 }
 
+/// An empty list should hand you the action, not describe it.
+class _AddFirstButton extends ConsumerStatefulWidget {
+  const _AddFirstButton();
+
+  @override
+  ConsumerState<_AddFirstButton> createState() => _AddFirstButtonState();
+}
+
+class _AddFirstButtonState extends ConsumerState<_AddFirstButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => ref.read(captureFocusProvider.notifier).request(),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.quick,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.lg,
+            vertical: AppSpace.sm,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered ? AppColour.accent : AppColour.fill,
+            borderRadius: AppRadius.mediumAll,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.add,
+                size: 15,
+                color: _hovered ? Colors.white : AppColour.accent,
+              ),
+              const SizedBox(width: AppSpace.xs),
+              Text(
+                'Add your first task',
+                style: AppText.headline.copyWith(
+                  color: _hovered ? Colors.white : AppColour.accent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Empty states say what to do next, never "Nothing here yet".
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.query, required this.title});
@@ -206,10 +264,14 @@ class _EmptyState extends StatelessWidget {
             Text(
               searching
                   ? 'Try a shorter word, or check another list.'
-                  : 'Type below — dates and flags are read as you go.',
+                  : 'Dates, priorities and estimates are read as you type.',
               style: AppText.footnote,
               textAlign: TextAlign.center,
             ),
+            if (!searching) ...[
+              const SizedBox(height: AppSpace.xl),
+              const _AddFirstButton(),
+            ],
           ],
         ),
       ),

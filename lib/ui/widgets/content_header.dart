@@ -11,6 +11,7 @@ class ContentHeader extends ConsumerWidget {
     this.subtitle,
     this.onMenu,
     this.trailing,
+    this.showNewTask = true,
     super.key,
   });
 
@@ -21,6 +22,9 @@ class ContentHeader extends ConsumerWidget {
   final VoidCallback? onMenu;
 
   final Widget? trailing;
+
+  /// False on screens with no composer to focus — Done and Capacity.
+  final bool showNewTask;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,7 +50,11 @@ class ContentHeader extends ConsumerWidget {
         ),
         const SizedBox(width: AppSpace.lg),
         if (trailing case final t?) ...[t, const SizedBox(width: AppSpace.md)],
-        const SizedBox(width: 240, child: SearchField()),
+        const SizedBox(width: 220, child: SearchField()),
+        if (showNewTask) ...[
+          const SizedBox(width: AppSpace.md),
+          const NewTaskButton(),
+        ],
       ],
     );
   }
@@ -151,6 +159,61 @@ class _IconButtonState extends State<_IconButton> {
             borderRadius: AppRadius.smallAll,
           ),
           child: Icon(widget.icon, size: 18, color: AppColour.labelSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+/// The primary action, filled and in the corner the eye already goes to.
+///
+/// This is the only filled accent button in the app. An inline field at the foot of a
+/// panel is easy to read as a status bar rather than an input, so the obvious affordance
+/// lives up here and the composer below is where the typing happens — the button just
+/// puts the cursor there.
+class NewTaskButton extends ConsumerStatefulWidget {
+  const NewTaskButton({super.key});
+
+  @override
+  ConsumerState<NewTaskButton> createState() => _NewTaskButtonState();
+}
+
+class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => ref.read(captureFocusProvider.notifier).request(),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.quick,
+          curve: AppMotion.standard,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.sm,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? AppColour.accent
+                : AppColour.accent.withValues(alpha: 0.9),
+            borderRadius: AppRadius.mediumAll,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add, size: 16, color: Colors.white),
+              const SizedBox(width: AppSpace.xs),
+              Text(
+                'New task',
+                style: AppText.headline.copyWith(color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );

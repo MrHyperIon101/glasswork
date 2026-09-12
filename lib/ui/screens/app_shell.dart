@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
@@ -110,7 +111,16 @@ class _ShellState extends ConsumerState<_Shell> {
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= _sidebarBreakpoint;
 
-        return Stack(
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.keyN, control: true): () =>
+                ref.read(captureFocusProvider.notifier).request(),
+            const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
+                ref.read(captureFocusProvider.notifier).request(),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Stack(
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,6 +171,8 @@ class _ShellState extends ConsumerState<_Shell> {
               child: Center(child: UndoToast()),
             ),
           ],
+            ),
+          ),
         );
       },
     );

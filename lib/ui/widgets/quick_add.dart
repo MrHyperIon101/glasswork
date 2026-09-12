@@ -121,6 +121,8 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(captureFocusProvider, (_, _) => _focus.requestFocus());
+
     final parsed = _parsed;
     final chips = parsed?.spans ?? const [];
 
@@ -155,44 +157,93 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
               ],
             ),
           ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColour.fill,
-            borderRadius: AppRadius.mediumAll,
-            border: Border.all(color: AppColour.separator),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
-            child: Shortcuts(
-              shortcuts: const {
-                SingleActivator(LogicalKeyboardKey.escape): _ClearIntent(),
-              },
-              child: Actions(
-                actions: {
-                  _ClearIntent: CallbackAction<_ClearIntent>(
-                    onInvoke: (_) {
-                      _controller.clear();
-                      return null;
-                    },
-                  ),
-                },
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focus,
-                  onSubmitted: (_) => _submit(),
-                  style: AppText.body,
-                  cursorColor: AppColour.accent,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: AppSpace.md,
-                    ),
-                    hintText: 'Add a task — try "lab report tmrw 5pm !high"',
-                    hintStyle: AppText.body.copyWith(color: AppColour.labelTertiary),
-                  ),
+        AnimatedBuilder(
+          animation: _focus,
+          builder: (context, child) {
+            final focused = _focus.hasFocus;
+            return AnimatedContainer(
+              duration: AppMotion.quick,
+              curve: AppMotion.standard,
+              decoration: BoxDecoration(
+                color: AppColour.elevated,
+                borderRadius: AppRadius.mediumAll,
+                border: Border.all(
+                  color: focused ? AppColour.accent : AppColour.separator,
+                  width: focused ? 1.5 : 0.5,
                 ),
               ),
+              child: child,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.md,
+              vertical: AppSpace.sm,
+            ),
+            child: Row(
+              children: [
+                // A filled accent glyph: the one unmistakable "add" affordance in the
+                // content area.
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: const BoxDecoration(
+                    color: AppColour.accent,
+                    borderRadius: AppRadius.smallAll,
+                  ),
+                  child: const Icon(Icons.add, size: 17, color: Colors.white),
+                ),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Shortcuts(
+                    shortcuts: const {
+                      SingleActivator(LogicalKeyboardKey.escape):
+                          _ClearIntent(),
+                    },
+                    child: Actions(
+                      actions: {
+                        _ClearIntent: CallbackAction<_ClearIntent>(
+                          onInvoke: (_) {
+                            _controller.clear();
+                            _focus.unfocus();
+                            return null;
+                          },
+                        ),
+                      },
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focus,
+                        onSubmitted: (_) => _submit(),
+                        style: AppText.body,
+                        cursorColor: AppColour.accent,
+                        cursorWidth: 1.5,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: AppSpace.sm,
+                          ),
+                          hintText: 'Add a task',
+                          hintStyle: AppText.body.copyWith(
+                            color: AppColour.labelTertiary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Teaches the syntax without a tooltip nobody opens.
+                if (_controller.text.isEmpty)
+                  Text(
+                    'try  lab report tmrw 5pm !high ~2h',
+                    style: AppText.numeric.copyWith(
+                      color: AppColour.labelQuaternary,
+                    ),
+                  )
+                else
+                  _KeyHint(label: 'Return'),
+                const SizedBox(width: AppSpace.sm),
+              ],
             ),
           ),
         ),
@@ -203,6 +254,26 @@ class _QuickAddState extends ConsumerState<QuickAdd> {
 
 class _ClearIntent extends Intent {
   const _ClearIntent();
+}
+
+/// A keycap, the way Apple writes shortcuts in menus.
+class _KeyHint extends StatelessWidget {
+  const _KeyHint({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
+    decoration: BoxDecoration(
+      color: AppColour.fill,
+      borderRadius: AppRadius.smallAll,
+    ),
+    child: Text(
+      label,
+      style: AppText.numeric.copyWith(color: AppColour.labelTertiary),
+    ),
+  );
 }
 
 class _ParseChip extends StatelessWidget {
