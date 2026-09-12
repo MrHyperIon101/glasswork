@@ -20,6 +20,7 @@ part 'database.g.dart';
     TaskLabels,
     Notes,
     Outbox,
+    LocalSettings,
   ],
 )
 class AppDatabase extends _$AppDatabase {

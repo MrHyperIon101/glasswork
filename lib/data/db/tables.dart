@@ -157,3 +157,13 @@ class Outbox extends Table {
 
   DateTimeColumn get queuedAt => dateTime().withDefault(currentDateAndTime)();
 }
+
+/// Local-only key/value store. No [SyncColumns] — these are per-device facts, not
+/// content: the client identity, UI preferences, the sync cursor.
+class LocalSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
