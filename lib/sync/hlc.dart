@@ -96,24 +96,23 @@ class Hlc implements Comparable<Hlc> {
       '${counter.toString().padLeft(5, '0')}:'
       '$nodeId';
 
+  /// The exact shape [encode] produces, and nothing looser.
+  ///
+  /// Postgres checks clocks against this same pattern (`private.is_clock`) and orders them
+  /// by plain string comparison. That is only correct for fixed-width numbers, and it only
+  /// agrees with [compareTo] for a printable-ASCII device id, where byte order and Dart's
+  /// code-unit order are the same. A looser parser here would accept clocks the server
+  /// refuses — `1:2:x`, say — and the two would disagree about which edits count.
+  static const canonicalPattern = r'^([0-9]{15}):([0-9]{5}):([!-~]+)$';
+
+  static final _canonical = RegExp(canonicalPattern);
+
   static Hlc decode(String encoded) {
-    final first = encoded.indexOf(':');
-    final second = first < 0 ? -1 : encoded.indexOf(':', first + 1);
-    if (first <= 0 || second < 0) {
+    final match = _canonical.firstMatch(encoded);
+    if (match == null) {
       throw FormatException('not an HLC', encoded);
     }
-
-    final wall = int.tryParse(encoded.substring(0, first));
-    final counter = int.tryParse(encoded.substring(first + 1, second));
-    final node = encoded.substring(second + 1);
-
-    if (wall == null || counter == null || wall < 0 || counter < 0) {
-      throw FormatException('not an HLC', encoded);
-    }
-    if (node.isEmpty) {
-      throw FormatException('HLC has no node id', encoded);
-    }
-    return Hlc(wall, counter, node);
+    return Hlc(int.parse(match[1]!), int.parse(match[2]!), match[3]!);
   }
 
   /// Null for null or malformed input, for callers that treat an unreadable clock as

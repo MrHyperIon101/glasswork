@@ -3,8 +3,8 @@ import 'package:glasswork/sync/sync_transport.dart';
 
 /// An in-memory stand-in for Supabase.
 ///
-/// Merges pushes with the same `FieldMerge` rules the real `merge_row` Postgres function
-/// must follow, and serves pulls ordered by `(updatedAt, id)`. Anything the engine gets
+/// Merges pushes with the same `FieldMerge` rules the real `merge_rows` Postgres function
+/// follows, and serves pulls ordered by `(updatedAt, id)`. Anything the engine gets
 /// right against this, it gets right against the real server — provided the SQL agrees
 /// with `FieldMerge`, which is its own test.
 class FakeServer implements SyncTransport {
