@@ -319,4 +319,34 @@ void main() {
     expect(await phone.task('t'), isNull,
         reason: 'refused rather than applied; nothing from that pull committed');
   });
+
+  test('rows written before sync existed reach the other device once stamped', () async {
+    // Direct inserts, as every write was before sync: no clocks, no outbox entries.
+    final db = laptop.db;
+    await db.into(db.workspaces).insert(WorkspacesCompanion.insert(id: 'ws', name: 'Personal'));
+    await db.into(db.boards).insert(
+      BoardsCompanion.insert(id: 'b', workspaceId: 'ws', name: 'Sem V', orderKey: 'a0'),
+    );
+    await db.into(db.lists).insert(
+      ListsCompanion.insert(id: 'l', workspaceId: 'ws', boardId: 'b', name: 'To do', orderKey: 'a0'),
+    );
+    await db.into(db.tasks).insert(
+      TasksCompanion.insert(
+        id: 't',
+        workspaceId: 'ws',
+        listId: 'l',
+        title: 'From before sync',
+        orderKey: 'a0',
+      ),
+    );
+
+    expect((await laptop.sync()).pushed, 0, reason: 'nothing queued, so nothing goes');
+
+    final tables = <TableInfo<Table, Object?>>[db.workspaces, db.boards, db.lists, db.tasks];
+    expect(await laptop.writer.stampUnversioned(tables), 4);
+    await laptop.sync();
+    await phone.sync();
+
+    expect((await phone.task('t'))!.title, 'From before sync');
+  });
 }

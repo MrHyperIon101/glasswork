@@ -308,6 +308,83 @@ void main() {
     });
   });
 
+  group('stampUnversioned', () {
+    /// A row as every row was before sync existed: written straight to the table.
+    Future<void> legacyTask(String id) => db
+        .into(db.tasks)
+        .insert(
+          TasksCompanion.insert(
+            id: id,
+            workspaceId: workspaceId,
+            listId: listId,
+            title: 'From before sync',
+            orderKey: 'a0',
+          ),
+        );
+
+    Set<String> syncableTaskFields() => {
+      for (final c in db.tasks.$columns)
+        if (!SyncWriter.bookkeeping.contains(c.name)) c.name,
+    };
+
+    test('stamps and queues every field of a row that never had a clock', () async {
+      await legacyTask('old');
+
+      expect(await writer().stampUnversioned([db.tasks]), 1);
+
+      expect((await versionsOf('old')).keys.toSet(), syncableTaskFields());
+      expect(
+        SyncWriter.decodeFieldNames((await outbox()).single.changedFields),
+        syncableTaskFields(),
+      );
+    });
+
+    test('leaves a field that already has a clock exactly as it is', () async {
+      await legacyTask('old');
+      final w = writer();
+      now += 1000;
+      await w.update(db.tasks, 'old', const TasksCompanion(title: Value('Renamed since')));
+      final renamed = (await versionsOf('old'))['title'];
+      await db.delete(db.outbox).go();
+
+      now += 1000;
+      await w.stampUnversioned([db.tasks]);
+
+      expect((await versionsOf('old'))['title'], renamed, reason: 'the rename keeps its clock');
+      expect(
+        SyncWriter.decodeFieldNames((await outbox()).single.changedFields),
+        isNot(contains('title')),
+      );
+    });
+
+    test('running it again changes nothing', () async {
+      await legacyTask('old');
+      final w = writer();
+      await w.stampUnversioned([db.tasks]);
+      final before = await versionsOf('old');
+      await db.delete(db.outbox).go();
+
+      expect(await w.stampUnversioned([db.tasks]), 0);
+      expect(await versionsOf('old'), before);
+      expect(await outbox(), isEmpty);
+    });
+
+    test('heals a clock nothing can read', () async {
+      await legacyTask('old');
+      await db.customUpdate(
+        'UPDATE tasks SET field_versions = ? WHERE id = ?',
+        variables: [
+          Variable.withString('{"title":"garbage"}'),
+          Variable.withString('old'),
+        ],
+      );
+
+      await writer().stampUnversioned([db.tasks]);
+
+      expect(Hlc.tryDecode((await versionsOf('old'))['title']), isNotNull);
+    });
+  });
+
   group('the clock', () {
     test('stays monotonic when the wall clock goes backwards', () async {
       final w = writer();

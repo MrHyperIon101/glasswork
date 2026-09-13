@@ -158,6 +158,51 @@ class SyncWriter {
     });
   }
 
+  /// Stamps and queues every field of [tables] that has no readable clock. Returns how
+  /// many rows it touched.
+  ///
+  /// Everything written before sync existed carries no clocks at all, and a push sends
+  /// only fields that have one, so without this those rows would never leave the device.
+  /// It runs before a device's first push. Running it again is harmless: a field that
+  /// already has a readable clock is left exactly as it is.
+  Future<int> stampUnversioned(List<TableInfo<Table, Object?>> tables) async {
+    var touched = 0;
+    for (final table in tables) {
+      _requireSynced(table);
+      final syncable = {
+        for (final c in table.$columns)
+          if (!bookkeeping.contains(c.name)) c.name,
+      };
+
+      await _db.transaction(() async {
+        final rows = await _db
+            .customSelect(
+              'SELECT id, field_versions FROM "${table.actualTableName}"',
+              readsFrom: {table},
+            )
+            .get();
+
+        Hlc? hlc;
+        for (final row in rows) {
+          final versions = decodeVersions(row.data['field_versions'] as String?);
+          final missing = {
+            for (final name in syncable)
+              if (Hlc.tryDecode(versions[name]) == null) name,
+          };
+          if (missing.isEmpty) continue;
+
+          // One clock for the table is enough: each row here is written once.
+          hlc ??= await _tick();
+          final id = row.data['id'] as String;
+          await _stamp(table, id, missing, hlc);
+          await _markDirty(table, id, missing, hlc);
+          touched++;
+        }
+      });
+    }
+    return touched;
+  }
+
   /// Folds in a clock seen on data from another device.
   ///
   /// Called when pulled rows are applied. After it, nothing this device writes can order
