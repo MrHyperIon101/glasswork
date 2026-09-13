@@ -1,4 +1,4 @@
--- Glasswork's sync schema. Applied with the Supabase CLI, never edited in the dashboard.
+-- The sync schema. Applied with the Supabase CLI, never edited in the dashboard.
 --
 -- Mirrors the local Drift schema (lib/data/db/tables.dart) table for table and column for
 -- column. test/sync/server_schema_test.dart fails if the two drift apart.
@@ -327,11 +327,10 @@ begin
       t, scope);
 
     -- Reads go through row level security. Writes go through merge_rows and nowhere else.
-    execute format('revoke all on public.%I from anon', t);
-    execute format(
-      'revoke insert, update, delete, truncate, references, trigger on public.%I '
-      || 'from authenticated',
-      t);
+    -- Granted explicitly rather than inherited from the project's default privileges,
+    -- which differ between projects and can change.
+    execute format('revoke all on public.%I from anon, authenticated', t);
+    execute format('grant select on public.%I to authenticated', t);
 
     -- The pull: one workspace's rows, changed since a cursor, in (updated_at, id) order.
     if t = 'workspaces' then
@@ -354,9 +353,8 @@ create policy "members see their own memberships" on public.workspace_members
   for select to authenticated
   using (user_id = (select auth.uid()));
 
-revoke all on public.workspace_members from anon;
-revoke insert, update, delete, truncate, references, trigger on public.workspace_members
-  from authenticated;
+revoke all on public.workspace_members from anon, authenticated;
+grant select on public.workspace_members to authenticated;
 
 -- Foreign keys the pull index does not already lead with.
 create index workspace_members_user on public.workspace_members (user_id);
