@@ -18,6 +18,7 @@ class WorkspaceRepository {
 
   static const _uuid = Uuid();
   static const _clientIdKey = 'client_id';
+  static const _activeKey = 'workspace_id';
 
   /// Stable identity for this device, created once and then never changed.
   ///
@@ -46,11 +47,14 @@ class WorkspaceRepository {
   /// The workspace to open, created with a starter project on first launch. Safe to call
   /// on every launch.
   ///
-  /// The oldest, rather than "the only one". Once sync runs a device can hold more than one
-  /// workspace — its own, and one pulled from another device — and asking for the only one
-  /// would throw at launch. The oldest is the same answer on every device.
+  /// The one set with [setActive] if there is one, and otherwise the oldest — never "the
+  /// only one". Once sync runs a device can hold more than one workspace, its own and one
+  /// pulled from another device, and asking for the only one would throw at launch.
   Future<Workspace> ensureSeeded() {
     return _db.transaction(() async {
+      final active = await _activeWorkspace();
+      if (active != null) return active;
+
       final existing =
           await (_db.select(_db.workspaces)
                 ..where((w) => w.deletedAt.isNull())
@@ -99,6 +103,29 @@ class WorkspaceRepository {
 
       return workspace;
     });
+  }
+
+  /// Makes launch open [workspaceId] from now on.
+  ///
+  /// Pinned at launch and moved only when this device links to an account whose workspace
+  /// came from another device, so an older workspace arriving by sync never quietly takes
+  /// this device's place.
+  Future<void> setActive(String workspaceId) => _db
+      .into(_db.localSettings)
+      .insertOnConflictUpdate(
+        LocalSettingsCompanion.insert(key: _activeKey, value: workspaceId),
+      );
+
+  Future<Workspace?> _activeWorkspace() async {
+    final setting =
+        await (_db.select(_db.localSettings)
+              ..where((s) => s.key.equals(_activeKey)))
+            .getSingleOrNull();
+    if (setting == null) return null;
+
+    return (_db.select(_db.workspaces)
+          ..where((w) => w.id.equals(setting.value) & w.deletedAt.isNull()))
+        .getSingleOrNull();
   }
 
   Stream<List<BoardList>> watchLists(String workspaceId) {

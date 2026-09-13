@@ -1,0 +1,55 @@
+{
+  "tasks": [
+    {
+      "actual_min": null,
+      "client_id": "laptop",
+      "completed_at": null,
+      "created_at": "2026-09-13T09:30:00+00:00",
+      "deleted_at": null,
+      "due_at": "2026-09-20T18:30:00+00:00",
+      "due_date": null,
+      "estimate_min": 90,
+      "field_versions": {
+        "created_at": "001757755800000:00000:laptop",
+        "due_at": "001757755800000:00000:laptop",
+        "due_date": "001757755800000:00000:laptop",
+        "estimate_min": "001757755800000:00000:laptop",
+        "list_id": "001757755800000:00000:laptop",
+        "order_key": "001757755800000:00000:laptop",
+        "priority": "001757755800000:00000:laptop",
+        "status": "001757755800000:00000:laptop",
+        "title": "001757755800000:00000:laptop",
+        "workspace_id": "001757755800000:00000:laptop"
+      },
+      "id": "aaaaaaaa-0000-4000-8000-0000000000f4",
+      "last_deferred_at": null,
+      "list_id": "aaaaaaaa-0000-4000-8000-0000000000f3",
+      "notes_md": null,
+      "order_key": "a0",
+      "parent_task_id": null,
+      "priority": 2,
+      "rrule": null,
+      "scheduled_for": null,
+      "slip_count": 0,
+      "start_at": null,
+      "status": "open",
+      "title": "DBMS lab",
+      "updated_at": "2026-09-13T13:29:12.482507+00:00",
+      "workspace_id": "aaaaaaaa-0000-4000-8000-0000000000f1"
+    }
+  ],
+  "workspaces": [
+    {
+      "client_id": "laptop",
+      "created_at": "2026-09-13T09:30:00+00:00",
+      "deleted_at": null,
+      "field_versions": {
+        "created_at": "001757755800000:00000:laptop",
+        "name": "001757755800000:00000:laptop"
+      },
+      "id": "aaaaaaaa-0000-4000-8000-0000000000f1",
+      "name": "Personal",
+      "updated_at": "2026-09-13T13:29:12.482507+00:00"
+    }
+  ]
+}

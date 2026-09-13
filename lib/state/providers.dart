@@ -62,6 +62,9 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
 
   final workspaces = WorkspaceRepository(writer);
   final workspace = await workspaces.ensureSeeded();
+  // Pinned, so a workspace later pulled from another device never takes this one's place
+  // by being older. Only linking to an account moves it.
+  await workspaces.setActive(workspace.id);
 
   final capacity = CapacityRepository(writer);
   await capacity.ensureProfile(workspace.id);

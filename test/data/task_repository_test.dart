@@ -62,6 +62,20 @@ void main() {
     expect((await workspaces.ensureSeeded()).id, 'from-the-laptop');
   });
 
+  test('opens the workspace set active, even with an older one present', () async {
+    await writer.insert(
+      db.workspaces,
+      WorkspacesCompanion.insert(
+        id: 'older',
+        name: 'Personal',
+        createdAt: Value(DateTime(2026, 1, 1)),
+      ),
+    );
+    await workspaces.setActive(workspaceId);
+
+    expect((await workspaces.ensureSeeded()).id, workspaceId);
+  });
+
   test('the client id is created once and then never changes', () async {
     final again = await WorkspaceRepository.ensureClientId(db);
     expect(again, writer.clientId);
