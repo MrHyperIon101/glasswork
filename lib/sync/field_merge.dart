@@ -3,7 +3,7 @@ import 'hlc.dart';
 /// Field values alongside the clock each one was last written at.
 ///
 /// Column names are the database's (snake_case), since this same shape is what travels
-/// to the server and what the `merge_row` function reads there.
+/// to the server and what the `merge_rows` function reads there.
 class VersionedFields {
   const VersionedFields(this.values, this.versions);
 
@@ -42,7 +42,7 @@ class MergeResult {
 /// due date on the laptop are not in conflict at all, and row-level last-writer-wins would
 /// throw one of them away.
 ///
-/// This is a pure function and it is mirrored exactly by the `merge_row` function in
+/// This is a pure function and it is mirrored exactly by the `merge_rows` function in
 /// Postgres. The two must agree, which is why the rules live here with tests rather than
 /// only in SQL.
 ///

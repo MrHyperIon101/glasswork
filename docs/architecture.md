@@ -83,8 +83,9 @@ advanced to `max(local, last_seen_remote) + 1`.
 
 Consequences:
 
-- The write path is an **RPC** (`merge_task(payload jsonb)`) that merges field-by-field. Not a
-  PostgREST upsert.
+- The write path is an **RPC** (`merge_rows(changes jsonb)`) that merges field-by-field. Not a
+  PostgREST upsert. Devices have no direct write grants; the migration in `supabase/migrations`
+  is the reference.
 - The outbox stores **changed fields, not row snapshots**. A full-row write clobbers fields the
   device never touched.
 - Delta pull reads from `cursor - 60s`, because `now()` is transaction-*start* time and a long

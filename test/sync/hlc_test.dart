@@ -44,6 +44,23 @@ void main() {
       }
       expect(Hlc.tryDecode(null), isNull);
     });
+
+    test('accepts only the exact shape encode produces', () {
+      // The server checks clocks with the same pattern and compares them as strings. A
+      // clock that parsed here but not there would count on one side only.
+      for (final loose in [
+        '1:2:x', // unpadded
+        '1757000000000:00001:x', // wall not 15 digits
+        '001757000000000:1:x', // counter not 5 digits
+        '+01757000000000:00001:x', // signed
+        '001757000000000:00001:has space',
+        '001757000000000:00001:é', // non-ASCII device id
+      ]) {
+        expect(Hlc.tryDecode(loose), isNull, reason: loose);
+      }
+      // A device id may itself contain a colon; only the first two separate fields.
+      expect(Hlc.decode('001757000000000:00001:a:b').nodeId, 'a:b');
+    });
   });
 
   group('local events', () {
