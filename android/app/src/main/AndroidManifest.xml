@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sync. Debug and profile builds get this from their own manifests; a release build
+         has only this one, and without it sync would fail as though always offline. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="glasswork"
         android:name="${applicationName}"

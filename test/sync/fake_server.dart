@@ -18,6 +18,9 @@ class FakeServer implements SyncTransport {
   /// Makes the next push fail as an unreachable network would.
   bool failNextPush = false;
 
+  /// Makes the next pull fail as an unreachable network would.
+  bool failNextPull = false;
+
   /// Runs mid-push, after the engine has read the outbox but before the server replies.
   Future<void> Function()? duringPush;
 
@@ -73,6 +76,10 @@ class FakeServer implements SyncTransport {
     PullCursor? after,
     required int limit,
   }) async {
+    if (failNextPull) {
+      failNextPull = false;
+      throw const SyncTransportException('network unreachable');
+    }
     final rows =
         [
           for (final entry in (_tables[table] ?? const {}).entries)

@@ -26,6 +26,13 @@ class SyncReport {
   /// A device reported an implausible time. Needs a person to fix a clock setting, so it
   /// is worth telling them rather than retrying quietly forever.
   bool get clockDrift => error is ClockDriftException;
+
+  /// The server refused this device's own changes as dated in the future. Also a clock
+  /// setting, but this device's.
+  bool get deviceClockAhead => error is DeviceClockAheadException;
+
+  /// The sign-in has ended; syncing again needs a new one.
+  bool get signedOut => error is SyncSignedOutException;
 }
 
 /// Pushes local changes up and pulls remote ones down.

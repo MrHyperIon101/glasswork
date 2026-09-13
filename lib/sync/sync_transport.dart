@@ -99,3 +99,24 @@ class SyncTransportException implements Exception {
   @override
   String toString() => 'SyncTransportException: $message';
 }
+
+/// The server could not be reached at all: no network, or no answer in time.
+///
+/// Kept apart from a server that answers with a refusal, because this needs nothing from
+/// anyone but a connection. It is "offline", not "something went wrong".
+class SyncOfflineException extends SyncTransportException {
+  const SyncOfflineException(super.message);
+}
+
+/// The server refused this device's changes because their clocks are ahead of its time.
+///
+/// This device's date or time is set wrong. Retrying cannot help until someone fixes it,
+/// so it is worth saying so rather than retrying quietly forever.
+class DeviceClockAheadException extends SyncTransportException {
+  const DeviceClockAheadException(super.message);
+}
+
+/// The server no longer accepts this device's sign-in.
+class SyncSignedOutException extends SyncTransportException {
+  const SyncSignedOutException(super.message);
+}

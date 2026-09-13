@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app_config.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../state/providers.dart';
+import '../../state/sync_controller.dart';
 import '../../theme/tokens.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/new_project_sheet.dart';
 import '../widgets/project_settings_sheet.dart';
+import '../widgets/sync_sheet.dart';
+import '../widgets/sync_status.dart';
 import '../widgets/task_composer.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
@@ -108,6 +112,10 @@ class _ShellState extends ConsumerState<_Shell> {
 
   @override
   Widget build(BuildContext context) {
+    // Sync runs whether or not anything on screen shows it. On a phone, the sidebar that
+    // does is closed most of the time.
+    ref.listen(syncProvider, (_, _) {});
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= _sidebarBreakpoint;
@@ -170,6 +178,7 @@ class _ShellState extends ConsumerState<_Shell> {
                 const Positioned.fill(child: TaskComposer()),
                 const Positioned.fill(child: NewProjectSheet()),
                 const Positioned.fill(child: ProjectSettingsSheet()),
+                const Positioned.fill(child: SyncSheet()),
 
                 const Positioned(
                   left: 0,
@@ -227,7 +236,7 @@ class _Sidebar extends ConsumerWidget {
               AppSpace.lg,
               AppSpace.lg,
             ),
-            child: Text('Glasswork', style: AppText.title3),
+            child: Text(AppConfig.name, style: AppText.title3),
           ),
           Expanded(
             child: ListView(
@@ -306,6 +315,8 @@ class _Sidebar extends ConsumerWidget {
               ],
             ),
           ),
+          const AppDivider(),
+          SyncStatusRow(onOpen: onNavigate),
         ],
       ),
     );
