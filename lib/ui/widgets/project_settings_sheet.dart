@@ -338,11 +338,11 @@ class _BodyState extends ConsumerState<_Body> {
     );
     if (!ok) return;
 
-    final moved = await scope.projects.deleteSection(section.id);
-    if (!moved) return;
+    final deletion = await scope.projects.deleteSection(section.id);
+    if (deletion == null) return;
     _offerUndo(
       'Deleted "${section.name}"',
-      () => scope.projects.restoreSection(section.id),
+      () => scope.projects.restoreSection(deletion),
     );
   }
 

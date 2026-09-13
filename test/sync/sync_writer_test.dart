@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,9 +46,11 @@ void main() {
   setUp(() async {
     now = 1757000000000;
     db = AppDatabase(NativeDatabase.memory());
-    final workspaces = WorkspaceRepository(db);
+    final workspaces = WorkspaceRepository(writer());
     workspaceId = (await workspaces.ensureSeeded()).id;
     listId = (await workspaces.watchLists(workspaceId).first).first.id;
+    // Seeding went through a writer too. Every test starts with nothing queued.
+    await db.delete(db.outbox).go();
   });
 
   tearDown(() => db.close());
@@ -145,6 +149,75 @@ void main() {
       await w.update(db.tasks, id, const TasksCompanion(clientId: Value('x')));
 
       expect(await outbox(), isEmpty);
+    });
+  });
+
+  group('updateWhere', () {
+    test('stamps and queues every matching row, and no other', () async {
+      final w = writer();
+      for (final id in ['t1', 't2', 'other']) {
+        await seedTask(w, id: id);
+      }
+      await db.delete(db.outbox).go();
+
+      final written = await w.updateWhere(
+        db.tasks,
+        (t) => t.id.isIn(['t1', 't2']),
+        const TasksCompanion(priority: Value(3)),
+      );
+
+      expect(written, unorderedEquals(['t1', 't2']));
+      final entries = await outbox();
+      expect({for (final e in entries) e.rowId}, {'t1', 't2'});
+      for (final e in entries) {
+        expect(SyncWriter.decodeFieldNames(e.changedFields), {'priority'});
+      }
+      expect(
+        (await versionsOf('other'))['priority'],
+        isNot((await versionsOf('t1'))['priority']),
+        reason: 'the row outside the filter keeps its clock',
+      );
+    });
+
+    test('stamps rows whose filter column the patch rewrites', () async {
+      // Deleting a section moves its tasks by rewriting list_id — the very column the
+      // filter reads. Matching after the write would find nothing, and the move would
+      // never sync.
+      final w = writer();
+      final id = await seedTask(w);
+      final elsewhere = (await db.select(db.lists).get())
+          .firstWhere((l) => l.id != listId)
+          .id;
+      await db.delete(db.outbox).go();
+
+      final written = await w.updateWhere(
+        db.tasks,
+        (t) => t.listId.equals(listId),
+        TasksCompanion(listId: Value(elsewhere)),
+      );
+
+      expect(written, [id]);
+      expect(
+        SyncWriter.decodeFieldNames((await outbox()).single.changedFields),
+        {'list_id'},
+      );
+    });
+
+    test('matching nothing writes nothing and spends no clock', () async {
+      final w = writer();
+      await seedTask(w);
+      await db.delete(db.outbox).go();
+      final before = await w.clock;
+
+      final written = await w.updateWhere(
+        db.tasks,
+        (t) => t.id.equals('missing'),
+        const TasksCompanion(priority: Value(1)),
+      );
+
+      expect(written, isEmpty);
+      expect(await outbox(), isEmpty);
+      expect(await w.clock, before);
     });
   });
 
@@ -282,6 +355,30 @@ void main() {
       await w.update(db.tasks, id, const TasksCompanion(title: Value('after')));
 
       expect(Hlc.decode((await versionsOf(id))['title']!) > remote, isTrue);
+    });
+
+    test('loading it outside a transaction cannot deadlock one already open', () async {
+      // A read issued outside a transaction queues behind any open one. If the open
+      // transaction then waited on that same read, neither could ever finish, and every
+      // write in the app would hang without an error.
+      final id = await seedTask(writer());
+      final fresh = writer(); // has not loaded its clock yet
+
+      final inside = Completer<void>();
+      final release = Completer<void>();
+      final transaction = db.transaction(() async {
+        await db.customSelect('SELECT 1').get(); // the transaction now holds the lock
+        inside.complete();
+        await release.future;
+        await fresh.update(db.tasks, id, const TasksCompanion(title: Value('x')));
+      });
+
+      await inside.future;
+      final outside = fresh.clock; // queued behind the open transaction
+      release.complete();
+
+      await transaction.timeout(const Duration(seconds: 5));
+      expect((await outside).nodeId, 'device-a');
     });
   });
 

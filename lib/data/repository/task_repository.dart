@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../sync/sync_writer.dart';
 import '../db/database.dart';
 import '../db/tables.dart';
 import '../order_key.dart';
@@ -8,16 +9,14 @@ import '../order_key.dart';
 /// Reads and writes tasks.
 ///
 /// Every method here touches only the local database and returns promptly. Nothing in
-/// this class may ever await the network — when sync arrives in phase 4 it observes the
-/// outbox, it does not sit in the write path.
+/// this class may ever await the network: writes go through [SyncWriter], which queues
+/// them, and the sync engine sends them later from outside any write path.
 class TaskRepository {
-  TaskRepository(this._db, {required this.clientId});
+  TaskRepository(this._writer);
 
-  final AppDatabase _db;
+  final SyncWriter _writer;
 
-  /// Stable per-device identity. Tiebreaks equal order keys, and becomes the HLC's node
-  /// id in phase 4.
-  final String clientId;
+  AppDatabase get _db => _writer.db;
 
   static const _uuid = Uuid();
 
@@ -83,19 +82,20 @@ class TaskRepository {
     int? estimateMin,
   }) async {
     final last = await _lastKeyIn(listId);
-    final row = TasksCompanion.insert(
-      id: _uuid.v4(),
-      workspaceId: workspaceId,
-      listId: listId,
-      title: title,
-      orderKey: last == null ? OrderKey.first : OrderKey.after(last),
-      clientId: Value(clientId),
-      dueAt: Value(dueAt),
-      dueDate: Value(dueDate),
-      priority: Value(priority),
-      estimateMin: Value(estimateMin),
+    return _writer.insert(
+      _db.tasks,
+      TasksCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        listId: listId,
+        title: title,
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last),
+        dueAt: Value(dueAt),
+        dueDate: Value(dueDate),
+        priority: Value(priority),
+        estimateMin: Value(estimateMin),
+      ),
     );
-    return _db.into(_db.tasks).insertReturning(row);
   }
 
   Future<void> rename(String id, String title) => _write(
@@ -184,15 +184,8 @@ class TaskRepository {
 
   // --- internals ---
 
-  /// Every write stamps [clientId] and bumps [updatedAt], so no caller can forget.
-  Future<void> _write(String id, TasksCompanion patch) async {
-    await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
-      patch.copyWith(
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> _write(String id, TasksCompanion patch) =>
+      _writer.update(_db.tasks, id, patch);
 
   Future<Task?> _taskById(String id) =>
       (_db.select(_db.tasks)..where((t) => t.id.equals(id))).getSingleOrNull();

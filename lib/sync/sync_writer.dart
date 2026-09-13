@@ -13,6 +13,9 @@ import 'hlc.dart';
 /// one gets missed — and a missed stamp is an edit that silently never syncs, or syncs
 /// and loses a conflict it should have won.
 ///
+/// Repositories read the database directly but write it only through this class.
+/// `test/sync/write_path_test.dart` fails if one doesn't.
+///
 /// ### Why the outbox records field *names*, not values
 ///
 /// The detail sheet renames a task on every keystroke. Storing a value per edit would
@@ -44,7 +47,12 @@ class SyncWriter {
   static const bookkeeping = {'id', 'field_versions', 'client_id', 'updated_at'};
 
   Hlc? _clock;
-  Future<void>? _loading;
+
+  /// The database this writes, for reading.
+  ///
+  /// Repositories take their database from their writer rather than separately, so none
+  /// can ever read one database and write another.
+  AppDatabase get db => _db;
 
   /// The last clock this device minted or observed.
   Future<Hlc> get clock async {
@@ -71,6 +79,46 @@ class SyncWriter {
       final hlc = await _tick();
       await _stamp(table, id, dirty, hlc);
       await _markDirty(table, id, dirty, hlc);
+    });
+  }
+
+  /// Updates every row matching [filter], stamping each as [update] does. Returns the ids
+  /// it wrote.
+  ///
+  /// For cascades: deleting a project tombstones its sections, fields and tasks, and every
+  /// one of those rows has to reach the other devices.
+  ///
+  /// Matches are resolved before the write, not after, because a patch can change the very
+  /// column the filter reads. Deleting a section moves its tasks by rewriting `list_id`;
+  /// matching afterwards would find nothing to stamp, and the move would never sync.
+  ///
+  /// One clock covers the whole call. A clock orders writes to one field of one row, and
+  /// each row here is written once.
+  Future<List<String>> updateWhere<T extends Table, D>(
+    TableInfo<T, D> table,
+    Expression<bool> Function(T tbl) filter,
+    Insertable<D> patch,
+  ) async {
+    _requireSynced(table);
+    final dirty = _dirtyFrom(patch);
+    final idColumn = _idColumn(table);
+
+    return _db.transaction(() async {
+      final matching = _db.selectOnly(table)
+        ..addColumns([idColumn])
+        ..where(filter(table.asDslTable));
+      final ids = [for (final row in await matching.get()) row.read(idColumn)!];
+      if (ids.isEmpty) return ids;
+
+      await (_db.update(table)..where(filter)).write(patch);
+      if (dirty.isEmpty) return ids;
+
+      final hlc = await _tick();
+      for (final id in ids) {
+        await _stamp(table, id, dirty, hlc);
+        await _markDirty(table, id, dirty, hlc);
+      }
+      return ids;
     });
   }
 
@@ -136,9 +184,21 @@ class SyncWriter {
     return next;
   }
 
-  Future<void> _ensureClock() => _loading ??= _loadClock();
+  /// Loads the persisted clock the first time it is needed.
+  ///
+  /// Each caller loads it for itself rather than every caller awaiting one shared future.
+  /// A read issued outside a transaction queues behind any transaction that is open, so if
+  /// that transaction then awaited the same shared read, neither could ever finish — and
+  /// every write in the app would hang without an error. Two loads cost one extra read,
+  /// once.
+  Future<void> _ensureClock() async {
+    if (_clock != null) return;
+    final loaded = await _loadClock();
+    // Another caller may have loaded it first and already advanced it. Never step back.
+    _clock ??= loaded;
+  }
 
-  Future<void> _loadClock() async {
+  Future<Hlc> _loadClock() async {
     final row =
         await (_db.select(_db.localSettings)
               ..where((s) => s.key.equals(_clockKey)))
@@ -147,7 +207,7 @@ class SyncWriter {
 
     // A clock stamped with a different device id — a database copied from another
     // machine, say — is not this device's to continue.
-    _clock = stored != null && stored.nodeId == clientId
+    return stored != null && stored.nodeId == clientId
         ? stored
         : Hlc.zero(clientId);
   }

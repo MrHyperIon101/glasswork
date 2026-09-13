@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../sync/sync_writer.dart';
 import '../db/database.dart';
 import '../db/tables.dart';
-import '../project_filter.dart';
+import '../natural_id.dart';
 import '../order_key.dart';
+import '../project_filter.dart';
 
 /// One choice in a select field.
 class FieldOption {
@@ -33,15 +35,32 @@ class FieldOption {
       jsonEncode([for (final o in options) o.toJson()]);
 }
 
+/// What deleting a section did, so undo can reverse all of it.
+class SectionDeletion {
+  const SectionDeletion({
+    required this.sectionId,
+    required this.movedTo,
+    required this.taskIds,
+  });
+
+  final String sectionId;
+
+  /// The section its tasks were moved into.
+  final String movedTo;
+
+  final List<String> taskIds;
+}
+
 /// Projects, their sections, their custom fields and their saved views.
 ///
 /// "Section" is what a list is called in the UI — the same row is a section in list view
 /// and a column in board view, which is why there is one table rather than two.
 class ProjectRepository {
-  ProjectRepository(this._db, {required this.clientId});
+  ProjectRepository(this._writer);
 
-  final AppDatabase _db;
-  final String clientId;
+  final SyncWriter _writer;
+
+  AppDatabase get _db => _writer.db;
 
   static const _uuid = Uuid();
 
@@ -75,39 +94,35 @@ class ProjectRepository {
     int? colour,
     List<String> sections = const ['To do', 'In progress', 'Done'],
     List<FieldDefSpec> fields = const [],
-  }) async {
-    final last = await _lastProjectKey(workspaceId);
-    final boardId = _uuid.v4();
-
+  }) {
     return _db.transaction(() async {
-      final project = await _db
-          .into(_db.boards)
-          .insertReturning(
-            BoardsCompanion.insert(
-              id: boardId,
-              workspaceId: workspaceId,
-              name: name,
-              purpose: Value(purpose),
-              icon: Value(icon),
-              colour: Value(colour),
-              orderKey: last == null ? OrderKey.first : OrderKey.after(last),
-              viewDefault: const Value(BoardView.board),
-              clientId: Value(clientId),
-            ),
-          );
+      final last = await _lastProjectKey(workspaceId);
+      final project = await _writer.insert(
+        _db.boards,
+        BoardsCompanion.insert(
+          id: _uuid.v4(),
+          workspaceId: workspaceId,
+          name: name,
+          purpose: Value(purpose),
+          icon: Value(icon),
+          colour: Value(colour),
+          orderKey: last == null ? OrderKey.first : OrderKey.after(last),
+          viewDefault: const Value(BoardView.board),
+        ),
+      );
 
       var key = OrderKey.first;
       for (final (i, section) in sections.indexed) {
-        await _db.into(_db.lists).insert(
+        await _writer.insert(
+          _db.lists,
           ListsCompanion.insert(
             id: _uuid.v4(),
             workspaceId: workspaceId,
-            boardId: boardId,
+            boardId: project.id,
             name: section,
             orderKey: key,
             // The last section is treated as the done column by convention.
             isDoneColumn: Value(i == sections.length - 1),
-            clientId: Value(clientId),
           ),
         );
         key = OrderKey.after(key);
@@ -115,17 +130,17 @@ class ProjectRepository {
 
       var fieldKey = OrderKey.first;
       for (final field in fields) {
-        await _db.into(_db.fieldDefs).insert(
+        await _writer.insert(
+          _db.fieldDefs,
           FieldDefsCompanion.insert(
             id: _uuid.v4(),
             workspaceId: workspaceId,
-            boardId: boardId,
+            boardId: project.id,
             name: field.name,
             type: field.type,
             optionsJson: Value(FieldOption.encode(field.options)),
             orderKey: fieldKey,
             showInline: Value(field.showInline),
-            clientId: Value(clientId),
           ),
         );
         fieldKey = OrderKey.after(fieldKey);
@@ -142,7 +157,8 @@ class ProjectRepository {
     String? icon,
     int? colour,
     BoardView? viewDefault,
-  }) => _writeBoard(
+  }) => _writer.update(
+    _db.boards,
     id,
     BoardsCompanion(
       name: Value.absentIfNull(name),
@@ -155,11 +171,17 @@ class ProjectRepository {
 
   /// Archiving rather than deleting: a finished project is history worth keeping, and
   /// its tasks are the only record of what the term actually involved.
-  Future<void> archiveProject(String id) =>
-      _writeBoard(id, const BoardsCompanion(archived: Value(true)));
+  Future<void> archiveProject(String id) => _writer.update(
+    _db.boards,
+    id,
+    const BoardsCompanion(archived: Value(true)),
+  );
 
-  Future<void> unarchiveProject(String id) =>
-      _writeBoard(id, const BoardsCompanion(archived: Value(false)));
+  Future<void> unarchiveProject(String id) => _writer.update(
+    _db.boards,
+    id,
+    const BoardsCompanion(archived: Value(false)),
+  );
 
   // --- sections ---
 
@@ -189,86 +211,97 @@ class ProjectRepository {
               ..limit(1))
             .getSingleOrNull();
 
-    return _db
-        .into(_db.lists)
-        .insertReturning(
-          ListsCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            boardId: boardId,
-            name: name,
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            clientId: Value(clientId),
-          ),
-        );
-  }
-
-  Future<void> renameSection(String id, String name) async {
-    await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
-      ListsCompanion(
-        name: Value(name),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
+    return _writer.insert(
+      _db.lists,
+      ListsCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        boardId: boardId,
+        name: name,
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last.orderKey),
       ),
     );
   }
 
-  Future<void> setSectionWipLimit(String id, int? limit) async {
-    await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
-      ListsCompanion(
-        wipLimit: Value(limit),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> renameSection(String id, String name) =>
+      _writer.update(_db.lists, id, ListsCompanion(name: Value(name)));
 
-  /// Why deleting a section is not just a tombstone.
+  Future<void> setSectionWipLimit(String id, int? limit) =>
+      _writer.update(_db.lists, id, ListsCompanion(wipLimit: Value(limit)));
+
+  /// Deletes a section, moving its tasks into the first section that remains.
   ///
-  /// Tasks point at a section. Removing one without moving its tasks leaves them
-  /// pointing at a row nothing renders — they vanish from every view while still
-  /// counting in totals, which is the worst kind of bug: invisible, and it makes the
-  /// numbers lie.
+  /// Why not just a tombstone: tasks point at a section. Removing one without moving its
+  /// tasks leaves them pointing at a row nothing renders — they vanish from every view
+  /// while still counting in totals, which is the worst kind of bug: invisible, and it
+  /// makes the numbers lie.
   ///
-  /// Returns false when this is the only section left, since its tasks would have
-  /// nowhere to go.
-  Future<bool> deleteSection(String id) async {
-    final section =
-        await (_db.select(_db.lists)..where((l) => l.id.equals(id)))
-            .getSingleOrNull();
-    if (section == null) return false;
+  /// Returns what it did, for undo — or null when this is the only section left, since
+  /// its tasks would have nowhere to go.
+  Future<SectionDeletion?> deleteSection(String id) {
+    return _db.transaction(() async {
+      final section =
+          await (_db.select(_db.lists)..where((l) => l.id.equals(id)))
+              .getSingleOrNull();
+      if (section == null) return null;
 
-    final siblings =
-        await (_db.select(_db.lists)..where(
-              (l) =>
-                  l.boardId.equals(section.boardId) &
-                  l.deletedAt.isNull() &
-                  l.id.equals(id).not(),
-            ))
-            .get();
-    if (siblings.isEmpty) return false;
+      // First as the section list shows it, which is what the confirmation promises.
+      final remaining =
+          await (_db.select(_db.lists)
+                ..where(
+                  (l) =>
+                      l.boardId.equals(section.boardId) &
+                      l.deletedAt.isNull() &
+                      l.id.equals(id).not(),
+                )
+                ..orderBy([
+                  (l) => OrderingTerm(expression: l.orderKey),
+                  (l) => OrderingTerm(expression: l.clientId),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      if (remaining == null) return null;
 
-    final now = DateTime.now();
-    await _db.transaction(() async {
-      // Tasks move rather than disappear.
-      await (_db.update(_db.tasks)..where((t) => t.listId.equals(id))).write(
-        TasksCompanion(
-          listId: Value(siblings.first.id),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      // Tasks move rather than disappear — deleted ones too, so restoring one later puts
+      // it somewhere it can be seen.
+      final moved = await _writer.updateWhere(
+        _db.tasks,
+        (t) => t.listId.equals(id),
+        TasksCompanion(listId: Value(remaining.id)),
       );
-      await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
-        ListsCompanion(
-          deletedAt: Value(now),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      await _writer.update(
+        _db.lists,
+        id,
+        ListsCompanion(deletedAt: Value(DateTime.now())),
+      );
+
+      return SectionDeletion(
+        sectionId: id,
+        movedTo: remaining.id,
+        taskIds: moved,
       );
     });
-    return true;
+  }
+
+  /// Undoes [deleteSection]: brings the section back, and its tasks with it.
+  ///
+  /// Only tasks still where the delete put them go back. One dragged somewhere else in the
+  /// meantime was placed deliberately, and undo does not overrule that.
+  Future<void> restoreSection(SectionDeletion deletion) {
+    return _db.transaction(() async {
+      await _writer.update(
+        _db.lists,
+        deletion.sectionId,
+        const ListsCompanion(deletedAt: Value(null)),
+      );
+      if (deletion.taskIds.isEmpty) return;
+
+      await _writer.updateWhere(
+        _db.tasks,
+        (t) => t.id.isIn(deletion.taskIds) & t.listId.equals(deletion.movedTo),
+        TasksCompanion(listId: Value(deletion.sectionId)),
+      );
+    });
   }
 
   /// How many tasks a section holds, for the confirmation copy.
@@ -285,89 +318,72 @@ class ProjectRepository {
   ///
   /// Everything is tombstoned rather than removed, so [restoreProject] can put the
   /// whole thing back and sync has something to replicate.
-  Future<void> deleteProject(String id) async {
-    final now = DateTime.now();
-    await _db.transaction(() async {
-      final sections =
-          await (_db.select(_db.lists)..where((l) => l.boardId.equals(id)))
-              .get();
-      final sectionIds = sections.map((s) => s.id).toList();
+  ///
+  /// Only live rows, all under one deletion time. That time is how restore tells what went
+  /// with the project from what had already been deleted on its own — so a task deleted
+  /// last week stays deleted when the project comes back.
+  Future<void> deleteProject(String id) {
+    return _db.transaction(() async {
+      final now = DateTime.now();
+      final sectionIds = await _sectionIdsOf(id);
 
       if (sectionIds.isNotEmpty) {
-        await (_db.update(_db.tasks)..where((t) => t.listId.isIn(sectionIds)))
-            .write(
-              TasksCompanion(
-                deletedAt: Value(now),
-                clientId: Value(clientId),
-                updatedAt: Value(now),
-              ),
-            );
+        await _writer.updateWhere(
+          _db.tasks,
+          (t) => t.listId.isIn(sectionIds) & t.deletedAt.isNull(),
+          TasksCompanion(deletedAt: Value(now)),
+        );
       }
-
-      await (_db.update(_db.lists)..where((l) => l.boardId.equals(id))).write(
-        ListsCompanion(
-          deletedAt: Value(now),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      await _writer.updateWhere(
+        _db.lists,
+        (l) => l.boardId.equals(id) & l.deletedAt.isNull(),
+        ListsCompanion(deletedAt: Value(now)),
       );
-      await (_db.update(_db.fieldDefs)..where((f) => f.boardId.equals(id)))
-          .write(
-            FieldDefsCompanion(
-              deletedAt: Value(now),
-              clientId: Value(clientId),
-              updatedAt: Value(now),
-            ),
-          );
-      await (_db.update(_db.boards)..where((b) => b.id.equals(id))).write(
-        BoardsCompanion(
-          deletedAt: Value(now),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      await _writer.updateWhere(
+        _db.fieldDefs,
+        (f) => f.boardId.equals(id) & f.deletedAt.isNull(),
+        FieldDefsCompanion(deletedAt: Value(now)),
+      );
+      await _writer.update(
+        _db.boards,
+        id,
+        BoardsCompanion(deletedAt: Value(now)),
       );
     });
   }
 
-  Future<void> restoreProject(String id) async {
-    final now = DateTime.now();
-    await _db.transaction(() async {
-      final sections =
-          await (_db.select(_db.lists)..where((l) => l.boardId.equals(id)))
-              .get();
-      final sectionIds = sections.map((s) => s.id).toList();
+  /// Undoes [deleteProject]: restores the project and everything carrying its deletion
+  /// time.
+  Future<void> restoreProject(String id) {
+    return _db.transaction(() async {
+      final project =
+          await (_db.select(_db.boards)..where((b) => b.id.equals(id)))
+              .getSingleOrNull();
+      final deletedAt = project?.deletedAt;
+      if (deletedAt == null) return;
 
+      final sectionIds = await _sectionIdsOf(id);
       if (sectionIds.isNotEmpty) {
-        await (_db.update(_db.tasks)..where((t) => t.listId.isIn(sectionIds)))
-            .write(
-              TasksCompanion(
-                deletedAt: const Value(null),
-                clientId: Value(clientId),
-                updatedAt: Value(now),
-              ),
-            );
+        await _writer.updateWhere(
+          _db.tasks,
+          (t) => t.listId.isIn(sectionIds) & t.deletedAt.equals(deletedAt),
+          const TasksCompanion(deletedAt: Value(null)),
+        );
       }
-      await (_db.update(_db.lists)..where((l) => l.boardId.equals(id))).write(
-        ListsCompanion(
-          deletedAt: const Value(null),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      await _writer.updateWhere(
+        _db.lists,
+        (l) => l.boardId.equals(id) & l.deletedAt.equals(deletedAt),
+        const ListsCompanion(deletedAt: Value(null)),
       );
-      await (_db.update(_db.fieldDefs)..where((f) => f.boardId.equals(id)))
-          .write(
-            FieldDefsCompanion(
-              deletedAt: const Value(null),
-              clientId: Value(clientId),
-              updatedAt: Value(now),
-            ),
-          );
-      await (_db.update(_db.boards)..where((b) => b.id.equals(id))).write(
-        BoardsCompanion(
-          deletedAt: const Value(null),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      await _writer.updateWhere(
+        _db.fieldDefs,
+        (f) => f.boardId.equals(id) & f.deletedAt.equals(deletedAt),
+        const FieldDefsCompanion(deletedAt: Value(null)),
+      );
+      await _writer.update(
+        _db.boards,
+        id,
+        const BoardsCompanion(deletedAt: Value(null)),
       );
     });
   }
@@ -419,22 +435,18 @@ class ProjectRepository {
               ..limit(1))
             .getSingleOrNull();
 
-    return _db
-        .into(_db.projectViews)
-        .insertReturning(
-          ProjectViewsCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            boardId: boardId,
-            name: name,
-            kind: kind,
-            filterJson: Value(filter.encode()),
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            clientId: Value(clientId),
-          ),
-        );
+    return _writer.insert(
+      _db.projectViews,
+      ProjectViewsCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        boardId: boardId,
+        name: name,
+        kind: kind,
+        filterJson: Value(filter.encode()),
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last.orderKey),
+      ),
+    );
   }
 
   Future<void> updateView(
@@ -442,39 +454,27 @@ class ProjectRepository {
     String? name,
     ViewKind? kind,
     ProjectFilter? filter,
-  }) async {
-    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
-      ProjectViewsCompanion(
-        name: Value.absentIfNull(name),
-        kind: Value.absentIfNull(kind),
-        filterJson: filter == null
-            ? const Value.absent()
-            : Value(filter.encode()),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  }) => _writer.update(
+    _db.projectViews,
+    id,
+    ProjectViewsCompanion(
+      name: Value.absentIfNull(name),
+      kind: Value.absentIfNull(kind),
+      filterJson: filter == null ? const Value.absent() : Value(filter.encode()),
+    ),
+  );
 
-  Future<void> deleteView(String id) async {
-    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
-      ProjectViewsCompanion(
-        deletedAt: Value(DateTime.now()),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> deleteView(String id) => _writer.update(
+    _db.projectViews,
+    id,
+    ProjectViewsCompanion(deletedAt: Value(DateTime.now())),
+  );
 
-  Future<void> restoreView(String id) async {
-    await (_db.update(_db.projectViews)..where((v) => v.id.equals(id))).write(
-      ProjectViewsCompanion(
-        deletedAt: const Value(null),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> restoreView(String id) => _writer.update(
+    _db.projectViews,
+    id,
+    const ProjectViewsCompanion(deletedAt: Value(null)),
+  );
 
   // --- custom fields ---
 
@@ -504,54 +504,32 @@ class ProjectRepository {
               ..limit(1))
             .getSingleOrNull();
 
-    return _db
-        .into(_db.fieldDefs)
-        .insertReturning(
-          FieldDefsCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            boardId: boardId,
-            name: name,
-            type: type,
-            optionsJson: Value(FieldOption.encode(options)),
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            showInline: Value(showInline),
-            clientId: Value(clientId),
-          ),
-        );
-  }
-
-  Future<void> restoreField(String id) async {
-    await (_db.update(_db.fieldDefs)..where((f) => f.id.equals(id))).write(
-      FieldDefsCompanion(
-        deletedAt: const Value(null),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
+    return _writer.insert(
+      _db.fieldDefs,
+      FieldDefsCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        boardId: boardId,
+        name: name,
+        type: type,
+        optionsJson: Value(FieldOption.encode(options)),
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last.orderKey),
+        showInline: Value(showInline),
       ),
     );
   }
 
-  Future<void> restoreSection(String id) async {
-    await (_db.update(_db.lists)..where((l) => l.id.equals(id))).write(
-      ListsCompanion(
-        deletedAt: const Value(null),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> restoreField(String id) => _writer.update(
+    _db.fieldDefs,
+    id,
+    const FieldDefsCompanion(deletedAt: Value(null)),
+  );
 
-  Future<void> deleteField(String id) async {
-    await (_db.update(_db.fieldDefs)..where((f) => f.id.equals(id))).write(
-      FieldDefsCompanion(
-        deletedAt: Value(DateTime.now()),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> deleteField(String id) => _writer.update(
+    _db.fieldDefs,
+    id,
+    FieldDefsCompanion(deletedAt: Value(DateTime.now())),
+  );
 
   /// Every field value for a project's tasks, keyed by task then field.
   Stream<Map<String, Map<String, String?>>> watchFieldValues(String boardId) {
@@ -572,53 +550,49 @@ class ProjectRepository {
     });
   }
 
-  /// Upsert by (task, field) — there is only ever one value per pair.
+  /// One value per task and field.
+  ///
+  /// The row's id derives from the pair, so two devices setting the same field offline
+  /// write the same row, and the merge keeps whichever value was set later.
   Future<void> setFieldValue({
     required String workspaceId,
     required String taskId,
     required String fieldId,
     required String? value,
-  }) async {
-    final existing =
-        await (_db.select(_db.fieldValues)..where(
-              (v) => v.taskId.equals(taskId) & v.fieldId.equals(fieldId),
-            ))
-            .getSingleOrNull();
+  }) {
+    return _db.transaction(() async {
+      final updated = await _writer.updateWhere(
+        _db.fieldValues,
+        (v) => v.taskId.equals(taskId) & v.fieldId.equals(fieldId),
+        FieldValuesCompanion(
+          value: Value(value),
+          deletedAt: const Value(null),
+        ),
+      );
+      if (updated.isNotEmpty) return;
 
-    if (existing == null) {
-      await _db.into(_db.fieldValues).insert(
+      await _writer.insert(
+        _db.fieldValues,
         FieldValuesCompanion.insert(
-          id: _uuid.v4(),
+          id: NaturalId.fieldValue(taskId, fieldId),
           workspaceId: workspaceId,
           taskId: taskId,
           fieldId: fieldId,
           value: Value(value),
-          clientId: Value(clientId),
         ),
       );
-      return;
-    }
-
-    await (_db.update(_db.fieldValues)..where((v) => v.id.equals(existing.id)))
-        .write(
-          FieldValuesCompanion(
-            value: Value(value),
-            deletedAt: const Value(null),
-            clientId: Value(clientId),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
+    });
   }
 
   // --- internals ---
 
-  Future<void> _writeBoard(String id, BoardsCompanion patch) async {
-    await (_db.update(_db.boards)..where((b) => b.id.equals(id))).write(
-      patch.copyWith(
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  /// Every section a project has had, deleted ones included.
+  Future<List<String>> _sectionIdsOf(String projectId) async {
+    final sections =
+        await (_db.select(_db.lists)
+              ..where((l) => l.boardId.equals(projectId)))
+            .get();
+    return [for (final s in sections) s.id];
   }
 
   Future<String?> _lastProjectKey(String workspaceId) async {

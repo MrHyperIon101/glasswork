@@ -4,42 +4,56 @@ import 'package:uuid/uuid.dart';
 import '../../capacity/ledger.dart';
 import '../../capacity/recurrence.dart';
 import '../../capacity/timetable.dart';
+import '../../sync/sync_writer.dart';
 import '../db/database.dart';
 import '../db/tables.dart';
+import '../natural_id.dart';
 import '../order_key.dart';
 
 /// The capacity profile and the timetable behind it.
 class CapacityRepository {
-  CapacityRepository(this._db, {required this.clientId});
+  CapacityRepository(this._writer);
 
-  final AppDatabase _db;
-  final String clientId;
+  final SyncWriter _writer;
+
+  AppDatabase get _db => _writer.db;
 
   static const _uuid = Uuid();
 
   /// The profile, created with defaults on first read.
-  Future<CapacityProfile> ensureProfile(String workspaceId) async {
-    final existing =
-        await (_db.select(_db.capacityProfiles)
-              ..where((p) => p.workspaceId.equals(workspaceId)))
-            .getSingleOrNull();
-    if (existing != null) return existing;
+  Future<CapacityProfile> ensureProfile(String workspaceId) {
+    return _db.transaction(() async {
+      final existing = await _profileOf(workspaceId).getSingleOrNull();
+      if (existing != null) return existing;
 
-    return _db
-        .into(_db.capacityProfiles)
-        .insertReturning(
-          CapacityProfilesCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            clientId: Value(clientId),
-          ),
-        );
+      return _writer.insert(
+        _db.capacityProfiles,
+        CapacityProfilesCompanion.insert(
+          // Derived, so two devices creating it offline create the same row.
+          id: NaturalId.capacityProfile(workspaceId),
+          workspaceId: workspaceId,
+        ),
+      );
+    });
   }
 
   Stream<CapacityProfile?> watchProfile(String workspaceId) =>
-      (_db.select(_db.capacityProfiles)
-            ..where((p) => p.workspaceId.equals(workspaceId)))
-          .watchSingleOrNull();
+      _profileOf(workspaceId).watchSingleOrNull();
+
+  /// The workspace's profile, oldest first.
+  ///
+  /// There is one per workspace — by construction from now on, since the id derives from
+  /// the workspace. Two made on separate devices before that would both sync, and asking
+  /// for "the only one" would then throw.
+  SimpleSelectStatement<$CapacityProfilesTable, CapacityProfile> _profileOf(
+    String workspaceId,
+  ) => _db.select(_db.capacityProfiles)
+    ..where((p) => p.workspaceId.equals(workspaceId))
+    ..orderBy([
+      (p) => OrderingTerm(expression: p.createdAt),
+      (p) => OrderingTerm(expression: p.id),
+    ])
+    ..limit(1);
 
   Future<void> updateProfile(
     String id, {
@@ -49,20 +63,18 @@ class CapacityRepository {
     int? bufferMin,
     double? focusFactor,
     int? minGapMin,
-  }) async {
-    await (_db.update(_db.capacityProfiles)..where((p) => p.id.equals(id))).write(
-      CapacityProfilesCompanion(
-        sleepTargetMin: Value.absentIfNull(sleepTargetMin),
-        sleepStartMin: Value.absentIfNull(sleepStartMin),
-        mealsMin: Value.absentIfNull(mealsMin),
-        bufferMin: Value.absentIfNull(bufferMin),
-        focusFactor: Value.absentIfNull(focusFactor),
-        minGapMin: Value.absentIfNull(minGapMin),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  }) => _writer.update(
+    _db.capacityProfiles,
+    id,
+    CapacityProfilesCompanion(
+      sleepTargetMin: Value.absentIfNull(sleepTargetMin),
+      sleepStartMin: Value.absentIfNull(sleepStartMin),
+      mealsMin: Value.absentIfNull(mealsMin),
+      bufferMin: Value.absentIfNull(bufferMin),
+      focusFactor: Value.absentIfNull(focusFactor),
+      minGapMin: Value.absentIfNull(minGapMin),
+    ),
+  );
 
   /// 'YYYY-MM-DD'. Text rather than a timestamp: a semester starts on a date, not at
   /// an instant in some timezone.
@@ -89,37 +101,47 @@ class CapacityRepository {
   ///
   /// Created once, on demand, so a workspace that predates timetable sets keeps working
   /// and its existing blocks stay in force.
-  Future<TimetableSet> ensureFallbackSchedule(String workspaceId) async {
-    final existing =
-        await (_db.select(_db.schedules)..where(
-              (s) =>
-                  s.workspaceId.equals(workspaceId) &
-                  s.isFallback.equals(true) &
-                  s.deletedAt.isNull(),
-            ))
-            .getSingleOrNull();
-    if (existing != null) return existing;
+  Future<TimetableSet> ensureFallbackSchedule(String workspaceId) {
+    return _db.transaction(() async {
+      final existing =
+          await (_db.select(_db.schedules)
+                ..where(
+                  (s) =>
+                      s.workspaceId.equals(workspaceId) &
+                      s.isFallback.equals(true) &
+                      s.deletedAt.isNull(),
+                )
+                // Oldest first, for the same reason as the profile.
+                ..orderBy([
+                  (s) => OrderingTerm(expression: s.createdAt),
+                  (s) => OrderingTerm(expression: s.id),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      if (existing != null) return existing;
 
-    final created = await _db
-        .into(_db.schedules)
-        .insertReturning(
-          SchedulesCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            name: 'Everyday',
-            isFallback: const Value(true),
-            orderKey: OrderKey.first,
-            clientId: Value(clientId),
-          ),
-        );
+      final created = await _writer.insert(
+        _db.schedules,
+        SchedulesCompanion.insert(
+          // Derived, like the profile. It can never be tombstoned — deleteSchedule refuses
+          // the fallback — so this cannot collide with a deleted one.
+          id: NaturalId.fallbackSchedule(workspaceId),
+          workspaceId: workspaceId,
+          name: 'Everyday',
+          isFallback: const Value(true),
+          orderKey: OrderKey.first,
+        ),
+      );
 
-    // Adopt any blocks created before sets existed.
-    await (_db.update(_db.commitments)..where(
-          (c) => c.workspaceId.equals(workspaceId) & c.scheduleId.isNull(),
-        ))
-        .write(CommitmentsCompanion(scheduleId: Value(created.id)));
+      // Adopt any blocks created before sets existed.
+      await _writer.updateWhere(
+        _db.commitments,
+        (c) => c.workspaceId.equals(workspaceId) & c.scheduleId.isNull(),
+        CommitmentsCompanion(scheduleId: Value(created.id)),
+      );
 
-    return created;
+      return created;
+    });
   }
 
   Future<TimetableSet> addSchedule({
@@ -140,21 +162,17 @@ class CapacityRepository {
               ..limit(1))
             .getSingleOrNull();
 
-    return _db
-        .into(_db.schedules)
-        .insertReturning(
-          SchedulesCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            name: name,
-            startsOn: Value(_isoOf(startsOn)),
-            endsOn: Value(_isoOf(endsOn)),
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            clientId: Value(clientId),
-          ),
-        );
+    return _writer.insert(
+      _db.schedules,
+      SchedulesCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        name: name,
+        startsOn: Value(_isoOf(startsOn)),
+        endsOn: Value(_isoOf(endsOn)),
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last.orderKey),
+      ),
+    );
   }
 
   Future<void> updateSchedule(
@@ -163,21 +181,17 @@ class CapacityRepository {
     DateTime? startsOn,
     DateTime? endsOn,
     bool clearDates = false,
-  }) async {
-    await (_db.update(_db.schedules)..where((s) => s.id.equals(id))).write(
-      SchedulesCompanion(
-        name: Value.absentIfNull(name),
-        startsOn: clearDates
-            ? const Value(null)
-            : Value.absentIfNull(_isoOf(startsOn)),
-        endsOn: clearDates
-            ? const Value(null)
-            : Value.absentIfNull(_isoOf(endsOn)),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  }) => _writer.update(
+    _db.schedules,
+    id,
+    SchedulesCompanion(
+      name: Value.absentIfNull(name),
+      startsOn: clearDates
+          ? const Value(null)
+          : Value.absentIfNull(_isoOf(startsOn)),
+      endsOn: clearDates ? const Value(null) : Value.absentIfNull(_isoOf(endsOn)),
+    ),
+  );
 
   /// Copies a set and all its blocks under a new name and dates.
   ///
@@ -189,7 +203,7 @@ class CapacityRepository {
     required String name,
     DateTime? startsOn,
     DateTime? endsOn,
-  }) async {
+  }) {
     return _db.transaction(() async {
       final created = await addSchedule(
         workspaceId: workspaceId,
@@ -205,7 +219,8 @@ class CapacityRepository {
               .get();
 
       for (final block in source) {
-        await _db.into(_db.commitments).insert(
+        await _writer.insert(
+          _db.commitments,
           CommitmentsCompanion.insert(
             id: _uuid.v4(),
             workspaceId: workspaceId,
@@ -216,7 +231,6 @@ class CapacityRepository {
             durationMin: block.durationMin,
             kind: Value(block.kind),
             location: Value(block.location),
-            clientId: Value(clientId),
           ),
         );
       }
@@ -225,47 +239,52 @@ class CapacityRepository {
     });
   }
 
-  Future<void> deleteSchedule(String id) async {
-    await _db.transaction(() async {
+  /// Deletes a set and its blocks. Returns false for the fallback set, which cannot be
+  /// deleted: it is where every block outside a dated set lives.
+  ///
+  /// Only live blocks, all under one deletion time, which is how [restoreSchedule] tells
+  /// the blocks that went with the set from ones already deleted on their own.
+  Future<bool> deleteSchedule(String id) {
+    return _db.transaction(() async {
       final now = DateTime.now();
-      await (_db.update(_db.schedules)..where((s) => s.id.equals(id))).write(
-        SchedulesCompanion(
-          deletedAt: Value(now),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+      final deleted = await _writer.updateWhere(
+        _db.schedules,
+        (s) =>
+            s.id.equals(id) & s.isFallback.equals(false) & s.deletedAt.isNull(),
+        SchedulesCompanion(deletedAt: Value(now)),
       );
+      if (deleted.isEmpty) return false;
+
       // Its blocks go with it; leaving them orphaned would silently move them to the
       // fallback and start subtracting classes that no longer happen.
-      await (_db.update(_db.commitments)..where((c) => c.scheduleId.equals(id)))
-          .write(
-            CommitmentsCompanion(
-              deletedAt: Value(now),
-              clientId: Value(clientId),
-              updatedAt: Value(now),
-            ),
-          );
+      await _writer.updateWhere(
+        _db.commitments,
+        (c) => c.scheduleId.equals(id) & c.deletedAt.isNull(),
+        CommitmentsCompanion(deletedAt: Value(now)),
+      );
+      return true;
     });
   }
 
-  Future<void> restoreSchedule(String id) async {
-    await _db.transaction(() async {
-      final now = DateTime.now();
-      await (_db.update(_db.schedules)..where((s) => s.id.equals(id))).write(
-        SchedulesCompanion(
-          deletedAt: const Value(null),
-          clientId: Value(clientId),
-          updatedAt: Value(now),
-        ),
+  /// Undoes [deleteSchedule]: restores the set and the blocks carrying its deletion time.
+  Future<void> restoreSchedule(String id) {
+    return _db.transaction(() async {
+      final schedule =
+          await (_db.select(_db.schedules)..where((s) => s.id.equals(id)))
+              .getSingleOrNull();
+      final deletedAt = schedule?.deletedAt;
+      if (deletedAt == null) return;
+
+      await _writer.updateWhere(
+        _db.commitments,
+        (c) => c.scheduleId.equals(id) & c.deletedAt.equals(deletedAt),
+        const CommitmentsCompanion(deletedAt: Value(null)),
       );
-      await (_db.update(_db.commitments)..where((c) => c.scheduleId.equals(id)))
-          .write(
-            CommitmentsCompanion(
-              deletedAt: const Value(null),
-              clientId: Value(clientId),
-              updatedAt: Value(now),
-            ),
-          );
+      await _writer.update(
+        _db.schedules,
+        id,
+        const SchedulesCompanion(deletedAt: Value(null)),
+      );
     });
   }
 
@@ -289,44 +308,32 @@ class CapacityRepository {
     CommitmentKind kind = CommitmentKind.classes,
     String? location,
     DateTime? until,
-  }) {
-    return _db
-        .into(_db.commitments)
-        .insertReturning(
-          CommitmentsCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            scheduleId: Value(scheduleId),
-            title: title,
-            rrule: Recurrence.weekly(weekdays, until: until),
-            startMin: startMin,
-            durationMin: durationMin,
-            kind: Value(kind),
-            location: Value(location),
-            clientId: Value(clientId),
-          ),
-        );
-  }
+  }) => _writer.insert(
+    _db.commitments,
+    CommitmentsCompanion.insert(
+      id: _uuid.v4(),
+      workspaceId: workspaceId,
+      scheduleId: Value(scheduleId),
+      title: title,
+      rrule: Recurrence.weekly(weekdays, until: until),
+      startMin: startMin,
+      durationMin: durationMin,
+      kind: Value(kind),
+      location: Value(location),
+    ),
+  );
 
-  Future<void> deleteCommitment(String id) async {
-    await (_db.update(_db.commitments)..where((c) => c.id.equals(id))).write(
-      CommitmentsCompanion(
-        deletedAt: Value(DateTime.now()),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> deleteCommitment(String id) => _writer.update(
+    _db.commitments,
+    id,
+    CommitmentsCompanion(deletedAt: Value(DateTime.now())),
+  );
 
-  Future<void> restoreCommitment(String id) async {
-    await (_db.update(_db.commitments)..where((c) => c.id.equals(id))).write(
-      CommitmentsCompanion(
-        deletedAt: const Value(null),
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> restoreCommitment(String id) => _writer.update(
+    _db.commitments,
+    id,
+    const CommitmentsCompanion(deletedAt: Value(null)),
+  );
 }
 
 /// Translates stored rows into the pure types the ledger works with.
@@ -401,4 +408,3 @@ abstract final class CapacityMapping {
     return (blocks, rejected);
   }
 }
-

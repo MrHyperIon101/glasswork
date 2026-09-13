@@ -564,13 +564,13 @@ class _SectionHeaderState extends ConsumerState<_SectionHeader> {
     );
     if (!ok) return;
 
-    final moved = await scope.projects.deleteSection(section.id);
-    if (!moved) return;
+    final deletion = await scope.projects.deleteSection(section.id);
+    if (deletion == null) return;
     ref
         .read(undoProvider.notifier)
         .offer(
           'Deleted "${section.name}"',
-          () => scope.projects.restoreSection(section.id),
+          () => scope.projects.restoreSection(deletion),
         );
   }
 }

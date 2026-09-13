@@ -919,7 +919,7 @@ class _ScheduleSets extends ConsumerWidget {
   Future<void> _delete(WidgetRef ref, TimetableSet set) async {
     final scope = ref.read(appScopeProvider).value;
     if (scope == null) return;
-    await scope.capacity.deleteSchedule(set.id);
+    if (!await scope.capacity.deleteSchedule(set.id)) return;
     ref
         .read(undoProvider.notifier)
         .offer(

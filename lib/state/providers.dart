@@ -13,6 +13,7 @@ import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
 import '../data/project_filter.dart';
 import '../data/task_stats.dart';
+import '../sync/sync_writer.dart';
 
 /// Everything the app needs once the database is open and seeded.
 ///
@@ -21,6 +22,7 @@ import '../data/task_stats.dart';
 class AppScope {
   const AppScope({
     required this.db,
+    required this.writer,
     required this.workspaces,
     required this.tasks,
     required this.subtasks,
@@ -31,6 +33,11 @@ class AppScope {
   });
 
   final AppDatabase db;
+
+  /// The one writer for [db], shared by every repository. Two would each keep their own
+  /// copy of the clock, and could mint the same clock twice.
+  final SyncWriter writer;
+
   final WorkspaceRepository workspaces;
   final TaskRepository tasks;
   final SubtaskRepository subtasks;
@@ -48,23 +55,27 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final appScopeProvider = FutureProvider<AppScope>((ref) async {
   final db = ref.watch(databaseProvider);
-  final workspaces = WorkspaceRepository(db);
+  final writer = SyncWriter(
+    db,
+    clientId: await WorkspaceRepository.ensureClientId(db),
+  );
 
+  final workspaces = WorkspaceRepository(writer);
   final workspace = await workspaces.ensureSeeded();
-  final clientId = await workspaces.clientId();
 
-  final capacityRepo = CapacityRepository(db, clientId: clientId);
-  await capacityRepo.ensureProfile(workspace.id);
-  await capacityRepo.ensureFallbackSchedule(workspace.id);
+  final capacity = CapacityRepository(writer);
+  await capacity.ensureProfile(workspace.id);
+  await capacity.ensureFallbackSchedule(workspace.id);
 
   return AppScope(
     db: db,
+    writer: writer,
     workspaces: workspaces,
-    tasks: TaskRepository(db, clientId: clientId),
-    subtasks: SubtaskRepository(db, clientId: clientId),
-    capacity: capacityRepo,
-    projects: ProjectRepository(db, clientId: clientId),
-    labels: LabelRepository(db, clientId: clientId),
+    tasks: TaskRepository(writer),
+    subtasks: SubtaskRepository(writer),
+    capacity: capacity,
+    projects: ProjectRepository(writer),
+    labels: LabelRepository(writer),
     workspace: workspace,
   );
 });
