@@ -1,18 +1,20 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../sync/sync_writer.dart';
 import '../db/database.dart';
 import '../order_key.dart';
 
 /// Steps within a task.
 ///
-/// Same local-only contract as [TaskRepository]: nothing here awaits the network, every
-/// write stamps the client id, and deletion is a tombstone.
+/// Same contract as [TaskRepository]: nothing here awaits the network, every write goes
+/// through [SyncWriter], and deletion is a tombstone.
 class SubtaskRepository {
-  SubtaskRepository(this._db, {required this.clientId});
+  SubtaskRepository(this._writer);
 
-  final AppDatabase _db;
-  final String clientId;
+  final SyncWriter _writer;
+
+  AppDatabase get _db => _writer.db;
 
   static const _uuid = Uuid();
 
@@ -43,20 +45,16 @@ class SubtaskRepository {
               ..limit(1))
             .getSingleOrNull();
 
-    return _db
-        .into(_db.subtasks)
-        .insertReturning(
-          SubtasksCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            taskId: taskId,
-            title: title,
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            clientId: Value(clientId),
-          ),
-        );
+    return _writer.insert(
+      _db.subtasks,
+      SubtasksCompanion.insert(
+        id: _uuid.v4(),
+        workspaceId: workspaceId,
+        taskId: taskId,
+        title: title,
+        orderKey: last == null ? OrderKey.first : OrderKey.after(last.orderKey),
+      ),
+    );
   }
 
   Future<void> setDone(String id, {required bool done}) =>
@@ -71,12 +69,6 @@ class SubtaskRepository {
   Future<void> restore(String id) =>
       _write(id, const SubtasksCompanion(deletedAt: Value(null)));
 
-  Future<void> _write(String id, SubtasksCompanion patch) async {
-    await (_db.update(_db.subtasks)..where((s) => s.id.equals(id))).write(
-      patch.copyWith(
-        clientId: Value(clientId),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
+  Future<void> _write(String id, SubtasksCompanion patch) =>
+      _writer.update(_db.subtasks, id, patch);
 }

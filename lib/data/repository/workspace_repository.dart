@@ -1,84 +1,97 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../sync/sync_writer.dart';
 import '../db/database.dart';
 import '../order_key.dart';
 
-/// The single workspace, its boards and lists.
+/// The workspace this device opens, and its lists.
 ///
-/// v1 ships exactly one workspace, created on first launch. The table exists because the
-/// schema is shaped for sharing later; the UI never exposes it.
+/// v1 ships one workspace, created on first launch. The table exists because the schema
+/// is shaped for sharing later; the UI never exposes it.
 class WorkspaceRepository {
-  WorkspaceRepository(this._db);
+  WorkspaceRepository(this._writer);
 
-  final AppDatabase _db;
+  final SyncWriter _writer;
+
+  AppDatabase get _db => _writer.db;
 
   static const _uuid = Uuid();
   static const _clientIdKey = 'client_id';
 
   /// Stable identity for this device, created once and then never changed.
   ///
-  /// It tiebreaks equal order keys and becomes the HLC node id when sync lands. If this
-  /// ever changed between launches, two devices could not be told apart in a merge.
-  Future<String> clientId() async {
-    final existing = await _setting(_clientIdKey);
-    if (existing != null) return existing;
+  /// Static, and given the database rather than a writer, because the writer is built from
+  /// it: every clock the writer mints carries this id. It also tiebreaks equal order keys.
+  /// If it changed between launches, this device's own earlier edits would look like
+  /// another device's.
+  static Future<String> ensureClientId(AppDatabase db) {
+    return db.transaction(() async {
+      final existing =
+          await (db.select(db.localSettings)
+                ..where((s) => s.key.equals(_clientIdKey)))
+              .getSingleOrNull();
+      if (existing != null) return existing.value;
 
-    final id = _uuid.v4();
-    await _db
-        .into(_db.localSettings)
-        .insert(LocalSettingsCompanion.insert(key: _clientIdKey, value: id));
-    return id;
+      final id = _uuid.v4();
+      // Local-only, deliberately: a device's identity is the one thing that must never
+      // sync to another device.
+      await db
+          .into(db.localSettings)
+          .insert(LocalSettingsCompanion.insert(key: _clientIdKey, value: id));
+      return id;
+    });
   }
 
-  /// Creates the default workspace, board and list if they are not there yet, and
-  /// returns them. Safe to call on every launch.
-  Future<Workspace> ensureSeeded() async {
-    final existing = await _db.select(_db.workspaces).getSingleOrNull();
-    if (existing != null) return existing;
-
-    final client = await clientId();
-    final workspaceId = _uuid.v4();
-    final boardId = _uuid.v4();
-
+  /// The workspace to open, created with a starter project on first launch. Safe to call
+  /// on every launch.
+  ///
+  /// The oldest, rather than "the only one". Once sync runs a device can hold more than one
+  /// workspace — its own, and one pulled from another device — and asking for the only one
+  /// would throw at launch. The oldest is the same answer on every device.
+  Future<Workspace> ensureSeeded() {
     return _db.transaction(() async {
-      final workspace = await _db
-          .into(_db.workspaces)
-          .insertReturning(
-            WorkspacesCompanion.insert(
-              id: workspaceId,
-              name: 'Personal',
-              clientId: Value(client),
-            ),
-          );
+      final existing =
+          await (_db.select(_db.workspaces)
+                ..where((w) => w.deletedAt.isNull())
+                ..orderBy([
+                  (w) => OrderingTerm(expression: w.createdAt),
+                  (w) => OrderingTerm(expression: w.id),
+                ])
+                ..limit(1))
+              .getSingleOrNull();
+      if (existing != null) return existing;
 
-      await _db
-          .into(_db.boards)
-          .insert(
-            BoardsCompanion.insert(
-              id: boardId,
-              workspaceId: workspaceId,
-              name: 'Personal',
-              purpose: const Value('Everything with nowhere better to go'),
-              icon: const Value('◍'),
-              colour: const Value(0xFF0A84FF),
-              orderKey: OrderKey.first,
-              clientId: Value(client),
-            ),
-          );
+      final workspace = await _writer.insert(
+        _db.workspaces,
+        WorkspacesCompanion.insert(id: _uuid.v4(), name: 'Personal'),
+      );
+
+      final board = await _writer.insert(
+        _db.boards,
+        BoardsCompanion.insert(
+          id: _uuid.v4(),
+          workspaceId: workspace.id,
+          name: 'Personal',
+          purpose: const Value('Everything with nowhere better to go'),
+          icon: const Value('◍'),
+          colour: const Value(0xFF0A84FF),
+          orderKey: OrderKey.first,
+        ),
+      );
 
       // "Inbox" says nothing about what it holds. These name the state of the work.
       var key = OrderKey.first;
       for (final (i, section) in ['To do', 'Doing', 'Done'].indexed) {
-        await _db.into(_db.lists).insert(
+        await _writer.insert(
+          _db.lists,
           ListsCompanion.insert(
             id: _uuid.v4(),
-            workspaceId: workspaceId,
-            boardId: boardId,
+            workspaceId: workspace.id,
+            boardId: board.id,
             name: section,
             orderKey: key,
             isDoneColumn: Value(i == 2),
-            clientId: Value(client),
           ),
         );
         key = OrderKey.after(key);
@@ -96,46 +109,5 @@ class WorkspaceRepository {
         (l) => OrderingTerm(expression: l.clientId),
       ]);
     return q.watch();
-  }
-
-  Future<BoardList> createList({
-    required String workspaceId,
-    required String boardId,
-    required String name,
-  }) async {
-    final last =
-        await (_db.select(_db.lists)
-              ..where((l) => l.boardId.equals(boardId) & l.deletedAt.isNull())
-              ..orderBy([
-                (l) => OrderingTerm(
-                  expression: l.orderKey,
-                  mode: OrderingMode.desc,
-                ),
-              ])
-              ..limit(1))
-            .getSingleOrNull();
-
-    return _db
-        .into(_db.lists)
-        .insertReturning(
-          ListsCompanion.insert(
-            id: _uuid.v4(),
-            workspaceId: workspaceId,
-            boardId: boardId,
-            name: name,
-            orderKey: last == null
-                ? OrderKey.first
-                : OrderKey.after(last.orderKey),
-            clientId: Value(await clientId()),
-          ),
-        );
-  }
-
-  Future<String?> _setting(String key) async {
-    final row =
-        await (_db.select(
-          _db.localSettings,
-        )..where((s) => s.key.equals(key))).getSingleOrNull();
-    return row?.value;
   }
 }

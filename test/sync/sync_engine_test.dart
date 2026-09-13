@@ -1,12 +1,11 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/sync/hlc.dart';
-import 'package:glasswork/sync/sync_engine.dart';
 import 'package:glasswork/sync/sync_transport.dart';
 import 'package:glasswork/sync/sync_writer.dart';
 
+import 'device.dart';
 import 'fake_server.dart';
 
 /// Shared wall clock in milliseconds. Every device and the server read this, so a test
@@ -18,46 +17,6 @@ const sunday = 1757203200000; // 2026-09-06
 final monday = sunday + day;
 final tuesday = sunday + 2 * day;
 final wednesday = sunday + 3 * day;
-
-/// One device: its own database, its own clock identity, its own engine.
-class Device {
-  Device(this.name, FakeServer server) {
-    db = AppDatabase(NativeDatabase.memory());
-    writer = SyncWriter(db, clientId: name, nowMs: () => nowMs);
-    engine = SyncEngine(
-      db: db,
-      writer: writer,
-      transport: server,
-      tables: [db.workspaces, db.boards, db.lists, db.tasks],
-    );
-  }
-
-  final String name;
-  late final AppDatabase db;
-  late final SyncWriter writer;
-  late final SyncEngine engine;
-
-  Future<Task?> task(String id) =>
-      (db.select(db.tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
-
-  Future<int> dirtyCount() async => (await db.select(db.outbox).get()).length;
-
-  Future<void> rename(String id, String title) =>
-      writer.update(db.tasks, id, TasksCompanion(title: Value(title)));
-
-  Future<SyncReport> sync() async {
-    final report = await engine.syncOnce();
-    if (report.error case final e? when e is! SyncTransportException &&
-        e is! ClockDriftException) {
-      // Surface anything unexpected instead of letting an assertion on stale data fail
-      // somewhere confusing later.
-      fail('sync on $name failed: $e');
-    }
-    return report;
-  }
-
-  Future<void> close() => db.close();
-}
 
 Future<void> seed(Device d, {String taskTitle = 'Lab report'}) async {
   final w = d.writer;
@@ -96,8 +55,8 @@ void main() {
   setUp(() {
     nowMs = sunday;
     server = FakeServer(now: () => DateTime.fromMillisecondsSinceEpoch(nowMs, isUtc: true));
-    laptop = Device('laptop', server);
-    phone = Device('phone', server);
+    laptop = Device('laptop', server, now: () => nowMs);
+    phone = Device('phone', server, now: () => nowMs);
   });
 
   tearDown(() async {

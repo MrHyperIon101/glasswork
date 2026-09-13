@@ -4,6 +4,7 @@ import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/repository/subtask_repository.dart';
 import 'package:glasswork/data/repository/task_repository.dart';
 import 'package:glasswork/data/repository/workspace_repository.dart';
+import 'package:glasswork/sync/sync_writer.dart';
 
 void main() {
   late AppDatabase db;
@@ -12,15 +13,17 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    final workspaces = WorkspaceRepository(db);
+    final writer = SyncWriter(
+      db,
+      clientId: await WorkspaceRepository.ensureClientId(db),
+    );
+    final workspaces = WorkspaceRepository(writer);
     final ws = await workspaces.ensureSeeded();
     final listId = (await workspaces.watchLists(ws.id).first).first.id;
-    final clientId = await workspaces.clientId();
 
-    steps = SubtaskRepository(db, clientId: clientId);
+    steps = SubtaskRepository(writer);
     task = await TaskRepository(
-      db,
-      clientId: clientId,
+      writer,
     ).create(listId: listId, workspaceId: ws.id, title: 'Parent');
   });
 

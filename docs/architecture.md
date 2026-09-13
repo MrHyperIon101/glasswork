@@ -91,6 +91,17 @@ Consequences:
   transaction can commit with a timestamp behind a cursor you've already passed. The HLC merge is
   idempotent, so the overlap is free.
 
+**Synced rows are written only through `SyncWriter`**, which stamps the clocks and queues the
+outbox in the same transaction as the write. A repository that writes a synced table directly
+makes an edit that works on this device and never reaches another — and no behavioural test
+notices, so `test/sync/write_path_test.dart` reads the source for it.
+
+**Nothing assumes a row is unique unless its primary key says so.** After sync, both devices'
+offline creations exist. A row that can only exist once per key — a label on a task, a field's
+value, a workspace's profile — takes a derived id from `NaturalId`, so both devices create the
+same row and the merge folds them together. Every other "find the one" lookup orders by
+`(created_at, id)` and takes the first, so it cannot throw and every device picks the same row.
+
 ---
 
 ## Capacity engine

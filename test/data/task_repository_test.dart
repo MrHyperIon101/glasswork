@@ -1,12 +1,15 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/db/tables.dart';
 import 'package:glasswork/data/repository/task_repository.dart';
 import 'package:glasswork/data/repository/workspace_repository.dart';
+import 'package:glasswork/sync/sync_writer.dart';
 
 void main() {
   late AppDatabase db;
+  late SyncWriter writer;
   late TaskRepository tasks;
   late WorkspaceRepository workspaces;
   late String workspaceId;
@@ -14,11 +17,12 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    workspaces = WorkspaceRepository(db);
+    writer = SyncWriter(db, clientId: await WorkspaceRepository.ensureClientId(db));
+    workspaces = WorkspaceRepository(writer);
     final ws = await workspaces.ensureSeeded();
     workspaceId = ws.id;
     listId = (await workspaces.watchLists(workspaceId).first).first.id;
-    tasks = TaskRepository(db, clientId: await workspaces.clientId());
+    tasks = TaskRepository(writer);
   });
 
   tearDown(() => db.close());
@@ -36,11 +40,32 @@ void main() {
     expect(await db.select(db.lists).get(), hasLength(3));
   });
 
-  test('clientId is stable across calls', () async {
-    final a = await workspaces.clientId();
-    final b = await workspaces.clientId();
-    expect(a, b);
-    expect(a, isNotEmpty);
+  test('seeding queues everything it creates for sync', () async {
+    final entries = await db.select(db.outbox).get();
+    expect(
+      entries.map((e) => e.targetTable),
+      unorderedEquals(['workspaces', 'boards', 'lists', 'lists', 'lists']),
+    );
+  });
+
+  test('with two workspaces, opens the oldest rather than throwing', () async {
+    // Once sync runs, a device can hold its own workspace and one pulled from another.
+    await writer.insert(
+      db.workspaces,
+      WorkspacesCompanion.insert(
+        id: 'from-the-laptop',
+        name: 'Personal',
+        createdAt: Value(DateTime(2026, 1, 1)),
+      ),
+    );
+
+    expect((await workspaces.ensureSeeded()).id, 'from-the-laptop');
+  });
+
+  test('the client id is created once and then never changes', () async {
+    final again = await WorkspaceRepository.ensureClientId(db);
+    expect(again, writer.clientId);
+    expect(again, isNotEmpty);
   });
 
   test('created tasks keep insertion order', () async {
@@ -117,8 +142,20 @@ void main() {
     await tasks.rename(t.id, 'renamed');
 
     final row = await tasks.watchTask(t.id).first;
-    expect(row!.clientId, await workspaces.clientId());
+    expect(row!.clientId, writer.clientId);
     expect(row.title, 'renamed');
+  });
+
+  test('every write is queued for sync', () async {
+    final t = await add('queued');
+    await db.delete(db.outbox).go();
+
+    await tasks.rename(t.id, 'renamed');
+    await tasks.setPriority(t.id, 2);
+
+    final entry = (await db.select(db.outbox).get()).single;
+    expect(entry.rowId, t.id);
+    expect(SyncWriter.decodeFieldNames(entry.changedFields), {'title', 'priority'});
   });
 
   test('search matches title and notes, case-insensitively', () async {
