@@ -154,6 +154,10 @@ All-day tasks store a `due_date` (date), **not** a timestamp. A timestamp for an
 - Numbers shown in the UI come from a tested pure function, never from arithmetic inline in a
   widget. A dashboard figure nobody can trace is worse than no figure.
 - Nothing is called done on a claim. Every gate is a command run or a screenshot taken.
+- Server schema changes pass `supabase/checks/sync_schema_checks.sql` against the linked project
+  (`supabase db query --linked -f ...` ends with "ALL SYNC SCHEMA CHECKS PASSED"), and
+  `supabase db advisors --linked` shows nothing new. The one expected warning is signed-in users
+  being able to call `merge_rows`, a security definer function: that is the design.
 
 ---
 
