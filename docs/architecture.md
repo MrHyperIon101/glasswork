@@ -103,6 +103,14 @@ value, a workspace's profile — takes a derived id from `NaturalId`, so both de
 same row and the merge folds them together. Every other "find the one" lookup orders by
 `(created_at, id)` and takes the first, so it cannot throw and every device picks the same row.
 
+**Sign-in is email and password, and the project's auth settings live in `supabase/config.toml`.**
+The free plan refuses changes to email templates, and its built-in emails carry only links the app
+cannot open, so no flow depends on an email: confirmation is off, and the password minimum is
+`SyncAuth.minimumPasswordLength` (a test holds the app and the file together). Before any
+`supabase config push`, pull the live config into a scratch copy and diff it against the repo.
+`supabase config diff` has reported nothing while values differed, and a push without a terminal
+proceeds on its own, writing every value the file declares over the live one.
+
 ---
 
 ## Capacity engine
