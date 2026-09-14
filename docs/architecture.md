@@ -2,7 +2,14 @@
 
 Personal task app. Local-first, cloud-synced. Linux + Android for v1 (web is post-v1, do not add it).
 
-The app name lives in `lib/app_config.dart` and nowhere else. Nothing else depends on it.
+The app name lives in `lib/app_config.dart`. The platform files that have to spell it out for
+themselves — the Android launcher label, the Linux window title and app grid entry — are held to it
+by `test/app_identity_test.dart`.
+
+The app icon is generated. `tool/app_icon.py` cuts a disc from `assets/branding/app_icon_source.png`
+and writes every platform's PNGs; change the source and rerun it, never edit the outputs. A Linux
+release build is installed for the user, icon and app grid entry included, by
+`linux/packaging/install.sh`.
 
 ---
 

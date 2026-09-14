@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppColour.base in lib/theme/tokens.dart. test/app_identity_test.dart holds the two
+         together. -->
+    <color name="app_background">#1C1C1E</color>
+</resources>
