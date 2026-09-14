@@ -3,9 +3,10 @@
          has only this one, and without it sync would fail as though always offline. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="glasswork"
+        android:label="Glasswork"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"

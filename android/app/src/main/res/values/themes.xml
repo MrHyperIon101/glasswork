@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app is dark whatever the system setting, so these are too, in both modes. A
+         light window here would flash white between tapping the icon and the app appearing.
+         That is also why there is no values-night variant. -->
+
+    <!-- While the process starts, until Flutter draws its first frame. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+
+    <!-- Behind the Flutter UI while it runs. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+</resources>

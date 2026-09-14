@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Glasswork
+Comment=Tasks and projects, planned against the time you have
+Exec=@EXEC@
+Icon=dev.mrhyperion.glasswork
+Terminal=false
+Categories=Office;ProjectManagement;
+StartupWMClass=dev.mrhyperion.glasswork
