@@ -118,4 +118,40 @@ void main() {
       );
     });
   });
+
+  group('blocks', () {
+    test('an edit writes, and queues, only the fields that changed', () async {
+      final fallback = await capacity.ensureFallbackSchedule(workspaceId);
+      final lecture = await addBlock(fallback.id, 'DBMS');
+      await db.delete(db.outbox).go();
+
+      await capacity.updateCommitment(lecture.id, startMin: 10 * 60);
+
+      final row = await block(lecture.id);
+      expect(row.startMin, 10 * 60);
+      expect(row.title, 'DBMS');
+      final entry = (await db.select(db.outbox).get()).single;
+      expect(SyncWriter.decodeFieldNames(entry.changedFields), {'start_min'});
+    });
+
+    test('new days keep the end date the rule already had', () async {
+      final fallback = await capacity.ensureFallbackSchedule(workspaceId);
+      final lecture = await capacity.addCommitment(
+        workspaceId: workspaceId,
+        scheduleId: fallback.id,
+        title: 'DBMS',
+        weekdays: {1, 3},
+        startMin: 9 * 60,
+        durationMin: 60,
+        until: DateTime(2026, 12, 15),
+      );
+
+      await capacity.updateCommitment(lecture.id, weekdays: {2, 4});
+
+      expect(
+        (await block(lecture.id)).rrule,
+        'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261215',
+      );
+    });
+  });
 }

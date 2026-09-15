@@ -1,18 +1,25 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../capacity/block_check.dart';
 import '../../capacity/ledger.dart';
+import '../../capacity/recurrence.dart';
+import '../../capacity/timetable.dart' as tt;
 import '../../data/db/database.dart';
+import '../../data/repository/capacity_repository.dart';
 import '../../state/providers.dart';
+import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
 import '../surface.dart';
-import '../../data/repository/capacity_repository.dart';
-import '../../state/undo_controller.dart';
+import '../time_entry.dart';
+import '../widgets/block_dialog.dart';
 import '../widgets/content_header.dart';
-import '../widgets/field_controls.dart';
 import '../widgets/day_timeline.dart';
+import '../widgets/field_controls.dart';
+import '../widgets/value_stepper.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
 ///
@@ -30,6 +37,12 @@ class CapacityScreen extends ConsumerWidget {
     final commitments = ref.watch(commitmentsProvider).value ?? const [];
     final rejected = ref.watch(rejectedCommitmentsProvider);
     final capacity = ref.watch(dayCapacityProvider);
+    final settings = CapacityMapping.settings(profile);
+    // Blocks the ledger leaves out, because they fall where nothing is counted.
+    final uncounted = [
+      for (final c in commitments)
+        if (_problemsOf(c, settings).isNotEmpty) c,
+    ];
 
     final compact = AppLayout.compact(context);
     final gutter = AppLayout.gutter(context);
@@ -59,6 +72,10 @@ class CapacityScreen extends ConsumerWidget {
               children: [
                 if (rejected.isNotEmpty) ...[
                   _RejectedRules(rejected: rejected),
+                  const SizedBox(height: AppSpace.lg),
+                ],
+                if (uncounted.isNotEmpty) ...[
+                  _UncountedBlocks(blocks: uncounted, settings: settings),
                   const SizedBox(height: AppSpace.lg),
                 ],
                 if (capacity.isNotEmpty) ...[
@@ -99,10 +116,8 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
     final day = widget.day;
     final profile = ref.watch(capacityProfileProvider).value;
     final settings = CapacityMapping.settings(profile);
-    final timetable = ref.watch(timetableProvider);
     final planned = ref.watch(scheduleProvider).allocatedOn(day.date);
-
-    final over = planned - day.usableMin;
+    final spare = day.spareAfter(planned);
 
     return AppSurface(
       child: Column(
@@ -116,25 +131,20 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
             planned == 0
                 ? 'You have ${Format.estimate(day.usableMin)} to spend and '
                       'nothing planned into it yet.'
-                : over > 0
+                : spare < 0
                 ? "You have ${Format.estimate(day.usableMin)} to spend and "
                       "${Format.estimate(planned)} planned. "
-                      "That's ${Format.estimate(over)} more than fits."
+                      "That's ${Format.estimate(-spare)} more than fits."
                 : 'You have ${Format.estimate(day.usableMin)} to spend and '
-                      '${Format.estimate(planned)} planned. '
-                      '${Format.estimate(-over)} spare.',
+                      '${Format.estimate(planned)} planned, '
+                      '${spare == 0 ? 'with nothing to spare' : '${Format.estimate(spare)} spare'}.',
             style: AppText.title3.copyWith(
-              color: over > 0 ? AppColour.red : AppColour.label,
+              color: spare < 0 ? AppColour.red : AppColour.label,
             ),
           ),
           const SizedBox(height: AppSpace.lg),
 
-          DayTimeline(
-            day: day,
-            settings: settings,
-            blocks: timetable.blocksOn(day.date),
-            allocatedMin: planned,
-          ),
+          DayTimeline(day: day, settings: settings, allocatedMin: planned),
 
           const SizedBox(height: AppSpace.md),
           const AppDivider(),
@@ -236,14 +246,12 @@ class _WeekCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(capacityProfileProvider).value;
     final settings = CapacityMapping.settings(profile);
-    final timetable = ref.watch(timetableProvider);
     final schedule = ref.watch(scheduleProvider);
     final compact = AppLayout.compact(context);
 
     Widget timeline(DayCapacity day) => DayTimeline(
       day: day,
       settings: settings,
-      blocks: timetable.blocksOn(day.date),
       allocatedMin: schedule.allocatedOn(day.date),
       showHours: false,
       // Seven full legends down a phone make a wall of figures.
@@ -353,54 +361,107 @@ class _ProfileCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(appScopeProvider).value?.capacity;
 
+    // A length, stepped or typed, kept inside [min, max].
+    Widget length({
+      required String label,
+      required int value,
+      required int step,
+      required int min,
+      required int max,
+      required void Function(int minutes) save,
+      bool bareMinutes = false,
+    }) => ValueStepper(
+      label: label,
+      text: Format.estimate(value),
+      keyboardType: TextInputType.datetime,
+      onStep: (direction) => save((value + direction * step).clamp(min, max)),
+      onSubmit: (text) {
+        final typed = TimeEntry.duration(text, bareMinutes: bareMinutes);
+        if (typed == null) return false;
+        save(typed.clamp(min, max));
+        return true;
+      },
+    );
+
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Profile', style: AppText.caption),
           const SizedBox(height: AppSpace.md),
-          _Stepper(
-            label: 'Sleep target',
-            value: Format.estimate(profile.sleepTargetMin),
-            onChange: (delta) => repo?.updateProfile(
+          // Where sleep falls decides which hours count at all, so it has to be settable:
+          // without it, everyone was asleep from 23:30 whether they were or not.
+          ValueStepper(
+            label: 'Bedtime',
+            detail:
+                'Up at ${Format.clock(CapacityMapping.settings(profile).wakeMin)}',
+            text: Format.clock(profile.sleepStartMin),
+            keyboardType: TextInputType.datetime,
+            onStep: (direction) => repo?.updateProfile(
               profile.id,
-              sleepTargetMin: (profile.sleepTargetMin + delta * 15).clamp(
-                240,
-                720,
+              sleepStartMin:
+                  (profile.sleepStartMin + direction * 15) % minutesInDay,
+            ),
+            onSubmit: (text) {
+              final typed = TimeEntry.clock(text);
+              if (typed == null) return false;
+              repo?.updateProfile(profile.id, sleepStartMin: typed);
+              return true;
+            },
+          ),
+          length(
+            label: 'Sleep target',
+            value: profile.sleepTargetMin,
+            step: 15,
+            min: 240,
+            max: 720,
+            save: (v) => repo?.updateProfile(profile.id, sleepTargetMin: v),
+          ),
+          length(
+            label: 'Meals',
+            value: profile.mealsMin,
+            step: 15,
+            min: 0,
+            max: 300,
+            save: (v) => repo?.updateProfile(profile.id, mealsMin: v),
+          ),
+          length(
+            label: 'Buffer — transit, admin, life',
+            value: profile.bufferMin,
+            step: 15,
+            min: 0,
+            max: 300,
+            save: (v) => repo?.updateProfile(profile.id, bufferMin: v),
+          ),
+          ValueStepper(
+            label: 'Focus factor',
+            text: '${(profile.focusFactor * 100).round()}%',
+            keyboardType: TextInputType.number,
+            onStep: (direction) => repo?.updateProfile(
+              profile.id,
+              focusFactor: (profile.focusFactor + direction * 0.05).clamp(
+                0.3,
+                1.0,
               ),
             ),
+            onSubmit: (text) {
+              final typed = TimeEntry.percent(text);
+              if (typed == null) return false;
+              repo?.updateProfile(
+                profile.id,
+                focusFactor: (typed / 100).clamp(0.3, 1.0),
+              );
+              return true;
+            },
           ),
-          _Stepper(
-            label: 'Meals',
-            value: Format.estimate(profile.mealsMin),
-            onChange: (delta) => repo?.updateProfile(
-              profile.id,
-              mealsMin: (profile.mealsMin + delta * 15).clamp(0, 300),
-            ),
-          ),
-          _Stepper(
-            label: 'Buffer — transit, admin, life',
-            value: Format.estimate(profile.bufferMin),
-            onChange: (delta) => repo?.updateProfile(
-              profile.id,
-              bufferMin: (profile.bufferMin + delta * 15).clamp(0, 300),
-            ),
-          ),
-          _Stepper(
-            label: 'Focus factor',
-            value: '${(profile.focusFactor * 100).round()}%',
-            onChange: (delta) => repo?.updateProfile(
-              profile.id,
-              focusFactor: (profile.focusFactor + delta * 0.05).clamp(0.3, 1.0),
-            ),
-          ),
-          _Stepper(
+          length(
             label: 'Shortest usable gap',
-            value: Format.estimate(profile.minGapMin),
-            onChange: (delta) => repo?.updateProfile(
-              profile.id,
-              minGapMin: (profile.minGapMin + delta * 5).clamp(5, 120),
-            ),
+            value: profile.minGapMin,
+            step: 5,
+            min: 5,
+            max: 120,
+            bareMinutes: true,
+            save: (v) => repo?.updateProfile(profile.id, minGapMin: v),
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
@@ -414,70 +475,10 @@ class _ProfileCard extends ConsumerWidget {
   }
 }
 
-class _Stepper extends StatelessWidget {
-  const _Stepper({
-    required this.label,
-    required this.value,
-    required this.onChange,
-  });
-
-  final String label;
-  final String value;
-  final void Function(int delta) onChange;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-    child: Row(
-      children: [
-        Expanded(child: Text(label, style: AppText.body)),
-        _Step(icon: Icons.remove, onTap: () => onChange(-1)),
-        SizedBox(
-          width: 68,
-          child: Text(
-            value,
-            textAlign: TextAlign.center,
-            style: AppText.numeric.copyWith(color: AppColour.label),
-          ),
-        ),
-        _Step(icon: Icons.add, onTap: () => onChange(1)),
-      ],
-    ),
-  );
-}
-
-class _Step extends StatelessWidget {
-  const _Step({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        // A finger gets a bigger target than a pointer needs.
-        width: AppLayout.touch ? AppSize.touch - AppSpace.sm : 26,
-        height: AppLayout.touch ? AppSize.touch - AppSpace.sm : 26,
-        decoration: const BoxDecoration(
-          color: AppColour.fill,
-          borderRadius: AppRadius.smallAll,
-        ),
-        child: Icon(icon, size: 14, color: AppColour.labelSecondary),
-      ),
-    ),
-  );
-}
-
 class _CommitmentsCard extends ConsumerWidget {
   const _CommitmentsCard({required this.commitments});
 
   final List<Commitment> commitments;
-
-  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -486,11 +487,19 @@ class _CommitmentsCard extends ConsumerWidget {
     final visible = commitments
         .where((c) => c.scheduleId == editingId)
         .toList();
+    final settings = CapacityMapping.settings(
+      ref.watch(capacityProfileProvider).value,
+    );
 
     final name = (ref.watch(schedulesProvider).value ?? const <TimetableSet>[])
         .where((s) => s.id == editingId)
         .map((s) => s.name)
         .firstOrNull;
+    // A set not in force takes blocks that count nowhere above, which is baffling unless
+    // it says so.
+    final notInForce = editingId == null
+        ? null
+        : _notInForce(ref.watch(timetableProvider), editingId, name);
 
     return AppSurface(
       child: Column(
@@ -507,6 +516,13 @@ class _CommitmentsCard extends ConsumerWidget {
               _AddCommitmentButton(),
             ],
           ),
+          if (notInForce != null) ...[
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              notInForce,
+              style: AppText.footnote.copyWith(color: AppColour.orange),
+            ),
+          ],
           const SizedBox(height: AppSpace.md),
           if (visible.isEmpty)
             Text(
@@ -516,73 +532,35 @@ class _CommitmentsCard extends ConsumerWidget {
             )
           else
             for (final c in visible)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(c.title, style: AppText.body),
-                          Text(
-                            '${_days(c.rrule)} · ${_time(c.startMin)}'
-                            '–${_time(c.startMin + c.durationMin)}',
-                            style: AppText.numeric,
-                          ),
-                        ],
-                      ),
-                    ),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () => ref
-                            .read(appScopeProvider)
-                            .value
-                            ?.capacity
-                            .deleteCommitment(c.id),
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: EdgeInsets.all(
-                            AppLayout.touch ? AppSpace.md : AppSpace.xs,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            size: 15,
-                            color: AppColour.labelTertiary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              _BlockRow(
+                commitment: c,
+                problems: _problemsOf(
+                  c,
+                  settings,
+                  others: CapacityMapping.blocksOf([
+                    for (final other in visible)
+                      if (other.id != c.id) other,
+                  ]).$1,
                 ),
+                onTap: () => _editBlock(context, ref, existing: c),
+                onDelete: () => _deleteBlock(ref, c),
               ),
         ],
       ),
     );
   }
 
-  static String _time(int min) =>
-      '${(min ~/ 60).toString().padLeft(2, '0')}:'
-      '${(min % 60).toString().padLeft(2, '0')}';
+  Future<void> _deleteBlock(WidgetRef ref, Commitment c) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
 
-  static String _days(String rrule) {
-    const codes = {
-      'MO': 0,
-      'TU': 1,
-      'WE': 2,
-      'TH': 3,
-      'FR': 4,
-      'SA': 5,
-      'SU': 6,
-    };
-    final match = RegExp('BYDAY=([A-Z,]+)').firstMatch(rrule.toUpperCase());
-    if (match == null) return rrule;
-    return match
-        .group(1)!
-        .split(',')
-        .map((c) => codes[c] == null ? c : _dayNames[codes[c]!])
-        .join(' ');
+    await scope.capacity.deleteCommitment(c.id);
+    ref
+        .read(undoProvider.notifier)
+        .offer(
+          'Deleted "${c.title}"',
+          () => scope.capacity.restoreCommitment(c.id),
+        );
   }
 }
 
@@ -592,12 +570,12 @@ class _AddCommitmentButton extends ConsumerWidget {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => _showAddDialog(context, ref),
+        onTap: () => _editBlock(context, ref),
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: AppSpace.md,
-            vertical: AppSpace.xs,
+            vertical: AppLayout.touch ? AppSpace.sm : AppSpace.xs,
           ),
           decoration: const BoxDecoration(
             color: AppColour.fill,
@@ -611,200 +589,274 @@ class _AddCommitmentButton extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final scope = ref.read(appScopeProvider).value;
-    if (scope == null) return;
+/// Opens [existing] for editing, or a new block when there is none, and saves what comes
+/// back.
+Future<void> _editBlock(
+  BuildContext context,
+  WidgetRef ref, {
+  Commitment? existing,
+}) async {
+  final scope = ref.read(appScopeProvider).value;
+  final scheduleId =
+      existing?.scheduleId ?? ref.read(editingScheduleIdProvider);
+  if (scope == null || scheduleId == null) return;
 
-    final result = await showDialog<_NewCommitment>(
-      context: context,
-      builder: (context) => const _AddCommitmentDialog(),
-    );
-    if (result == null) return;
+  final commitments =
+      ref.read(commitmentsProvider).value ?? const <Commitment>[];
+  final (others, _) = CapacityMapping.blocksOf([
+    for (final c in commitments)
+      if (c.scheduleId == scheduleId && c.id != existing?.id) c,
+  ]);
+  final name = (ref.read(schedulesProvider).value ?? const <TimetableSet>[])
+      .where((s) => s.id == scheduleId)
+      .map((s) => s.name)
+      .firstOrNull;
+  final initial = existing == null
+      ? null
+      : BlockDraft(
+          title: existing.title,
+          weekdays: _weekdaysOf(existing) ?? const {},
+          startMin: existing.startMin,
+          durationMin: existing.durationMin,
+        );
 
-    final scheduleId = ref.read(editingScheduleIdProvider);
-    if (scheduleId == null) return;
+  final draft = await showDialog<BlockDraft>(
+    context: context,
+    builder: (context) => BlockDialog(
+      settings: CapacityMapping.settings(
+        ref.read(capacityProfileProvider).value,
+      ),
+      others: others,
+      initial: initial,
+      timetableName: name,
+      notInForce: _notInForce(ref.read(timetableProvider), scheduleId, name),
+    ),
+  );
+  if (draft == null) return;
 
+  if (existing == null || initial == null) {
     await scope.capacity.addCommitment(
       workspaceId: scope.workspace.id,
       scheduleId: scheduleId,
-      title: result.title,
-      weekdays: result.weekdays,
-      startMin: result.startMin,
-      durationMin: result.durationMin,
+      title: draft.title,
+      weekdays: draft.weekdays,
+      startMin: draft.startMin,
+      durationMin: draft.durationMin,
     );
+    return;
+  }
+
+  // Only what changed, so an edit here does not overwrite a change another device made to
+  // a field this one never touched.
+  await scope.capacity.updateCommitment(
+    existing.id,
+    title: draft.title == initial.title ? null : draft.title,
+    weekdays: setEquals(draft.weekdays, initial.weekdays)
+        ? null
+        : draft.weekdays,
+    startMin: draft.startMin == initial.startMin ? null : draft.startMin,
+    durationMin: draft.durationMin == initial.durationMin
+        ? null
+        : draft.durationMin,
+  );
+}
+
+/// Why blocks in the set [scheduleId] do not count today, or null when they do.
+String? _notInForce(tt.Timetable timetable, String scheduleId, String? name) {
+  final today = DateTime.now();
+  final governing = timetable.windowFor(today);
+  if (governing?.id == scheduleId) return null;
+
+  final label = name ?? 'This timetable';
+  final from = timetable.firstDayGovernedBy(
+    scheduleId,
+    today,
+    capacityHorizonDays,
+  );
+  if (from != null) {
+    return "$label isn't in force today. Its blocks count from "
+        '${Format.dayAndDate(from)}.';
+  }
+  return governing == null
+      ? "$label isn't in force in the next four weeks, so its blocks don't count "
+            'in the figures above.'
+      : '${governing.name} is in force instead, so blocks in $label '
+            "don't count in the figures above.";
+}
+
+/// A stored block's weekdays, or null when its rule cannot be read.
+Set<int>? _weekdaysOf(Commitment c) {
+  try {
+    return Recurrence.parse(c.rrule).weekdays;
+  } on RecurrenceError {
+    return null;
   }
 }
 
-class _NewCommitment {
-  const _NewCommitment({
-    required this.title,
-    required this.weekdays,
-    required this.startMin,
-    required this.durationMin,
+/// What keeps [c] from counting in full: sleep and midnight, and given [others], the rest of
+/// its timetable, clashes.
+List<BlockProblem> _problemsOf(
+  Commitment c,
+  CapacitySettings settings, {
+  List<FixedBlock> others = const [],
+}) {
+  final weekdays = _weekdaysOf(c);
+  if (weekdays == null) return const [];
+  return BlockCheck.problems(
+    startMin: c.startMin,
+    durationMin: c.durationMin,
+    weekdays: weekdays,
+    settings: settings,
+    others: others,
+  );
+}
+
+String _shortProblem(BlockProblem problem) => switch (problem) {
+  DuringSleep() => 'Falls while you sleep, so it is not counted',
+  PastMidnight() => 'Runs past midnight, and the rest is not counted',
+  Clash(:final title) => 'Overlaps $title',
+};
+
+/// Blocks the ledger leaves out, whole or in part, because they fall while you sleep or
+/// run past midnight. They used to be left out silently, and simply never appeared.
+class _UncountedBlocks extends ConsumerWidget {
+  const _UncountedBlocks({required this.blocks, required this.settings});
+
+  final List<Commitment> blocks;
+  final CapacitySettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => AppSurface(
+    colour: AppColour.elevated,
+    border: true,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.bedtime_outlined,
+              size: 15,
+              color: AppColour.orange,
+            ),
+            const SizedBox(width: AppSpace.sm),
+            Flexible(
+              child: Text(
+                '${blocks.length} block${blocks.length == 1 ? '' : 's'} not counted',
+                style: AppText.headline.copyWith(color: AppColour.orange),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.sm),
+        for (final c in blocks)
+          _BlockRow(
+            commitment: c,
+            problems: _problemsOf(c, settings),
+            onTap: () => _editBlock(context, ref, existing: c),
+          ),
+        const SizedBox(height: AppSpace.sm),
+        Text(
+          'You sleep ${Format.clockRange(settings.bedtimeMin, settings.wakeMin)}, and '
+          'sleep is never counted as time to spend. Tap a block to move it, or if you '
+          'are up then, set a later bedtime under Profile.',
+          style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A block in a list: what it is and when, and anything keeping it from counting. Tapped,
+/// it opens for editing.
+class _BlockRow extends StatefulWidget {
+  const _BlockRow({
+    required this.commitment,
+    required this.problems,
+    required this.onTap,
+    this.onDelete,
   });
 
-  final String title;
-  final Set<int> weekdays;
-  final int startMin;
-  final int durationMin;
-}
-
-class _AddCommitmentDialog extends StatefulWidget {
-  const _AddCommitmentDialog();
+  final Commitment commitment;
+  final List<BlockProblem> problems;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
-  State<_AddCommitmentDialog> createState() => _AddCommitmentDialogState();
+  State<_BlockRow> createState() => _BlockRowState();
 }
 
-class _AddCommitmentDialogState extends State<_AddCommitmentDialog> {
-  final _title = TextEditingController();
-  final _weekdays = <int>{};
-  int _startMin = 9 * 60;
-  int _durationMin = 60;
-
-  static const _letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-  @override
-  void dispose() {
-    _title.dispose();
-    super.dispose();
-  }
+class _BlockRowState extends State<_BlockRow> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: AppColour.elevated,
-      shape: const RoundedRectangleBorder(borderRadius: AppRadius.largeAll),
-      insetPadding: _dialogInsets,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final c = widget.commitment;
+    final weekdays = _weekdaysOf(c);
+    final when =
+        '${weekdays == null ? c.rrule : Format.weekdays(weekdays)} · '
+        '${Format.clockSpan(c.startMin, c.durationMin)}';
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.quick,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm,
+            vertical: AppSpace.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _hovered ? AppColour.fill : null,
+            borderRadius: AppRadius.mediumAll,
+          ),
+          child: Row(
             children: [
-              Text('Fixed block', style: AppText.title3),
-              const SizedBox(height: AppSpace.lg),
-              TextField(
-                controller: _title,
-                autofocus: true,
-                style: AppText.body,
-                cursorColor: AppColour.accent,
-                // Add is enabled by what is typed, so each keystroke has to rebuild it.
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColour.fill,
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.mediumAll,
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'DBMS lecture',
-                  hintStyle: AppText.body.copyWith(
-                    color: AppColour.labelTertiary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              Text('Repeats', style: AppText.caption),
-              const SizedBox(height: AppSpace.sm),
-              // Squares sharing the width, so all seven fit a phone's dialog, and no bigger
-              // than a finger needs where there is more room than that.
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 7 * AppSize.touch + 6 * AppSpace.xs,
-                ),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var d = 1; d <= 7; d++) ...[
-                      // Gaps between squares rather than padding on each, which left the
-                      // last one bigger than the rest.
-                      if (d > 1) const SizedBox(width: AppSpace.xs),
-                      Expanded(
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: GestureDetector(
-                            onTap: () => setState(() {
-                              _weekdays.contains(d)
-                                  ? _weekdays.remove(d)
-                                  : _weekdays.add(d);
-                            }),
-                            child: Container(
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _weekdays.contains(d)
-                                    ? AppColour.accent
-                                    : AppColour.fill,
-                                borderRadius: AppRadius.smallAll,
-                              ),
-                              child: Text(
-                                _letters[d - 1],
-                                style: AppText.numeric.copyWith(
-                                  color: _weekdays.contains(d)
-                                      ? AppColour.label
-                                      : AppColour.labelSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
+                    Text(
+                      c.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body,
+                    ),
+                    Text(when, style: AppText.numeric),
+                    for (final problem in widget.problems)
+                      Text(
+                        _shortProblem(problem),
+                        style: AppText.footnote.copyWith(
+                          color: AppColour.orange,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpace.lg),
-              _Stepper(
-                label: 'Starts',
-                value:
-                    '${(_startMin ~/ 60).toString().padLeft(2, '0')}:'
-                    '${(_startMin % 60).toString().padLeft(2, '0')}',
-                onChange: (d) => setState(
-                  () => _startMin = (_startMin + d * 15).clamp(0, 1380),
-                ),
-              ),
-              _Stepper(
-                label: 'Lasts',
-                value: Format.estimate(_durationMin),
-                onChange: (d) => setState(
-                  () => _durationMin = (_durationMin + d * 15).clamp(15, 600),
-                ),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Cancel',
-                      style: AppText.body.copyWith(
-                        color: AppColour.labelSecondary,
+              if (widget.onDelete case final delete?)
+                Tooltip(
+                  message: 'Delete block',
+                  child: GestureDetector(
+                    onTap: delete,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: EdgeInsets.all(
+                        AppLayout.touch ? AppSpace.md : AppSpace.xs,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 15,
+                        color: AppColour.labelTertiary,
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppSpace.sm),
-                  TextButton(
-                    onPressed: _title.text.trim().isEmpty || _weekdays.isEmpty
-                        ? null
-                        : () => Navigator.pop(
-                            context,
-                            _NewCommitment(
-                              title: _title.text.trim(),
-                              weekdays: _weekdays,
-                              startMin: _startMin,
-                              durationMin: _durationMin,
-                            ),
-                          ),
-                    child: Text(
-                      'Add',
-                      style: AppText.headline.copyWith(color: AppColour.accent),
-                    ),
-                  ),
-                ],
-              ),
+                ),
             ],
           ),
         ),
@@ -1036,7 +1088,7 @@ class _ScheduleRowState extends State<_ScheduleRow> {
         ? 'Any day no other timetable covers'
         : (set.startsOn == null && set.endsOn == null)
         ? 'Every day'
-        : '${set.startsOn ?? '…'}  →  ${set.endsOn ?? '…'}';
+        : '${_readableDate(set.startsOn)}  →  ${_readableDate(set.endsOn)}';
 
     final details = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1192,6 +1244,12 @@ const _dialogInsets = EdgeInsets.symmetric(
   vertical: AppSpace.xxl,
 );
 
+/// "15 Aug 2026" from a stored date, or an ellipsis for an open end.
+String _readableDate(String? iso) {
+  final date = iso == null ? null : DateTime.tryParse(iso);
+  return date == null ? '…' : '${Format.shortDate(date)} ${date.year}';
+}
+
 class _ScheduleDraft {
   const _ScheduleDraft({required this.name, this.startsOn, this.endsOn});
 
@@ -1237,6 +1295,10 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
 
   static DateTime? _parse(String? iso) =>
       iso == null || iso.isEmpty ? null : DateTime.tryParse(iso);
+
+  /// Dates that would never cover a single day.
+  bool get _backwards =>
+      _startsOn != null && _endsOn != null && _endsOn!.isBefore(_startsOn!);
 
   @override
   Widget build(BuildContext context) {
@@ -1309,6 +1371,13 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                   );
                 },
               ),
+              if (_backwards) ...[
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  'It ends before it starts, so it would never be in force.',
+                  style: AppText.footnote.copyWith(color: AppColour.red),
+                ),
+              ],
               const SizedBox(height: AppSpace.sm),
               Text(
                 'Leave both blank for a timetable that always applies. With dates, the '
@@ -1329,15 +1398,18 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                   const SizedBox(width: AppSpace.sm),
                   PrimaryButton(
                     label: widget.existing == null ? 'Create' : 'Save',
-                    enabled: _name.text.trim().isNotEmpty,
-                    onTap: () => Navigator.pop(
-                      context,
-                      _ScheduleDraft(
-                        name: _name.text.trim(),
-                        startsOn: _startsOn,
-                        endsOn: _endsOn,
-                      ),
-                    ),
+                    enabled: _name.text.trim().isNotEmpty && !_backwards,
+                    onTap: () {
+                      if (_name.text.trim().isEmpty || _backwards) return;
+                      Navigator.pop(
+                        context,
+                        _ScheduleDraft(
+                          name: _name.text.trim(),
+                          startsOn: _startsOn,
+                          endsOn: _endsOn,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1366,11 +1438,18 @@ class _DateButton extends StatelessWidget {
     child: GestureDetector(
       onTap: () async {
         final now = DateTime.now();
+        final initial = value ?? now;
         final picked = await showDatePicker(
           context: context,
-          initialDate: value ?? now,
-          firstDate: DateTime(now.year - 2),
-          lastDate: DateTime(now.year + 6),
+          initialDate: initial,
+          // Wide enough to include the date already set, which the picker will not
+          // open on otherwise.
+          firstDate: DateTime(
+            (initial.year < now.year ? initial.year : now.year) - 2,
+          ),
+          lastDate: DateTime(
+            (initial.year > now.year ? initial.year : now.year) + 6,
+          ),
         );
         if (picked != null) onPick(picked);
       },

@@ -86,6 +86,37 @@ abstract final class Format {
 
   static String _two(int n) => n.toString().padLeft(2, '0');
 
+  /// A time of day, "09:30", from minutes past midnight. Wraps past midnight, so the end
+  /// of a block that runs late still reads as a time.
+  static String clock(int minutes) {
+    final m = minutes % 1440;
+    return '${_two(m ~/ 60)}:${_two(m % 60)}';
+  }
+
+  /// "23:30–07:00", from one time of day to another.
+  static String clockRange(int fromMin, int toMin) =>
+      '${clock(fromMin)}–${clock(toMin)}';
+
+  /// "09:00–10:30", for something starting at [startMin] and lasting [durationMin].
+  static String clockSpan(int startMin, int durationMin) =>
+      clockRange(startMin, startMin + durationMin);
+
+  /// The days something repeats on, as a person would say them: "Every day",
+  /// "Weekdays", "Weekends", or the days in order, "Mon Wed Fri".
+  static String weekdays(Set<int> days) {
+    if (days.length == 7) return 'Every day';
+    if (days.length == 5 && days.containsAll(const [1, 2, 3, 4, 5])) {
+      return 'Weekdays';
+    }
+    if (days.length == 2 && days.containsAll(const [6, 7])) return 'Weekends';
+    final ordered = days.toList()..sort();
+    return ordered.map((d) => _weekdayNames[d - 1]).join(' ');
+  }
+
+  /// "Mon 21 Sep".
+  static String dayAndDate(DateTime d) =>
+      '${_weekdayNames[d.weekday - 1]} ${shortDate(d)}';
+
   static String shortDate(DateTime d) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
