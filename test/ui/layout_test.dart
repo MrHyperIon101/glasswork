@@ -193,6 +193,26 @@ final _states = <_State>[
       scrollable: _pageScrollable(find.byType(CapacityScreen)),
     );
   }),
+  _State('time budget, sleep', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const CapacityDestination());
+    await _settle(tester);
+    await tester.scrollUntilVisible(
+      find.text('Set several days'),
+      300,
+      scrollable: _pageScrollable(find.byType(CapacityScreen)),
+    );
+  }),
+  _State('setting sleep for several days', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const CapacityDestination());
+    await _settle(tester);
+    await tester.scrollUntilVisible(
+      find.text('Set several days'),
+      300,
+      scrollable: _pageScrollable(find.byType(CapacityScreen)),
+    );
+    await _settle(tester);
+    await tester.tap(find.text('Set several days'));
+  }),
   _State('adding a block', (tester, app, data) => _openAddBlock(tester, app)),
   _State('adding a block that clashes', (tester, app, data) async {
     await _openAddBlock(tester, app);
@@ -241,6 +261,16 @@ final _states = <_State>[
   _State('new task', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
     app.read(composerOpenProvider.notifier).open();
+  }),
+  _State('a task with a reminder', (tester, app, data) async {
+    final scope = app.read(appScopeProvider).value!;
+    await tester.runAsync(
+      () => scope.tasks.setReminder(
+        data.longTaskId,
+        DateTime.now().add(const Duration(days: 3, hours: 2)),
+      ),
+    );
+    app.read(openTaskProvider.notifier).open(data.longTaskId);
   }),
   _State('task detail', (tester, app, data) async {
     app.read(openTaskProvider.notifier).open(data.longTaskId);

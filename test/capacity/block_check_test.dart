@@ -15,9 +15,17 @@ FixedBlock block(
   recurrence: Recurrence.parse('FREQ=WEEKLY;BYDAY=$byday'),
 );
 
-/// Bed at 23:30 for 7h30: asleep 23:30–07:00.
+/// Up at 07:00 and to bed at 23:30, every day.
 const settings = CapacitySettings();
 const mondays = {DateTime.monday};
+
+/// The standard week, with [changes] made to some days.
+CapacitySettings weekWith(Map<int, DaySleep> changes) => CapacitySettings(
+  sleep: [
+    for (var day = DateTime.monday; day <= DateTime.sunday; day++)
+      changes[day] ?? CapacitySettings.standardWeek[day - 1],
+  ],
+);
 
 void main() {
   final dbms = block('DBMS lecture', 9 * 60, 90);
@@ -36,7 +44,7 @@ void main() {
       );
     });
 
-    test('a block at midnight falls while asleep', () {
+    test('a block at midnight falls while asleep, on every day it repeats', () {
       final problems = BlockCheck.problems(
         startMin: 0,
         durationMin: 60,
@@ -44,8 +52,7 @@ void main() {
         settings: settings,
       );
 
-      final sleep = problems.single as DuringSleep;
-      expect((sleep.bedtimeMin, sleep.wakeMin), (23 * 60 + 30, 7 * 60));
+      expect((problems.single as DuringSleep).weekdays, {1, 2, 3, 4, 5});
     });
 
     test('ending at bedtime, or starting on waking, is fine', () {
@@ -70,7 +77,7 @@ void main() {
     });
 
     test('with a bedtime after midnight, midnight is awake', () {
-      const late = CapacitySettings(sleepStartMin: 2 * 60, sleepTargetMin: 7 * 60);
+      final late = CapacitySettings.sameEveryDay(wakeMin: 9 * 60, bedtimeMin: 2 * 60);
       expect(
         BlockCheck.problems(
           startMin: 0,
@@ -82,6 +89,20 @@ void main() {
       );
     });
 
+    test('sleep is checked day by day', () {
+      // Up late only after Friday, so 00:30 is awake on Saturday and asleep on Tuesday.
+      final s = weekWith({
+        DateTime.friday: const DaySleep(wakeMin: 7 * 60, bedtimeMin: 2 * 60),
+      });
+      final problems = BlockCheck.problems(
+        startMin: 30,
+        durationMin: 60,
+        weekdays: {DateTime.tuesday, DateTime.saturday},
+        settings: s,
+      );
+      expect((problems.single as DuringSleep).weekdays, {DateTime.tuesday});
+    });
+
     test('running past midnight is a problem of its own', () {
       final problems = BlockCheck.problems(
         startMin: 22 * 60,
@@ -91,6 +112,20 @@ void main() {
       );
       expect(problems.whereType<PastMidnight>(), hasLength(1));
       expect(problems.whereType<DuringSleep>(), hasLength(1));
+    });
+
+    test('past midnight, the next day\'s sleep is the one that counts', () {
+      // Friday runs until 02:00, so a block from 23:00 to 01:00 is awake throughout.
+      final s = weekWith({
+        DateTime.friday: const DaySleep(wakeMin: 7 * 60, bedtimeMin: 2 * 60),
+      });
+      final problems = BlockCheck.problems(
+        startMin: 23 * 60,
+        durationMin: 2 * 60,
+        weekdays: {DateTime.friday},
+        settings: s,
+      );
+      expect(problems.single, isA<PastMidnight>());
     });
 
     test('a clash names the other block and only the days they share', () {
@@ -138,11 +173,12 @@ void main() {
       int durationMin, {
       Set<int> weekdays = mondays,
       List<FixedBlock> others = const [],
+      CapacitySettings with_ = settings,
     }) => BlockCheck.nearestFreeStart(
       startMin: startMin,
       durationMin: durationMin,
       weekdays: weekdays,
-      settings: settings,
+      settings: with_,
       others: others,
     );
 
@@ -152,6 +188,17 @@ void main() {
 
     test('moves a late block back so it ends by bedtime', () {
       expect(nearest(23 * 60, 2 * 60), 21 * 60 + 30);
+    });
+
+    test('waits for the latest start of the days chosen', () {
+      // A lie-in until 10:00 on Saturday.
+      final s = weekWith({
+        DateTime.saturday: const DaySleep(wakeMin: 10 * 60, bedtimeMin: 23 * 60 + 30),
+      });
+      expect(
+        nearest(8 * 60, 60, weekdays: {DateTime.friday, DateTime.saturday}, with_: s),
+        10 * 60,
+      );
     });
 
     test('picks whichever side of a clash is closer', () {

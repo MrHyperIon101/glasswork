@@ -17,7 +17,6 @@ import '../format.dart';
 class DayTimeline extends StatelessWidget {
   const DayTimeline({
     required this.day,
-    required this.settings,
     this.allocatedMin = 0,
     this.showHours = true,
     this.dense = false,
@@ -25,9 +24,6 @@ class DayTimeline extends StatelessWidget {
   });
 
   final DayCapacity day;
-
-  /// The settings [day] was computed with, for where sleep falls.
-  final CapacitySettings settings;
 
   /// Minutes of task work the planner has put on this day.
   final int allocatedMin;
@@ -40,7 +36,7 @@ class DayTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final awake = settings.wakingIntervals;
+    final awake = day.awake;
     // From the first waking minute to the last. With bedtime after midnight that is the
     // whole day, and the sleep inside it is drawn where it falls.
     final axisStart = awake.isEmpty ? 0 : awake.first.$1;
@@ -48,7 +44,7 @@ class DayTimeline extends StatelessWidget {
     final span = axisEnd - axisStart;
 
     final asleep = [
-      for (final (start, end) in settings.sleepIntervals)
+      for (final (start, end) in day.asleep)
         if (start < axisEnd && end > axisStart)
           (start < axisStart ? axisStart : start, end > axisEnd ? axisEnd : end),
     ];

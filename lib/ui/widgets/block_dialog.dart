@@ -8,6 +8,7 @@ import '../layout.dart';
 import '../time_entry.dart';
 import 'field_controls.dart';
 import 'value_stepper.dart';
+import 'weekday_picker.dart';
 
 /// A block as the dialog edits it.
 class BlockDraft {
@@ -26,10 +27,10 @@ class BlockDraft {
 
 /// Adds or edits a fixed block, and will not put one where it cannot count.
 ///
-/// Time already spoken for — asleep, or taken by another block on a shared day — is checked
-/// as the time is typed. The dialog says what is in the way, offers the nearest time that
-/// is free, and saves only once nothing is. A block in the wrong place used to save quietly
-/// and then appear nowhere.
+/// Times are a start and an end, the way a timetable prints them; the length is worked out
+/// and shown beside the end. Time already spoken for — asleep, or taken by another block on
+/// a shared day — is checked as the times are typed. The dialog says what is in the way,
+/// offers the nearest time that is free, and saves only once nothing is.
 class BlockDialog extends StatefulWidget {
   const BlockDialog({
     required this.settings,
@@ -64,12 +65,14 @@ class _BlockDialogState extends State<BlockDialog> {
   late int _startMin = widget.initial?.startMin ?? 9 * 60;
   late int _durationMin = widget.initial?.durationMin ?? 60;
 
-  /// Whether what is typed into each field can be read.
+  /// Whether what is typed into each field can be used.
   bool _startReadable = true;
-  bool _durationReadable = true;
+  bool _endReadable = true;
 
   /// What the steps move by.
   static const _step = 15;
+
+  int get _endMin => _startMin + _durationMin;
 
   @override
   void dispose() {
@@ -83,9 +86,18 @@ class _BlockDialogState extends State<BlockDialog> {
       ..addAll(days),
   );
 
+  /// The length of a block from the start to an end at [endMin]: past midnight when the end
+  /// is not after the start. Null when it would have no length at all.
+  int? _lengthTo(int endMin) {
+    final length = endMin > _startMin
+        ? endMin - _startMin
+        : endMin + minutesInDay - _startMin;
+    return length <= 0 || length >= minutesInDay ? null : length;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final readable = _startReadable && _durationReadable;
+    final readable = _startReadable && _endReadable;
     final problems = _weekdays.isEmpty || !readable
         ? const <BlockProblem>[]
         : BlockCheck.problems(
@@ -109,7 +121,6 @@ class _BlockDialogState extends State<BlockDialog> {
         _weekdays.isNotEmpty &&
         readable &&
         problems.isEmpty;
-    final endMin = _startMin + _durationMin;
 
     return Dialog(
       backgroundColor: AppColour.elevated,
@@ -169,7 +180,7 @@ class _BlockDialogState extends State<BlockDialog> {
                 ],
               ),
               const SizedBox(height: AppSpace.xs),
-              _WeekdayPicker(
+              WeekdayPicker(
                 selected: _weekdays,
                 onToggle: (day) => setState(
                   () => _weekdays.contains(day)
@@ -184,6 +195,7 @@ class _BlockDialogState extends State<BlockDialog> {
                 text: Format.clock(_startMin),
                 keyboardType: TextInputType.datetime,
                 error: !_startReadable,
+                // Moving the start keeps the length, so the end moves with it.
                 onStep: (direction) => setState(() {
                   _startReadable = true;
                   _startMin = (_startMin + direction * _step).clamp(
@@ -209,36 +221,38 @@ class _BlockDialogState extends State<BlockDialog> {
                 },
               ),
               ValueStepper(
-                key: const ValueKey('block-length'),
-                label: 'Lasts',
+                key: const ValueKey('block-end'),
+                label: 'Ends',
                 detail: readable
-                    ? 'Ends ${Format.clock(endMin)}'
-                          '${endMin > minutesInDay ? ', after midnight' : ''}'
+                    ? '${Format.estimate(_durationMin)} long'
+                          '${_endMin > minutesInDay ? ', past midnight' : ''}'
                     : null,
-                text: Format.estimate(_durationMin),
+                text: Format.clock(_endMin),
                 keyboardType: TextInputType.datetime,
-                error: !_durationReadable,
+                error: !_endReadable,
                 onStep: (direction) => setState(() {
-                  _durationReadable = true;
+                  _endReadable = true;
                   _durationMin = (_durationMin + direction * _step).clamp(
                     _step,
-                    minutesInDay,
+                    minutesInDay - _step,
                   );
                 }),
                 onEdit: (text) {
-                  final value = _length(text);
+                  final end = TimeEntry.clock(text);
+                  final length = end == null ? null : _lengthTo(end);
                   setState(() {
-                    _durationReadable = value != null;
-                    if (value != null) _durationMin = value;
+                    _endReadable = length != null;
+                    if (length != null) _durationMin = length;
                   });
                 },
                 onSubmit: (text) {
-                  final value = _length(text);
+                  final end = TimeEntry.clock(text);
+                  final length = end == null ? null : _lengthTo(end);
                   setState(() {
-                    _durationReadable = true;
-                    if (value != null) _durationMin = value;
+                    _endReadable = true;
+                    if (length != null) _durationMin = length;
                   });
-                  return value != null;
+                  return length != null;
                 },
               ),
               if (!readable) ...[
@@ -246,8 +260,9 @@ class _BlockDialogState extends State<BlockDialog> {
                 _Notice(
                   lines: [
                     _startReadable
-                        ? "Couldn't read that length. Try 90m, 1h 30 or 1:30."
-                        : "Couldn't read that time. Try 9:30, 930 or 9.30pm.",
+                        ? "Couldn't use that end. Try 10:30, 1030 or 10.30pm, and a "
+                              'time other than the start.'
+                        : "Couldn't read that start. Try 9:30, 930 or 9.30pm.",
                   ],
                 ),
               ] else if (problems.isNotEmpty) ...[
@@ -316,17 +331,10 @@ class _BlockDialogState extends State<BlockDialog> {
     );
   }
 
-  /// A block's length, if it is one: more than nothing, and no more than a day.
-  static int? _length(String text) {
-    final value = TimeEntry.duration(text);
-    return value == null || value <= 0 || value > minutesInDay ? null : value;
-  }
-
   static String _describe(BlockProblem problem) => switch (problem) {
-    DuringSleep(:final bedtimeMin, :final wakeMin) =>
-      'Falls while you sleep (${Format.clockRange(bedtimeMin, wakeMin)}), and '
-          'sleep is never counted as time to spend. If you are up then, set a later '
-          'bedtime under Profile.',
+    DuringSleep(:final weekdays) =>
+      'Falls while you sleep ${Format.onDays(weekdays)}, and sleep is never counted as '
+          'time to spend. If you are up then, change your sleep under Profile.',
     PastMidnight() =>
       'Runs past midnight. End it by 00:00, and add what comes after as a block of '
           'its own.',
@@ -334,62 +342,6 @@ class _BlockDialogState extends State<BlockDialog> {
       'Overlaps $title, ${Format.weekdays(weekdays)} '
           '${Format.clockRange(startMin, endMin)}.',
   };
-}
-
-class _WeekdayPicker extends StatelessWidget {
-  const _WeekdayPicker({required this.selected, required this.onToggle});
-
-  final Set<int> selected;
-  final ValueChanged<int> onToggle;
-
-  static const _letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-  @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    // Squares sharing the width, so all seven fit a phone's dialog, and no bigger than a
-    // finger needs where there is more room than that.
-    constraints: const BoxConstraints(
-      maxWidth: 7 * AppSize.touch + 6 * AppSpace.xs,
-    ),
-    child: Row(
-      children: [
-        for (var day = 1; day <= 7; day++) ...[
-          // Gaps between squares rather than padding on each, so all seven are one size.
-          if (day > 1) const SizedBox(width: AppSpace.xs),
-          Expanded(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => onToggle(day),
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: AppMotion.quick,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: selected.contains(day)
-                          ? AppColour.accent
-                          : AppColour.fill,
-                      borderRadius: AppRadius.smallAll,
-                    ),
-                    child: Text(
-                      _letters[day - 1],
-                      style: AppText.numeric.copyWith(
-                        color: selected.contains(day)
-                            ? AppColour.label
-                            : AppColour.labelSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
-  );
 }
 
 class _Preset extends StatelessWidget {

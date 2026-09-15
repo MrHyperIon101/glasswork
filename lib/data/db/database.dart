@@ -48,7 +48,10 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
+
+  /// The weekday names the per-day sleep columns are named with, Monday first.
+  static const sleepDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +76,33 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await m.createTable(schedules);
         await m.addColumn(commitments, commitments.scheduleId);
+      }
+
+      // v5: sleep set per day, and reminders.
+      if (from < 5) {
+        final p = capacityProfiles;
+        for (final column in [
+          p.wakeMonMin, p.bedtimeMonMin, p.wakeTueMin, p.bedtimeTueMin, //
+          p.wakeWedMin, p.bedtimeWedMin, p.wakeThuMin, p.bedtimeThuMin, //
+          p.wakeFriMin, p.bedtimeFriMin, p.wakeSatMin, p.bedtimeSatMin, //
+          p.wakeSunMin, p.bedtimeSunMin,
+        ]) {
+          await m.addColumn(capacityProfiles, column);
+        }
+        // Every day starts where the single bedtime and sleep target already put it, so no
+        // figure moves on upgrade. No field clocks are stamped: every device derives the
+        // same values from the same two columns, as the server migration does, and the
+        // first real edit anywhere wins.
+        await customStatement(
+          'UPDATE capacity_profiles SET ${[
+            for (final day in sleepDays) ...[
+              'wake_${day}_min = (sleep_start_min + sleep_target_min) % 1440',
+              'bedtime_${day}_min = sleep_start_min',
+            ],
+          ].join(', ')}',
+        );
+
+        await m.addColumn(tasks, tasks.remindAt);
       }
     },
     beforeOpen: (details) async {

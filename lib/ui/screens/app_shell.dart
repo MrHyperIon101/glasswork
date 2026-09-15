@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_config.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../reminders/reminders.dart';
 import '../../state/providers.dart';
+import '../../state/reminders_controller.dart';
 import '../../state/sync_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
@@ -108,6 +110,53 @@ class _Shell extends ConsumerStatefulWidget {
 
 class _ShellState extends ConsumerState<_Shell> {
   bool _drawerOpen = false;
+
+  /// Reminders come due whatever is on screen, so the shell keeps them in step.
+  late final _lifecycle = AppLifecycleListener(
+    // Timers stop while an app is in the background; coming back, what is due is worked
+    // out again.
+    onResume: () => ref.read(reminderServiceProvider).refresh(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle;
+    // Every change to the tasks can change which reminders are due, and when.
+    ref.listenManual(allTasksProvider, (_, next) {
+      if (next.value case final tasks?) {
+        ref.read(reminderServiceProvider).update(tasks);
+      }
+    }, fireImmediately: true);
+    _startReminders();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startReminders() async {
+    final launch = await ref.read(reminderServiceProvider).start(_respond);
+    if (launch != null) await _respond(launch);
+  }
+
+  /// Acts on a reminder someone tapped, or on one of its buttons.
+  Future<void> _respond(ReminderResponse response) async {
+    final scope = await ref.read(appScopeProvider.future);
+    switch (response.action) {
+      case null:
+        ref.read(openTaskProvider.notifier).open(response.taskId);
+      case ReminderAction.done:
+        await scope.tasks.setDone(response.taskId, done: true);
+      case ReminderAction.snooze:
+        await scope.tasks.setReminder(
+          response.taskId,
+          DateTime.now().add(ReminderService.snoozeFor),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

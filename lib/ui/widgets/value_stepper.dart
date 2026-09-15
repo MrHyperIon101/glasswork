@@ -13,6 +13,8 @@ class ValueStepper extends StatelessWidget {
     required this.onSubmit,
     this.onEdit,
     this.detail,
+    this.explanation,
+    this.effect,
     this.error = false,
     this.keyboardType = TextInputType.text,
     super.key,
@@ -20,8 +22,14 @@ class ValueStepper extends StatelessWidget {
 
   final String label;
 
-  /// A line under the label, such as when a block ends.
+  /// A short line under the label, such as how long a block is.
   final String? detail;
+
+  /// What the value means, under the whole row.
+  final String? explanation;
+
+  /// What changing it would do, under the explanation.
+  final String? effect;
 
   /// The value as it reads.
   final String text;
@@ -41,29 +49,47 @@ class ValueStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-    child: Row(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label, style: AppText.body),
-              if (detail case final d?) Text(d, style: AppText.footnote),
-            ],
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label, style: AppText.body),
+                  if (detail case final d?) Text(d, style: AppText.footnote),
+                ],
+              ),
+            ),
+            _Step(icon: Icons.remove, onTap: () => onStep(-1)),
+            const SizedBox(width: AppSpace.xs),
+            TypedValue(
+              text: text,
+              onSubmit: onSubmit,
+              onEdit: onEdit,
+              error: error,
+              keyboardType: keyboardType,
+            ),
+            const SizedBox(width: AppSpace.xs),
+            _Step(icon: Icons.add, onTap: () => onStep(1)),
+          ],
+        ),
+        if (explanation case final text?)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpace.xs),
+            child: Text(text, style: AppText.footnote),
           ),
-        ),
-        _Step(icon: Icons.remove, onTap: () => onStep(-1)),
-        const SizedBox(width: AppSpace.xs),
-        TypedValue(
-          text: text,
-          onSubmit: onSubmit,
-          onEdit: onEdit,
-          error: error,
-          keyboardType: keyboardType,
-        ),
-        const SizedBox(width: AppSpace.xs),
-        _Step(icon: Icons.add, onTap: () => onStep(1)),
+        if (effect case final text?)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              text,
+              style: AppText.footnote.copyWith(color: AppColour.label),
+            ),
+          ),
       ],
     ),
   );

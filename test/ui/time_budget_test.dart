@@ -3,7 +3,9 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glasswork/capacity/ledger.dart';
 import 'package:glasswork/data/db/database.dart';
+import 'package:glasswork/data/repository/capacity_repository.dart';
 import 'package:glasswork/main.dart';
 import 'package:glasswork/state/providers.dart';
 import 'package:glasswork/state/sync_controller.dart';
@@ -177,7 +179,7 @@ void main() {
       await _settle(tester);
 
       expect(find.text('Edit block'), findsOneWidget);
-      await tester.enterText(field('block-length'), '2h');
+      await tester.enterText(field('block-end'), '11:00');
       await _settle(tester);
       await tester.tap(find.widgetWithText(PrimaryButton, 'Save'));
       await _settle(tester);
@@ -189,6 +191,79 @@ void main() {
         SyncWriter.decodeFieldNames(queued.single.changedFields),
         {'duration_min'},
       );
+    } finally {
+      await finish(tester);
+    }
+  });
+
+  Future<CapacityProfile> profile(WidgetTester tester) async {
+    final scope = app.read(appScopeProvider).value!;
+    final row = await tester.runAsync(
+      () => scope.capacity.watchProfile(scope.workspace.id).first,
+    );
+    return row!;
+  }
+
+  testWidgets('a bedtime typed for one day changes that day, and only it syncs', (
+    tester,
+  ) async {
+    await start(tester);
+    try {
+      await scrollTo(tester, find.byKey(const ValueKey('bedtime-Fri')));
+      await tester.runAsync(() => db.delete(db.outbox).go());
+
+      await tester.enterText(field('bedtime-Fri'), '1:30');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _settle(tester);
+
+      final sleep = CapacityMapping.sleepOf(await profile(tester));
+      expect(
+        sleep[DateTime.friday - 1],
+        const DaySleep(wakeMin: 7 * 60, bedtimeMin: 90),
+      );
+      expect(sleep[DateTime.thursday - 1], CapacitySettings.standardWeek[3]);
+      final queued = (await tester.runAsync(() => db.select(db.outbox).get()))!;
+      expect(
+        SyncWriter.decodeFieldNames(queued.single.changedFields),
+        {'bedtime_fri_min'},
+      );
+
+      // Friday now runs past midnight, and the night after it is short.
+      expect(find.text('18h 30m'), findsOneWidget);
+      expect(find.text('Only 5h 30m of sleep before Sat'), findsOneWidget);
+    } finally {
+      await finish(tester);
+    }
+  });
+
+  testWidgets('sleep set for several days at once changes just those days', (
+    tester,
+  ) async {
+    await start(tester);
+    try {
+      await scrollTo(tester, find.text('Set several days'));
+      await tester.tap(find.text('Set several days'));
+      await _settle(tester);
+
+      final dialog = find.byType(Dialog);
+      Finder time(int index) =>
+          find.descendant(of: dialog, matching: find.byType(TextField)).at(index);
+
+      await tester.tap(find.descendant(of: dialog, matching: find.text('Weekends')));
+      await tester.enterText(time(0), '9:30');
+      await tester.enterText(time(1), '1:00');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _settle(tester);
+      expect(find.text('15h 30m awake, to bed after midnight.'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Set'));
+      await _settle(tester);
+
+      final sleep = CapacityMapping.sleepOf(await profile(tester));
+      const weekend = DaySleep(wakeMin: 9 * 60 + 30, bedtimeMin: 60);
+      expect(sleep[DateTime.saturday - 1], weekend);
+      expect(sleep[DateTime.sunday - 1], weekend);
+      expect(sleep[DateTime.friday - 1], CapacitySettings.standardWeek[4]);
     } finally {
       await finish(tester);
     }

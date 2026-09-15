@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glasswork/capacity/ledger.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/natural_id.dart';
 import 'package:glasswork/data/repository/capacity_repository.dart';
@@ -152,6 +153,48 @@ void main() {
         (await block(lecture.id)).rrule,
         'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261215',
       );
+    });
+  });
+
+  group('sleep', () {
+    test('a new profile sleeps the standard week', () async {
+      expect(
+        CapacityMapping.sleepOf(await capacity.ensureProfile(workspaceId)),
+        CapacitySettings.standardWeek,
+      );
+    });
+
+    test('only the times that change are written, so edits to one day from two devices merge', () async {
+      final profile = await capacity.ensureProfile(workspaceId);
+      await db.delete(db.outbox).go();
+
+      await capacity.setSleep(profile.id, {
+        // Later to bed on Friday, up at the usual time.
+        DateTime.friday: const DaySleep(wakeMin: 7 * 60, bedtimeMin: 2 * 60),
+        // As it already was.
+        DateTime.monday: CapacitySettings.standardWeek[0],
+      });
+
+      final sleep = CapacityMapping.sleepOf(
+        (await capacity.watchProfile(workspaceId).first)!,
+      );
+      expect(
+        sleep[DateTime.friday - 1],
+        const DaySleep(wakeMin: 7 * 60, bedtimeMin: 2 * 60),
+      );
+      expect(sleep[DateTime.thursday - 1], CapacitySettings.standardWeek[3]);
+      final entry = (await db.select(db.outbox).get()).single;
+      expect(SyncWriter.decodeFieldNames(entry.changedFields), {'bedtime_fri_min'});
+    });
+
+    test('nothing to change writes nothing', () async {
+      final profile = await capacity.ensureProfile(workspaceId);
+      await db.delete(db.outbox).go();
+
+      await capacity.setSleep(profile.id, {
+        DateTime.monday: CapacitySettings.standardWeek[0],
+      });
+      expect(await db.select(db.outbox).get(), isEmpty);
     });
   });
 }

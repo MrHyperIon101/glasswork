@@ -13,13 +13,13 @@ sealed class BlockProblem {
   const BlockProblem();
 }
 
-/// Some of it falls while you sleep. Sleep is a floor, never time to spend, so the ledger
-/// does not count that part.
+/// Some of it falls while you sleep, on [weekdays]. Sleep is a floor, never time to spend,
+/// so the ledger does not count that part.
 final class DuringSleep extends BlockProblem {
-  const DuringSleep({required this.bedtimeMin, required this.wakeMin});
+  const DuringSleep({required this.weekdays});
 
-  final int bedtimeMin;
-  final int wakeMin;
+  /// The days, of those it repeats on, when it falls in your sleep.
+  final Set<int> weekdays;
 }
 
 /// It runs past midnight. A block repeats on the days it starts, so the part after
@@ -57,10 +57,14 @@ abstract final class BlockCheck {
     List<FixedBlock> others = const [],
   }) {
     final endMin = startMin + durationMin;
+    final asleep = {
+      for (final day in weekdays)
+        if (_overlapsSleep(startMin, endMin, day, settings)) day,
+    };
+
     return [
       if (endMin > minutesInDay) const PastMidnight(),
-      if (_overlapsSleep(startMin, endMin, settings))
-        DuringSleep(bedtimeMin: settings.bedtimeMin, wakeMin: settings.wakeMin),
+      if (asleep.isNotEmpty) DuringSleep(weekdays: asleep),
       for (final other in others)
         if (other.recurrence.weekdays.intersection(weekdays) case final shared
             when shared.isNotEmpty &&
@@ -85,9 +89,10 @@ abstract final class BlockCheck {
     required CapacitySettings settings,
     List<FixedBlock> others = const [],
   }) {
-    // What is taken on any of the chosen days: sleep, and every block sharing one of them.
+    // What is taken on any of the chosen days: that day's sleep, and every block sharing
+    // one of them.
     final taken = <(int, int)>[
-      ...settings.sleepIntervals,
+      for (final day in weekdays) ...settings.sleepIntervalsOn(day),
       for (final other in others)
         if (other.recurrence.weekdays.any(weekdays.contains))
           (other.startMin, other.endMin.clamp(0, minutesInDay)),
@@ -116,19 +121,29 @@ abstract final class BlockCheck {
   static bool _overlapsSleep(
     int startMin,
     int endMin,
+    int weekday,
     CapacitySettings settings,
   ) {
-    // Anything past midnight falls in the small hours of the next day, whose sleep is the
-    // same as this one's.
-    final parts = [
-      (startMin, endMin < minutesInDay ? endMin : minutesInDay),
-      if (endMin > minutesInDay) (0, endMin - minutesInDay),
-    ];
-    for (final (from, to) in parts) {
-      for (final (sleepFrom, sleepTo) in settings.sleepIntervals) {
+    bool overlaps(int from, int to, List<(int, int)> asleep) {
+      for (final (sleepFrom, sleepTo) in asleep) {
         if (from < sleepTo && sleepFrom < to) return true;
       }
+      return false;
     }
-    return false;
+
+    final beforeMidnight = overlaps(
+      startMin,
+      endMin < minutesInDay ? endMin : minutesInDay,
+      settings.sleepIntervalsOn(weekday),
+    );
+    // Past midnight, it is in the small hours of the next date, and that date's sleep.
+    final afterMidnight =
+        endMin > minutesInDay &&
+        overlaps(
+          0,
+          endMin - minutesInDay,
+          settings.sleepIntervalsOn(CapacitySettings.dayAfter(weekday)),
+        );
+    return beforeMidnight || afterMidnight;
   }
 }

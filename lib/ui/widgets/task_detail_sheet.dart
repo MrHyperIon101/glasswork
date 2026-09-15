@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../state/providers.dart';
+import '../../state/reminders_controller.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
+import 'reminder_picker.dart';
 
 /// The task inspector.
 ///
@@ -160,6 +162,8 @@ class _BodyState extends ConsumerState<_Body> {
                 ),
               ),
               const SizedBox(height: AppSpace.xl),
+              _Section(label: 'Remind me', child: _Reminder(task: task)),
+              const SizedBox(height: AppSpace.xl),
               _Section(
                 label: 'Priority',
                 child: PriorityChips(
@@ -272,6 +276,33 @@ DateTime? _isoToDate(String? iso) {
   final m = int.tryParse(p[1]);
   final d = int.tryParse(p[2]);
   return (y == null || m == null || d == null) ? null : DateTime(y, m, d);
+}
+
+/// When to be reminded about this task.
+class _Reminder extends ConsumerWidget {
+  const _Reminder({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(appScopeProvider).value;
+
+    return ReminderPicker(
+      remindAt: task.remindAt,
+      dueAt: task.dueAt,
+      dueDate: _isoToDate(task.dueDate),
+      permitted: ref.watch(reminderPermissionProvider).value ?? true,
+      onChanged: (at) async {
+        await scope?.tasks.setReminder(task.id, at);
+        if (at == null) return;
+        // Asked the first time a reminder is wanted, which is when the question makes
+        // sense, rather than at launch.
+        await ref.read(reminderServiceProvider).requestPermission();
+        ref.invalidate(reminderPermissionProvider);
+      },
+    );
+  }
 }
 
 /// Labels on this task. Toggling writes immediately, like everything else here.

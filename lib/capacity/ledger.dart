@@ -10,22 +10,87 @@ import 'timetable.dart';
 /// Minutes in a calendar day.
 const minutesInDay = 1440;
 
+/// One day's sleep: when you get up that morning, and when you go to bed that night.
+///
+/// A bedtime at or before the time you get up is after midnight, in the small hours of the
+/// next date: up at 09:00 and to bed at 01:30 is a day that runs until half past one.
+class DaySleep {
+  const DaySleep({required this.wakeMin, required this.bedtimeMin});
+
+  /// When you get up, in minutes past midnight.
+  final int wakeMin;
+
+  /// When you go to bed, in minutes past midnight.
+  final int bedtimeMin;
+
+  /// Bedtime counted from this day's midnight, so past [minutesInDay] when it falls after
+  /// midnight.
+  int get bedtimeFromMidnight =>
+      bedtimeMin <= wakeMin ? bedtimeMin + minutesInDay : bedtimeMin;
+
+  /// The length of the day, from getting up to going to bed.
+  int get awakeMin => bedtimeFromMidnight - wakeMin;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DaySleep &&
+      other.wakeMin == wakeMin &&
+      other.bedtimeMin == bedtimeMin;
+
+  @override
+  int get hashCode => Object.hash(wakeMin, bedtimeMin);
+
+  @override
+  String toString() => 'DaySleep(up $wakeMin, bed $bedtimeMin)';
+}
+
 /// The constants a day is measured against.
 class CapacitySettings {
   const CapacitySettings({
+    this.sleep = standardWeek,
     this.sleepTargetMin = 450,
-    this.sleepStartMin = 23 * 60 + 30,
     this.mealsMin = 90,
     this.bufferMin = 60,
     this.focusFactor = 0.65,
     this.minGapMin = 25,
   });
 
-  /// Protected floor. Reported, never spent.
+  /// The same sleep on every day of the week.
+  factory CapacitySettings.sameEveryDay({
+    required int wakeMin,
+    required int bedtimeMin,
+    int sleepTargetMin = 450,
+    int mealsMin = 90,
+    int bufferMin = 60,
+    double focusFactor = 0.65,
+    int minGapMin = 25,
+  }) => CapacitySettings(
+    sleep: List.filled(7, DaySleep(wakeMin: wakeMin, bedtimeMin: bedtimeMin)),
+    sleepTargetMin: sleepTargetMin,
+    mealsMin: mealsMin,
+    bufferMin: bufferMin,
+    focusFactor: focusFactor,
+    minGapMin: minGapMin,
+  );
+
+  /// Up at 07:00 and to bed at 23:30, all week.
+  static const standardWeek = [
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+    DaySleep(wakeMin: 7 * 60, bedtimeMin: 23 * 60 + 30),
+  ];
+
+  /// Each day's sleep, seven of them, Monday first.
+  final List<DaySleep> sleep;
+
+  /// The least sleep wanted in a night. A floor to report short nights against, never
+  /// time to spend.
   final int sleepTargetMin;
 
-  /// Bedtime, as minutes past midnight.
-  final int sleepStartMin;
   final int mealsMin;
   final int bufferMin;
   final double focusFactor;
@@ -33,37 +98,82 @@ class CapacitySettings {
 
   int get overheadMin => mealsMin + bufferMin;
 
-  /// Bedtime within one day, however it was stored.
-  int get bedtimeMin => sleepStartMin % minutesInDay;
+  /// A copy with some values changed, for asking what a different setting would do.
+  CapacitySettings copyWith({
+    List<DaySleep>? sleep,
+    int? sleepTargetMin,
+    int? mealsMin,
+    int? bufferMin,
+    double? focusFactor,
+    int? minGapMin,
+  }) => CapacitySettings(
+    sleep: sleep ?? this.sleep,
+    sleepTargetMin: sleepTargetMin ?? this.sleepTargetMin,
+    mealsMin: mealsMin ?? this.mealsMin,
+    bufferMin: bufferMin ?? this.bufferMin,
+    focusFactor: focusFactor ?? this.focusFactor,
+    minGapMin: minGapMin ?? this.minGapMin,
+  );
 
-  /// Minutes past midnight when the day starts.
-  int get wakeMin => (bedtimeMin + sleepTargetMin) % minutesInDay;
+  /// The sleep of the day that is [weekday], `DateTime.monday` to `DateTime.sunday`.
+  DaySleep sleepOn(int weekday) => sleep[(weekday - 1) % 7];
 
-  /// When you are asleep within one calendar day, as [start, end) intervals in order.
+  static int dayBefore(int weekday) =>
+      weekday == DateTime.monday ? DateTime.sunday : weekday - 1;
+
+  static int dayAfter(int weekday) =>
+      weekday == DateTime.sunday ? DateTime.monday : weekday + 1;
+
+  /// The hours awake within the calendar day that is [weekday], as [start, end) intervals
+  /// in order.
   ///
-  /// Sleep usually crosses midnight, which puts it at both ends of the day: the small
-  /// hours until waking, and the late evening from bedtime. With bedtime at or after
-  /// midnight it is a single stretch in the early morning.
-  List<(int, int)> get sleepIntervals {
-    final end = bedtimeMin + sleepTargetMin;
-    if (end <= minutesInDay) return [(bedtimeMin, end)];
-    return [(0, end - minutesInDay), (bedtimeMin, minutesInDay)];
+  /// Usually one stretch, from getting up to going to bed. When the night before ran past
+  /// midnight, the date also starts awake, until that bedtime; and when this day's bedtime
+  /// is after midnight, it runs to the end of the date, the rest counting towards the next.
+  List<(int, int)> wakingIntervalsOn(int weekday) {
+    final today = sleepOn(weekday);
+    final awake = <(int, int)>[];
+
+    // The night before, where it ran past midnight, but never past getting up today.
+    final lateNight = sleepOn(dayBefore(weekday)).bedtimeFromMidnight - minutesInDay;
+    final lateNightEnd = lateNight < today.wakeMin ? lateNight : today.wakeMin;
+    if (lateNightEnd > 0) awake.add((0, lateNightEnd));
+
+    final end = today.bedtimeFromMidnight < minutesInDay
+        ? today.bedtimeFromMidnight
+        : minutesInDay;
+    if (end > today.wakeMin) {
+      if (awake.isNotEmpty && awake.last.$2 >= today.wakeMin) {
+        // No sleep at all between the two.
+        awake[awake.length - 1] = (awake.last.$1, end);
+      } else {
+        awake.add((today.wakeMin, end));
+      }
+    }
+    return awake;
   }
 
-  /// The rest of the calendar day, as [start, end) intervals in order.
-  ///
-  /// One stretch when bedtime is before midnight. Two when it is after: the hours before
-  /// bed are as much yours as the evening is, and leaving them out is how a block at
-  /// midnight once went uncounted, and undrawn, for anyone who stays up past it.
-  List<(int, int)> get wakingIntervals {
-    final awake = <(int, int)>[];
+  /// The hours asleep within the calendar day that is [weekday]: everything
+  /// [wakingIntervalsOn] leaves out.
+  List<(int, int)> sleepIntervalsOn(int weekday) {
+    final asleep = <(int, int)>[];
     var cursor = 0;
-    for (final (start, end) in sleepIntervals) {
-      if (start > cursor) awake.add((cursor, start));
+    for (final (start, end) in wakingIntervalsOn(weekday)) {
+      if (start > cursor) asleep.add((cursor, start));
       cursor = end;
     }
-    if (cursor < minutesInDay) awake.add((cursor, minutesInDay));
-    return awake;
+    if (cursor < minutesInDay) asleep.add((cursor, minutesInDay));
+    return asleep;
+  }
+
+  /// Sleep in the night after the day that is [weekday]: from its bedtime to getting up the
+  /// next day. Zero when the next day starts before this one ends.
+  int nightAfter(int weekday) {
+    final night =
+        sleepOn(dayAfter(weekday)).wakeMin +
+        minutesInDay -
+        sleepOn(weekday).bedtimeFromMidnight;
+    return night < 0 ? 0 : night;
   }
 }
 
@@ -121,6 +231,8 @@ class DayCapacity {
     required this.discardedGapMin,
     this.blocks = const [],
     this.discardedGaps = const [],
+    this.awake = const [],
+    this.asleep = const [],
   });
 
   final DateTime date;
@@ -140,7 +252,8 @@ class DayCapacity {
   /// against this, never against raw free time.
   final int usableMin;
 
-  /// The floor. Present so it can be shown, never so it can be spent.
+  /// Minutes of this date spent asleep. Present so it can be shown, never so it can be
+  /// spent.
   final int sleepMin;
 
   /// Free minutes thrown away because they came in fragments too short to use. Surfaced
@@ -155,6 +268,13 @@ class DayCapacity {
 
   /// The gaps behind [discardedGapMin].
   final List<Gap> discardedGaps;
+
+  /// The hours awake, as [start, end) intervals: everything else here is measured inside
+  /// them.
+  final List<(int, int)> awake;
+
+  /// The hours asleep: the rest of the date.
+  final List<(int, int)> asleep;
 
   /// Free time after overhead, before the focus factor.
   int get freeMin => gaps.fold(0, (sum, g) => sum + g.lengthMin) - overheadMin;
@@ -175,7 +295,7 @@ abstract final class CapacityLedger {
     List<FixedBlock> blocks,
   ) {
     final day = DateTime(date.year, date.month, date.day);
-    final awake = settings.wakingIntervals;
+    final awake = settings.wakingIntervalsOn(day.weekday);
     final wakingMin = awake.fold(0, (sum, w) => sum + (w.$2 - w.$1));
 
     // Commitments on this day, clipped to the hours you are awake.
@@ -255,10 +375,12 @@ abstract final class CapacityLedger {
       // what floating point loses: the same free time split across two gaps can sum to
       // 545.9999 where it is 546.
       usableMin: (usable + 1e-6).floor(),
-      sleepMin: settings.sleepTargetMin,
+      sleepMin: minutesInDay - wakingMin,
       discardedGapMin: discarded,
       blocks: spans,
       discardedGaps: discardedGaps,
+      awake: awake,
+      asleep: settings.sleepIntervalsOn(day.weekday),
     );
   }
 

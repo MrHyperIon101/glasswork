@@ -95,6 +95,23 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                   ),
                 if (task.estimateMin case final mins?)
                   Text(Format.estimate(mins), style: AppText.numeric),
+                if (task.remindAt?.toLocal() case final at?
+                    when at.isAfter(DateTime.now()))
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.notifications_none,
+                        size: 12,
+                        color: AppColour.labelTertiary,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        Format.reminderTime(at, DateTime.now()),
+                        style: AppText.numeric,
+                      ),
+                    ],
+                  ),
                 if (!flagsBeside) ...flags,
               ];
 
