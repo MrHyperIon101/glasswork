@@ -27,6 +27,7 @@ import 'package:glasswork/ui/screens/app_shell.dart';
 import 'package:glasswork/ui/screens/capacity_screen.dart';
 import 'package:glasswork/ui/screens/list_screen.dart';
 import 'package:glasswork/ui/screens/today_screen.dart';
+import 'package:glasswork/ui/widgets/block_dialog.dart';
 import 'package:glasswork/ui/widgets/content_header.dart';
 
 /// Every screen and sheet, rendered with realistic data on a phone and on a desktop.
@@ -183,17 +184,59 @@ final _states = <_State>[
     await _settle(tester);
     await _scrollToEnd(tester, find.byType(CapacityScreen));
   }),
-  _State('adding a block', (tester, app, data) async {
+  _State('time budget, profile', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(const CapacityDestination());
     await _settle(tester);
-    // The button ends a lazily built list, so it exists only once scrolled to.
     await tester.scrollUntilVisible(
-      find.text('Add block'),
+      find.text('Shortest usable gap'),
+      300,
+      scrollable: _pageScrollable(find.byType(CapacityScreen)),
+    );
+  }),
+  _State('adding a block', (tester, app, data) => _openAddBlock(tester, app)),
+  _State('adding a block that clashes', (tester, app, data) async {
+    await _openAddBlock(tester, app);
+    await _settle(tester);
+    final dialog = find.byType(BlockDialog);
+    await tester.enterText(
+      find.descendant(of: dialog, matching: find.byType(TextField)).first,
+      'Tutorial',
+    );
+    await tester.tap(find.descendant(of: dialog, matching: find.text('M')));
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('block-start')),
+        matching: find.byType(TextField),
+      ),
+      '9:30',
+    );
+  }),
+  _State('editing a block', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const CapacityDestination());
+    await _settle(tester);
+    // By its days and times: its name is also on the week's timelines.
+    final row = find.text('Mon Wed Fri · 09:00–10:30');
+    await tester.scrollUntilVisible(
+      row,
       300,
       scrollable: _pageScrollable(find.byType(CapacityScreen)),
     );
     await _settle(tester);
-    await tester.tap(find.text('Add block'));
+    await tester.tap(row);
+  }),
+  _State('time budget, a block while asleep', (tester, app, data) async {
+    final scope = app.read(appScopeProvider).value!;
+    await tester.runAsync(
+      () => scope.capacity.addCommitment(
+        workspaceId: scope.workspace.id,
+        scheduleId: data.semesterId,
+        title: 'Night study',
+        weekdays: {1, 2, 3, 4, 5},
+        startMin: 0,
+        durationMin: 60,
+      ),
+    );
+    app.read(destinationProvider.notifier).go(const CapacityDestination());
   }),
   _State('new task', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
@@ -321,6 +364,20 @@ Widget _app(AppDatabase db, {Key? boundary}) => ProviderScope(
   child: RepaintBoundary(key: boundary, child: const GlassworkApp()),
 );
 
+/// Opens the add-block dialog from the Time budget screen.
+Future<void> _openAddBlock(WidgetTester tester, ProviderContainer app) async {
+  app.read(destinationProvider.notifier).go(const CapacityDestination());
+  await _settle(tester);
+  // The button ends a lazily built list, so it exists only once scrolled to.
+  await tester.scrollUntilVisible(
+    find.text('Add block'),
+    300,
+    scrollable: _pageScrollable(find.byType(CapacityScreen)),
+  );
+  await _settle(tester);
+  await tester.tap(find.text('Add block'));
+}
+
 /// The first vertical scroll view in [screen]: the page, and not a search field, which
 /// scrolls sideways and comes first wherever the header shows one.
 Finder _pageScrollable(Finder screen) => find
@@ -379,10 +436,15 @@ class _Held extends SyncController {
 }
 
 class _Seeded {
-  const _Seeded({required this.courseworkId, required this.longTaskId});
+  const _Seeded({
+    required this.courseworkId,
+    required this.longTaskId,
+    required this.semesterId,
+  });
 
   final String courseworkId;
   final String longTaskId;
+  final String semesterId;
 }
 
 /// A student's week: a timetable in force, two projects, tasks overdue, due today, due
@@ -532,5 +594,9 @@ Future<_Seeded> _seed(AppDatabase db) async {
     filter: ProjectFilter.empty.copyWith(hideCompleted: true),
   );
 
-  return _Seeded(courseworkId: coursework.id, longTaskId: report.id);
+  return _Seeded(
+    courseworkId: coursework.id,
+    longTaskId: report.id,
+    semesterId: semester.id,
+  );
 }

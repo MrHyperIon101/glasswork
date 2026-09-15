@@ -87,4 +87,17 @@ class Timetable {
 
   /// Blocks in force on [day].
   List<FixedBlock> blocksOn(DateTime day) => windowFor(day)?.blocks ?? const [];
+
+  /// The first of [days] consecutive days from [from] that the set [id] governs, or null
+  /// when it governs none of them. For saying when blocks added to a set not in force today
+  /// will start to count.
+  DateTime? firstDayGovernedBy(String id, DateTime from, int days) {
+    for (var i = 0; i < days; i++) {
+      // Built from the date, not added as a duration, which across a daylight saving change
+      // lands an hour off and can repeat a day.
+      final day = DateTime(from.year, from.month, from.day + i);
+      if (windowFor(day)?.id == id) return day;
+    }
+    return null;
+  }
 }

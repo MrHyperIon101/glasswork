@@ -10,11 +10,14 @@ import '../format.dart';
 /// enough: "990 awake, minus 240 committed, minus 150 overhead, times 0.65" is a
 /// derivation you have to follow. A day you can look at is a day you understand at a
 /// glance, which is the actual goal.
+///
+/// It draws what the ledger counted — blocks as clipped to waking hours, the gaps it threw
+/// away — rather than working the day out again for itself. It used to, and the two
+/// versions drifted: a block the ledger could not place was dropped without a trace.
 class DayTimeline extends StatelessWidget {
   const DayTimeline({
     required this.day,
     required this.settings,
-    required this.blocks,
     this.allocatedMin = 0,
     this.showHours = true,
     this.dense = false,
@@ -22,8 +25,9 @@ class DayTimeline extends StatelessWidget {
   });
 
   final DayCapacity day;
+
+  /// The settings [day] was computed with, for where sleep falls.
   final CapacitySettings settings;
-  final List<FixedBlock> blocks;
 
   /// Minutes of task work the planner has put on this day.
   final int allocatedMin;
@@ -36,38 +40,38 @@ class DayTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (windowStart, windowEnd) = settings.wakingWindow;
-    final span = (windowEnd - windowStart).clamp(1, 1440);
+    final awake = settings.wakingIntervals;
+    // From the first waking minute to the last. With bedtime after midnight that is the
+    // whole day, and the sleep inside it is drawn where it falls.
+    final axisStart = awake.isEmpty ? 0 : awake.first.$1;
+    final axisEnd = awake.isEmpty ? minutesInDay : awake.last.$2;
+    final span = axisEnd - axisStart;
 
-    // Commitments actually occurring on this day, clipped to the waking window.
-    final today = <({int start, int end, String title})>[];
-    for (final b in blocks) {
-      if (!b.recurrence.occursOn(day.date)) continue;
-      final start = b.startMin.clamp(windowStart, windowEnd);
-      final end = b.endMin.clamp(windowStart, windowEnd);
-      if (end > start) today.add((start: start, end: end, title: b.title));
-    }
-    today.sort((a, b) => a.start.compareTo(b.start));
+    final asleep = [
+      for (final (start, end) in settings.sleepIntervals)
+        if (start < axisEnd && end > axisStart)
+          (start < axisStart ? axisStart : start, end > axisEnd ? axisEnd : end),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showHours) ...[
-          _HourRuler(windowStart: windowStart, windowEnd: windowEnd),
+          _HourRuler(axisStart: axisStart, axisEnd: axisEnd),
           const SizedBox(height: AppSpace.xs),
         ],
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
             double x(int minute) =>
-                ((minute - windowStart) / span * width).clamp(0.0, width);
+                ((minute - axisStart) / span * width).clamp(0.0, width);
 
             return SizedBox(
               height: 46,
               child: Stack(
                 children: [
                   // The free ground. Everything else is drawn on top of it.
-                  Positioned.fill(
+                  const Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: AppColour.fill,
@@ -76,24 +80,32 @@ class DayTimeline extends StatelessWidget {
                     ),
                   ),
 
+                  for (final (start, end) in asleep)
+                    Positioned(
+                      left: x(start),
+                      width: (x(end) - x(start)).clamp(1.0, width),
+                      top: 0,
+                      bottom: 0,
+                      child: _Asleep(fromMin: start, toMin: end),
+                    ),
+
                   // Gaps too short to use. Shown explicitly, because a day with six
                   // free hours in ten-minute slivers is not a day with six hours free,
                   // and the bar would otherwise flatter it.
-                  for (final gap in day.gaps)
-                    if (gap.lengthMin < settings.minGapMin)
-                      Positioned(
-                        left: x(gap.startMin),
-                        width: (x(gap.endMin) - x(gap.startMin)).clamp(1.0, width),
-                        top: 0,
-                        bottom: 0,
-                        child: const _Hatched(),
-                      ),
+                  for (final gap in day.discardedGaps)
+                    Positioned(
+                      left: x(gap.startMin),
+                      width: (x(gap.endMin) - x(gap.startMin)).clamp(1.0, width),
+                      top: 0,
+                      bottom: 0,
+                      child: const _Hatched(),
+                    ),
 
                   // Commitments.
-                  for (final block in today)
+                  for (final block in day.blocks)
                     Positioned(
-                      left: x(block.start),
-                      width: (x(block.end) - x(block.start)).clamp(2.0, width),
+                      left: x(block.startMin),
+                      width: (x(block.endMin) - x(block.startMin)).clamp(2.0, width),
                       top: 0,
                       bottom: 0,
                       child: _Block(title: block.title),
@@ -111,16 +123,16 @@ class DayTimeline extends StatelessWidget {
 }
 
 class _HourRuler extends StatelessWidget {
-  const _HourRuler({required this.windowStart, required this.windowEnd});
+  const _HourRuler({required this.axisStart, required this.axisEnd});
 
-  final int windowStart;
-  final int windowEnd;
+  final int axisStart;
+  final int axisEnd;
 
   @override
   Widget build(BuildContext context) {
-    final firstHour = (windowStart / 60).ceil();
-    final lastHour = (windowEnd / 60).floor();
-    final span = windowEnd - windowStart;
+    final firstHour = (axisStart / 60).ceil();
+    final lastHour = (axisEnd / 60).floor();
+    final span = axisEnd - axisStart;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -134,12 +146,12 @@ class _HourRuler extends StatelessWidget {
             children: [
               for (var h = firstHour; h <= lastHour; h += step)
                 Positioned(
-                  left: ((h * 60 - windowStart) / span * width).clamp(
+                  left: ((h * 60 - axisStart) / span * width).clamp(
                     0.0,
                     width - 24,
                   ),
                   child: Text(
-                    '${h.toString().padLeft(2, '0')}:00',
+                    Format.clock(h * 60),
                     style: AppText.numeric.copyWith(
                       fontSize: 9,
                       color: AppColour.labelQuaternary,
@@ -152,6 +164,37 @@ class _HourRuler extends StatelessWidget {
       },
     );
   }
+}
+
+/// Sleep inside the drawn day: kept, so the bar keeps its proportions, and dark, because
+/// none of it is time to spend.
+class _Asleep extends StatelessWidget {
+  const _Asleep({required this.fromMin, required this.toMin});
+
+  final int fromMin;
+  final int toMin;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Asleep ${Format.clockRange(fromMin, toMin)}',
+    child: Container(
+      margin: const EdgeInsets.all(1),
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: AppColour.base,
+        borderRadius: AppRadius.smallAll,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < AppSize.chip
+            ? const SizedBox.shrink()
+            : const Icon(
+                Icons.bedtime_outlined,
+                size: 13,
+                color: AppColour.labelQuaternary,
+              ),
+      ),
+    ),
+  );
 }
 
 class _Block extends StatelessWidget {
@@ -209,6 +252,10 @@ class _HatchPainter extends CustomPainter {
       ..color = AppColour.labelQuaternary
       ..strokeWidth = 1;
 
+    // Each stroke leans a bar's height to the right, so unclipped the last ones ran on into
+    // the block beside the gap and showed through it.
+    canvas.clipRect(Offset.zero & size);
+
     for (var x = -size.height; x < size.width; x += 5) {
       canvas.drawLine(
         Offset(x, size.height),
@@ -235,7 +282,7 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final over = allocatedMin > day.usableMin;
+    final spare = day.spareAfter(allocatedMin);
 
     return Wrap(
       spacing: AppSpace.lg,
@@ -260,11 +307,9 @@ class _Legend extends StatelessWidget {
           ),
         if (allocatedMin > 0)
           _Swatch(
-            colour: over ? AppColour.red : AppColour.accent,
-            label: over ? 'Planned — over by' : 'Planned',
-            value: over
-                ? Format.estimate(allocatedMin - day.usableMin)
-                : Format.estimate(allocatedMin),
+            colour: spare < 0 ? AppColour.red : AppColour.accent,
+            label: spare < 0 ? 'Planned — over by' : 'Planned',
+            value: Format.estimate(spare < 0 ? -spare : allocatedMin),
           ),
       ],
     );

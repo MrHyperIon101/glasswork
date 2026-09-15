@@ -26,6 +26,32 @@ ScheduleWindow window(
 );
 
 void main() {
+  group('the first day a set governs', () {
+    final t = Timetable([
+      window('Sem V', from: DateTime(2026, 9, 21), to: DateTime(2026, 12, 15)),
+      window('Everyday', fallback: true),
+    ]);
+
+    test('is today when it governs today', () {
+      expect(
+        t.firstDayGovernedBy('Everyday', DateTime(2026, 9, 15), 28),
+        DateTime(2026, 9, 15),
+      );
+    });
+
+    test('is the day it takes over, when that falls in the range', () {
+      expect(
+        t.firstDayGovernedBy('Sem V', DateTime(2026, 9, 15, 18, 30), 28),
+        DateTime(2026, 9, 21),
+      );
+    });
+
+    test('is null for a set that governs nothing in the range', () {
+      expect(t.firstDayGovernedBy('Everyday', DateTime(2026, 9, 21), 28), isNull);
+      expect(t.firstDayGovernedBy('Sem V', DateTime(2026, 9, 15), 3), isNull);
+    });
+  });
+
   test('an undated set applies to every day', () {
     final t = Timetable([window('Only one')]);
     expect(t.windowFor(DateTime(2026, 1, 1))?.name, 'Only one');

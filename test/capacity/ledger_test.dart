@@ -20,19 +20,25 @@ FixedBlock block(
 );
 
 void main() {
-  group('waking window', () {
-    test('is the day minus the sleep block', () {
-      // Sleep 23:30 for 7h30 -> wake 07:00, window 07:00-23:30 = 990 minutes.
+  group('waking hours', () {
+    test('are the day minus the sleep block', () {
+      // Sleep 23:30 for 7h30 -> wake 07:00, awake 07:00-23:30 = 990 minutes.
       const s = CapacitySettings();
       expect(s.wakeMin, 7 * 60);
-      expect(s.wakingWindow, (7 * 60, 23 * 60 + 30));
+      expect(s.sleepIntervals, [(0, 7 * 60), (23 * 60 + 30, 1440)]);
+      expect(s.wakingIntervals, [(7 * 60, 23 * 60 + 30)]);
     });
 
-    test('runs to midnight when bedtime is after it', () {
+    test('include the hours before a bedtime after midnight', () {
+      // Bed at 01:00 for 7h30: awake until 01:00, and again from 08:30.
       const s = CapacitySettings(sleepStartMin: 60, sleepTargetMin: 450);
-      final (start, end) = s.wakingWindow;
-      expect(start, 8 * 60 + 30);
-      expect(end, 1440);
+      expect(s.sleepIntervals, [(60, 8 * 60 + 30)]);
+      expect(s.wakingIntervals, [(0, 60), (8 * 60 + 30, 1440)]);
+    });
+
+    test('are one stretch after waking with bedtime at midnight', () {
+      const s = CapacitySettings(sleepStartMin: 0, sleepTargetMin: 480);
+      expect(s.wakingIntervals, [(8 * 60, 1440)]);
     });
   });
 
@@ -54,6 +60,66 @@ void main() {
       expect(day.usableMin, lessThan(day.wakingMin));
       // The floor is not part of any spendable figure.
       expect(day.usableMin + day.committedMin, lessThan(1440 - day.sleepMin));
+    });
+
+    test('says what is left once work is planned into it', () {
+      final day = CapacityLedger.forDay(wed, const CapacitySettings(), []);
+      expect(day.spareAfter(0), 546);
+      expect(day.spareAfter(500), 46);
+      expect(day.spareAfter(600), -54);
+    });
+  });
+
+  group('sleep', () {
+    test('a block while asleep is not counted, and not listed to draw', () {
+      final day = CapacityLedger.forDay(wed, const CapacitySettings(), [
+        block('Night study', 0, 60),
+      ]);
+      expect(day.committedMin, 0);
+      expect(day.blocks, isEmpty);
+      expect(day.usableMin, 546);
+    });
+
+    test('a block running into bedtime counts until bedtime', () {
+      final day = CapacityLedger.forDay(wed, const CapacitySettings(), [
+        block('Late lab', 23 * 60, 90),
+      ]);
+      expect(day.committedMin, 30);
+      expect(day.blocks.single.endMin, 23 * 60 + 30);
+    });
+  });
+
+  group('a bedtime after midnight', () {
+    const late = CapacitySettings(sleepStartMin: 60, sleepTargetMin: 450);
+
+    test('counts a block at midnight, which you are awake for', () {
+      final day = CapacityLedger.forDay(wed, late, [
+        block('Night study', 0, 45),
+      ]);
+      expect(day.committedMin, 45);
+      expect(
+        [for (final b in day.blocks) (b.title, b.startMin, b.endMin)],
+        [('Night study', 0, 45)],
+      );
+    });
+
+    test('gives a free day as much time as an earlier bedtime of the same length', () {
+      // 990 minutes awake either way, here as 00:00-01:00 and 08:30-24:00.
+      final day = CapacityLedger.forDay(wed, late, []);
+      expect(day.wakingMin, 990);
+      expect(
+        [for (final g in day.gaps) (g.startMin, g.endMin)],
+        [(0, 60), (8 * 60 + 30, 1440)],
+      );
+      expect(day.usableMin, 546);
+    });
+
+    test('does not merge blocks across the night', () {
+      final day = CapacityLedger.forDay(wed, late, [
+        block('Before bed', 0, 60),
+        block('After waking', 8 * 60 + 30, 60),
+      ]);
+      expect(day.committedMin, 120);
     });
   });
 
@@ -102,7 +168,9 @@ void main() {
       }
 
       final day = CapacityLedger.forDay(wed, s, blocks);
-      expect(day.discardedGapMin, greaterThan(0));
+      expect(day.discardedGapMin, 100);
+      // The five 20-minute gaps between the classes, and only those.
+      expect([for (final g in day.discardedGaps) g.lengthMin], [20, 20, 20, 20, 20]);
 
       // The same free minutes in one block are worth much more.
       final oneBlock = CapacityLedger.forDay(wed, s, [

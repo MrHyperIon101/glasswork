@@ -323,6 +323,43 @@ class CapacityRepository {
     ),
   );
 
+  /// Changes a block. Only what is passed is written, so this does not undo another
+  /// device's change to a field it never touched.
+  ///
+  /// New [weekdays] keep the rule's end date, which the editor does not show.
+  Future<void> updateCommitment(
+    String id, {
+    String? title,
+    Set<int>? weekdays,
+    int? startMin,
+    int? durationMin,
+  }) async {
+    String? rrule;
+    if (weekdays != null) {
+      final current = await (_db.select(
+        _db.commitments,
+      )..where((c) => c.id.equals(id))).getSingleOrNull();
+      DateTime? until;
+      try {
+        until = current == null ? null : Recurrence.parse(current.rrule).until;
+      } on RecurrenceError {
+        // A rule the engine could not read has no end date worth keeping.
+      }
+      rrule = Recurrence.weekly(weekdays, until: until);
+    }
+
+    await _writer.update(
+      _db.commitments,
+      id,
+      CommitmentsCompanion(
+        title: Value.absentIfNull(title),
+        rrule: Value.absentIfNull(rrule),
+        startMin: Value.absentIfNull(startMin),
+        durationMin: Value.absentIfNull(durationMin),
+      ),
+    );
+  }
+
   Future<void> deleteCommitment(String id) => _writer.update(
     _db.commitments,
     id,
