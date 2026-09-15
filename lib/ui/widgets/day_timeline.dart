@@ -17,6 +17,7 @@ class DayTimeline extends StatelessWidget {
     required this.blocks,
     this.allocatedMin = 0,
     this.showHours = true,
+    this.dense = false,
     super.key,
   });
 
@@ -28,6 +29,10 @@ class DayTimeline extends StatelessWidget {
   final int allocatedMin;
 
   final bool showHours;
+
+  /// Only the two figures a row in a list of days needs: what is free, and what is
+  /// planned. The bar itself shows the blocks and the fragments.
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +104,7 @@ class DayTimeline extends StatelessWidget {
           },
         ),
         const SizedBox(height: AppSpace.sm),
-        _Legend(day: day, allocatedMin: allocatedMin),
+        _Legend(day: day, allocatedMin: allocatedMin, dense: dense),
       ],
     );
   }
@@ -154,23 +159,35 @@ class _Block extends StatelessWidget {
 
   final String title;
 
+  /// Narrower than this, a label shows a letter or two, which reads as a glitch rather
+  /// than a name. Such a block goes unlabelled, and its name is in the tooltip.
+  static const _labelledFrom = 56.0;
+
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.all(1),
-    padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-    alignment: Alignment.centerLeft,
-    decoration: BoxDecoration(
-      color: AppColour.purple.withValues(alpha: 0.38),
-      borderRadius: AppRadius.smallAll,
-      border: Border.all(color: AppColour.purple.withValues(alpha: 0.5)),
-    ),
-    child: ClipRect(
-      child: Text(
-        title,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.fade,
-        style: AppText.numeric.copyWith(color: AppColour.label, fontSize: 10),
+  Widget build(BuildContext context) => Tooltip(
+    message: title,
+    child: LayoutBuilder(
+      builder: (context, constraints) => Container(
+        margin: const EdgeInsets.all(1),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: AppColour.purple.withValues(alpha: 0.38),
+          borderRadius: AppRadius.smallAll,
+          border: Border.all(color: AppColour.purple.withValues(alpha: 0.5)),
+        ),
+        child: constraints.maxWidth < _labelledFrom
+            ? null
+            : Text(
+                title,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.numeric.copyWith(
+                  color: AppColour.label,
+                  fontSize: 10,
+                ),
+              ),
       ),
     ),
   );
@@ -206,10 +223,15 @@ class _HatchPainter extends CustomPainter {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend({required this.day, required this.allocatedMin});
+  const _Legend({
+    required this.day,
+    required this.allocatedMin,
+    required this.dense,
+  });
 
   final DayCapacity day;
   final int allocatedMin;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -219,17 +241,18 @@ class _Legend extends StatelessWidget {
       spacing: AppSpace.lg,
       runSpacing: AppSpace.xs,
       children: [
-        _Swatch(
-          colour: AppColour.purple.withValues(alpha: 0.38),
-          label: 'Classes and fixed blocks',
-          value: Format.estimate(day.committedMin),
-        ),
+        if (!dense)
+          _Swatch(
+            colour: AppColour.purple.withValues(alpha: 0.38),
+            label: 'Classes and fixed blocks',
+            value: Format.estimate(day.committedMin),
+          ),
         _Swatch(
           colour: AppColour.fill,
           label: 'Yours to spend',
           value: Format.estimate(day.usableMin),
         ),
-        if (day.discardedGapMin > 0)
+        if (!dense && day.discardedGapMin > 0)
           _Swatch(
             colour: AppColour.labelQuaternary,
             label: 'Too fragmented to use',

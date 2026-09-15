@@ -6,6 +6,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
+import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/content_header.dart';
@@ -39,12 +40,15 @@ class ListScreen extends ConsumerWidget {
         ? '${tasks.length} completed'
         : '$open open';
 
+    final compact = AppLayout.compact(context);
+    final gutter = AppLayout.gutter(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.xxl,
-        AppSpace.xl,
-        AppSpace.xxl,
-        AppSpace.xl,
+      padding: EdgeInsets.fromLTRB(
+        gutter,
+        compact ? AppSpace.sm : AppSpace.xl,
+        gutter,
+        compact ? AppSpace.md : AppSpace.xl,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,8 +92,6 @@ class _Rows extends ConsumerWidget {
     final open = tasks.where((t) => t.status != TaskStatus.done).toList();
     final done = tasks.where((t) => t.status == TaskStatus.done).toList();
 
-    // Manual order only means something inside a real list. Smart views are queries, and
-    // letting you drag rows there would imply an ordering the app cannot store.
     // Manual order only means something inside a project. Smart views are queries, and
     // letting you drag rows there would imply an ordering the app cannot store.
     final reorderable =

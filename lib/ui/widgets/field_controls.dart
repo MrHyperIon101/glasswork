@@ -29,41 +29,60 @@ class FieldRow extends StatelessWidget {
   final Widget child;
   final String? hint;
 
+  /// Narrower than this, the caption goes above the control instead of beside it: an
+  /// 84-point column of captions would leave the chips a strip too thin to wrap sensibly.
+  static const _besideFrom = 420.0;
+
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SizedBox(
-        width: 84,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 7),
-          child: Text(
-            label,
-            style: AppText.caption,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext context) {
+    final control = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        if (hint case final h?) ...[
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            h,
+            style: AppText.footnote.copyWith(color: AppColour.labelQuaternary),
           ),
-        ),
-      ),
-      Expanded(
-        child: Column(
+        ],
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _besideFrom) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppText.caption),
+              const SizedBox(height: AppSpace.sm),
+              control,
+            ],
+          );
+        }
+
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            child,
-            if (hint case final h?) ...[
-              const SizedBox(height: AppSpace.xs),
-              Text(
-                h,
-                style: AppText.footnote.copyWith(
-                  color: AppColour.labelQuaternary,
+            SizedBox(
+              width: 84,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 7),
+                child: Text(
+                  label,
+                  style: AppText.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
+            ),
+            Expanded(child: control),
           ],
-        ),
-      ),
-    ],
-  );
+        );
+      },
+    );
+  }
 }
 
 /// Selectable pill.

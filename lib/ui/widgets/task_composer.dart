@@ -8,7 +8,8 @@ import '../../data/quick_add_parser.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
-import '../motion.dart';
+import '../layout.dart';
+import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
 
@@ -29,32 +30,10 @@ class TaskComposer extends ConsumerWidget {
 
     void close() => ref.read(composerOpenProvider.notifier).close();
 
-    return Stack(
-      children: [
-        // Scrim fades in on its own so the panel's spring is not muddied by it.
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: close,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.62 * t)),
-            ),
-          ),
-        ),
-        Align(
-          alignment: const Alignment(0, -0.1),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: SpringIn(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640, maxHeight: 700),
-                child: VibrancyMaterial.sheet(child: _Form(onClose: close)),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ModalSheet(
+      onClose: close,
+      maxHeight: 700,
+      child: _Form(onClose: close),
     );
   }
 }
@@ -459,13 +438,20 @@ class _FormState extends ConsumerState<_Form> {
             padding: const EdgeInsets.all(AppSpace.lg),
             child: Row(
               children: [
-                Text(
-                  'Return to add · Esc to cancel',
-                  style: AppText.numeric.copyWith(
-                    color: AppColour.labelQuaternary,
+                // Keys a phone does not have, and room its buttons need.
+                if (AppLayout.touch)
+                  const Spacer()
+                else
+                  Expanded(
+                    child: Text(
+                      'Return to add · Esc to cancel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.numeric.copyWith(
+                        color: AppColour.labelQuaternary,
+                      ),
+                    ),
                   ),
-                ),
-                const Spacer(),
                 GhostButton(label: 'Cancel', onTap: widget.onClose),
                 const SizedBox(width: AppSpace.sm),
                 PrimaryButton(

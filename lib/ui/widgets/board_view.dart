@@ -7,6 +7,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../layout.dart';
 import 'task_chips.dart';
 
 /// Kanban board for a project.
@@ -20,6 +21,8 @@ class BoardKanban extends ConsumerWidget {
 
   final String projectId;
 
+  static const _columnWidth = 286.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sections = ref.watch(sectionsProvider(projectId)).value ?? const [];
@@ -31,17 +34,29 @@ class BoardKanban extends ConsumerWidget {
       );
     }
 
-    return ListView(
-      scrollDirection: Axis.horizontal,
-      children: [
-        for (final section in sections)
-          _Column(
-            projectId: projectId,
-            section: section,
-            tasks: tasks.where((t) => t.listId == section.id).toList(),
-          ),
-        const _AddSectionColumn(),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Where a full-width column would fill the view, a column leaves the next one
+        // showing at the edge, so it is plain there is more to swipe to.
+        final width = (constraints.maxWidth - AppSpace.huge).clamp(
+          0.0,
+          _columnWidth,
+        );
+
+        return ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final section in sections)
+              _Column(
+                projectId: projectId,
+                section: section,
+                width: width,
+                tasks: tasks.where((t) => t.listId == section.id).toList(),
+              ),
+            const _AddSectionColumn(),
+          ],
+        );
+      },
     );
   }
 }
@@ -50,11 +65,13 @@ class _Column extends ConsumerStatefulWidget {
   const _Column({
     required this.projectId,
     required this.section,
+    required this.width,
     required this.tasks,
   });
 
   final String projectId;
   final BoardList section;
+  final double width;
   final List<Task> tasks;
 
   @override
@@ -93,7 +110,7 @@ class _ColumnState extends ConsumerState<_Column> {
         return AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
-          width: 286,
+          width: widget.width,
           margin: const EdgeInsets.only(right: AppSpace.md),
           padding: const EdgeInsets.all(AppSpace.sm),
           decoration: BoxDecoration(
@@ -272,9 +289,8 @@ class _Card extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final card = _CardBody(task: task);
 
-    return Draggable<Task>(
+    return AdaptiveDraggable<Task>(
       data: task,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
         offset: const Offset(-130, -26),
         child: Opacity(
@@ -463,7 +479,7 @@ class _AddCardButton extends ConsumerWidget {
         onTap: () => ref.read(composerOpenProvider.notifier).open(),
         behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpace.sm),
+          padding: EdgeInsets.all(AppLayout.touch ? AppSpace.md : AppSpace.sm),
           child: Row(
             children: [
               const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),

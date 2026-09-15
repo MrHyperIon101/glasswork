@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/project_templates.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
-import '../motion.dart';
+import '../layout.dart';
+import '../sheet.dart';
 import '../surface.dart';
 
 /// Creating a project, starting from what kind of work it is.
@@ -22,31 +23,12 @@ class NewProjectSheet extends ConsumerWidget {
 
     void close() => ref.read(newProjectOpenProvider.notifier).close();
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: close,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.62 * t)),
-            ),
-          ),
-        ),
-        Align(
-          alignment: const Alignment(0, -0.2),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: SpringIn(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 660, maxHeight: 660),
-                child: VibrancyMaterial.sheet(child: _Body(onClose: close)),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ModalSheet(
+      onClose: close,
+      maxWidth: 660,
+      maxHeight: 660,
+      alignment: const Alignment(0, -0.2),
+      child: _Body(onClose: close),
     );
   }
 }
@@ -186,13 +168,20 @@ class _BodyState extends ConsumerState<_Body> {
             padding: const EdgeInsets.all(AppSpace.lg),
             child: Row(
               children: [
-                Text(
-                  'Esc to cancel',
-                  style: AppText.numeric.copyWith(
-                    color: AppColour.labelQuaternary,
+                // A key a phone does not have, and room its buttons need.
+                if (AppLayout.touch)
+                  const Spacer()
+                else
+                  Expanded(
+                    child: Text(
+                      'Esc to cancel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.numeric.copyWith(
+                        color: AppColour.labelQuaternary,
+                      ),
+                    ),
                   ),
-                ),
-                const Spacer(),
                 _Ghost(label: 'Cancel', onTap: widget.onClose),
                 const SizedBox(width: AppSpace.sm),
                 _Primary(

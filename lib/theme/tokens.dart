@@ -92,6 +92,27 @@ abstract final class AppSize {
 
   /// Inline chips inside a form.
   static const chip = 28.0;
+
+  /// The smallest target on a touch screen. Anything a finger has to hit is at least this
+  /// big, even where what it draws is smaller.
+  static const touch = 44.0;
+
+  /// A dashboard card holding one figure.
+  static const metricCard = 120.0;
+
+  /// A day in a phone's month grid: seven of them across a 360-point screen, each still
+  /// big enough to tap.
+  static const dayCell = 36.0;
+}
+
+/// Widths at which the layout changes shape.
+abstract final class AppBreakpoint {
+  /// Narrower than this is a phone: one column, the toolbar under the title, sheets rising
+  /// from the bottom.
+  static const compact = 600.0;
+
+  /// Narrower than this, the sidebar becomes a drawer.
+  static const sidebar = 900.0;
 }
 
 /// 4pt grid, 8pt preferred. Apple's layouts are mostly multiples of 8, with 4 as the

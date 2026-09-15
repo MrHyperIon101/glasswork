@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../data/task_stats.dart';
 import '../../state/providers.dart';
@@ -28,32 +29,55 @@ class TodayScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(statsProvider);
     final now = DateTime.now();
+    final header = ContentHeader(
+      title: _greeting(now),
+      subtitle: _longDate(now),
+      onMenu: onMenu,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.xxl,
-        AppSpace.xl,
-        AppSpace.xxl,
-        AppSpace.xl,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ContentHeader(
-            title: _greeting(now),
-            subtitle: _longDate(now),
-            onMenu: onMenu,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A phone scrolls one column. Fitting the dashboard into its height instead is what
+        // squashed every card on it to a sliver.
+        if (constraints.maxWidth < AppBreakpoint.compact) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg,
+              AppSpace.sm,
+              AppSpace.lg,
+              AppSpace.xxl,
+            ),
+            children: [
+              header,
+              const SizedBox(height: AppSpace.xl),
+              if (stats != null) _PhoneDashboard(stats: stats),
+            ],
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.xxl,
+            AppSpace.xl,
+            AppSpace.xxl,
+            AppSpace.xl,
           ),
-          const SizedBox(height: AppSpace.xxl),
-          if (stats == null)
-            const Spacer()
-          else ...[
-            Expanded(child: _Bento(stats: stats)),
-            const SizedBox(height: AppSpace.lg),
-            const WeekLoadStrip(),
-          ],
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              const SizedBox(height: AppSpace.xxl),
+              if (stats == null)
+                const Spacer()
+              else ...[
+                Expanded(child: _Bento(stats: stats)),
+                const SizedBox(height: AppSpace.lg),
+                const WeekLoadStrip(),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -89,6 +113,50 @@ class TodayScreen extends ConsumerWidget {
     ];
     return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}';
   }
+}
+
+/// The dashboard as one scrolling column: today's tasks, then the figures, then the week.
+class _PhoneDashboard extends StatelessWidget {
+  const _PhoneDashboard({required this.stats});
+
+  final TaskStats stats;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _FocusCard(stats: stats, fill: false),
+      const SizedBox(height: AppSpace.md),
+      _MetricHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _OverdueCard(stats: stats)),
+            const SizedBox(width: AppSpace.md),
+            const Expanded(child: _AtRiskCard()),
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpace.md),
+      _MetricHeight(child: _NextUpCard(stats: stats)),
+      const SizedBox(height: AppSpace.md),
+      const WeekLoadStrip(),
+    ],
+  );
+}
+
+/// A metric card's height, or more when its text needs it: a title that runs to two lines,
+/// or a phone with its font size turned up. A fixed height clipped both.
+class _MetricHeight extends StatelessWidget {
+  const _MetricHeight({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(minHeight: AppSize.metricCard),
+    child: IntrinsicHeight(child: child),
+  );
 }
 
 class _Bento extends StatelessWidget {
@@ -151,7 +219,7 @@ class _Bento extends StatelessWidget {
                       separatorBuilder: (_, _) =>
                           const SizedBox(height: AppSpace.lg),
                       itemBuilder: (_, i) =>
-                          SizedBox(height: 132, child: sideCards[i]),
+                          _MetricHeight(child: sideCards[i]),
                     ),
             ),
           ],
@@ -163,38 +231,69 @@ class _Bento extends StatelessWidget {
 
 /// The hero card: what is actually on today, and how far through it you are.
 class _FocusCard extends ConsumerWidget {
-  const _FocusCard({required this.stats});
+  const _FocusCard({required this.stats, this.fill = true});
 
   final TaskStats stats;
+
+  /// Fills the height it is given, as a dashboard tile; or takes only the height its tasks
+  /// need, in a phone's scrolling column.
+  final bool fill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(appScopeProvider).value;
     final items = [...stats.overdue, ...stats.dueToday];
     final progress = stats.todayProgress;
+    final estimated = stats.estimatedMinutesToday > 0;
+
+    Widget row(Task task) => TaskRow(
+      key: ValueKey(task.id),
+      task: task,
+      onToggle: () => scope?.tasks.setDone(
+        task.id,
+        done: task.status != TaskStatus.done,
+      ),
+      onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
+      onDelete: () async {
+        if (scope == null) return;
+        await scope.tasks.softDelete(task.id);
+        ref
+            .read(undoProvider.notifier)
+            .offer(
+              'Deleted "${task.title}"',
+              () => scope.tasks.restore(task.id),
+            );
+      },
+    );
 
     return AppSurface(
-      padding: const EdgeInsets.all(AppSpace.xxl),
+      padding: EdgeInsets.all(fill ? AppSpace.xxl : AppSpace.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text('${stats.todayTotal}', style: AppText.metric),
               const SizedBox(width: AppSpace.md),
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpace.sm),
-                child: Text(
-                  stats.todayTotal == 1 ? 'task on today' : 'tasks on today',
-                  style: AppText.callout,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                  child: Text(
+                    stats.todayTotal == 1 ? 'task on today' : 'tasks on today',
+                    style: AppText.callout,
+                  ),
                 ),
               ),
-              const Spacer(),
-              if (stats.estimatedMinutesToday > 0)
-                _EstimatePill(stats: stats),
+              if (fill && estimated) _EstimatePill(stats: stats),
             ],
           ),
+          // On a phone the estimate gets its own line rather than crowding the count.
+          if (!fill && estimated) ...[
+            const SizedBox(height: AppSpace.sm),
+            _EstimatePill(stats: stats),
+          ],
           if (progress != null) ...[
             const SizedBox(height: AppSpace.lg),
             _ProgressBar(value: progress),
@@ -207,36 +306,25 @@ class _FocusCard extends ConsumerWidget {
           ],
           const SizedBox(height: AppSpace.lg),
           const AppDivider(),
-          Expanded(
-            child: items.isEmpty
-                ? _ClearState(completedToday: stats.completedToday)
-                : ListView.builder(
-                    padding: const EdgeInsets.only(top: AppSpace.sm),
-                    itemCount: items.length,
-                    itemBuilder: (context, i) {
-                      final task = items[i];
-                      return TaskRow(
-                        key: ValueKey(task.id),
-                        task: task,
-                        onToggle: () => scope?.tasks.setDone(
-                          task.id,
-                          done: task.status != TaskStatus.done,
-                        ),
-                        onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
-                        onDelete: () async {
-                          if (scope == null) return;
-                          await scope.tasks.softDelete(task.id);
-                          ref
-                              .read(undoProvider.notifier)
-                              .offer(
-                                'Deleted "${task.title}"',
-                                () => scope.tasks.restore(task.id),
-                              );
-                        },
-                      );
-                    },
-                  ),
-          ),
+          if (fill)
+            Expanded(
+              child: items.isEmpty
+                  ? _ClearState(completedToday: stats.completedToday)
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(top: AppSpace.sm),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) => row(items[i]),
+                    ),
+            )
+          else if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpace.xl),
+              child: _ClearState(completedToday: stats.completedToday),
+            )
+          else ...[
+            const SizedBox(height: AppSpace.sm),
+            for (final task in items) row(task),
+          ],
         ],
       ),
     );
@@ -329,11 +417,13 @@ class _ClearState extends StatelessWidget {
                 ? 'Today is clear. $completedToday done.'
                 : 'Nothing due today.',
             style: AppText.body.copyWith(color: AppColour.labelSecondary),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpace.xs),
           Text(
             'Add something below, or take the afternoon.',
             style: AppText.footnote,
+            textAlign: TextAlign.center,
           ),
         ],
       ),
