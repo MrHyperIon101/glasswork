@@ -7,7 +7,7 @@ import '../../state/sync_summary.dart';
 import '../../sync/account_link.dart';
 import '../../sync/sync_auth.dart';
 import '../../theme/tokens.dart';
-import '../motion.dart';
+import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
 import 'sync_status.dart';
@@ -25,38 +25,14 @@ class SyncSheet extends ConsumerWidget {
 
     void close() => ref.read(syncSheetOpenProvider.notifier).close();
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: close,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.62 * t)),
-            ),
-          ),
-        ),
-        Align(
-          alignment: const Alignment(0, -0.2),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: SpringIn(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: VibrancyMaterial.sheet(
-                  child: CallbackShortcuts(
-                    bindings: {
-                      const SingleActivator(LogicalKeyboardKey.escape): close,
-                    },
-                    child: _Body(onClose: close),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ModalSheet(
+      onClose: close,
+      maxWidth: 480,
+      alignment: const Alignment(0, -0.2),
+      child: CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
+        child: _Body(onClose: close),
+      ),
     );
   }
 }

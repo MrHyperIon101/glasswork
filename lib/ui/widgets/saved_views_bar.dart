@@ -7,6 +7,7 @@ import '../../data/project_filter.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
+import '../layout.dart';
 import 'field_controls.dart';
 
 /// Named ways of looking at a project.
@@ -248,14 +249,18 @@ class _ViewChipState extends State<_ViewChip> {
                 ),
               ),
               // Revealed on hover, so the bar reads as names rather than a row of
-              // close buttons.
+              // close buttons. A touch screen has no hover, so there it is always shown.
               AnimatedSize(
                 duration: AppMotion.quick,
-                child: _hovered
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: AppSpace.xs),
-                        child: GestureDetector(
-                          onTap: widget.onDelete,
+                child: _hovered || AppLayout.touch
+                    ? GestureDetector(
+                        onTap: widget.onDelete,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: AppSpace.xs,
+                            right: AppLayout.touch ? AppSpace.xs : 0,
+                          ),
                           child: const Icon(
                             Icons.close,
                             size: 12,

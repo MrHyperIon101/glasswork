@@ -8,12 +8,13 @@ import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/board_view.dart';
 import '../widgets/calendar_view.dart';
-import '../widgets/content_header.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/content_header.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/saved_views_bar.dart';
 import '../widgets/task_row.dart';
@@ -47,12 +48,15 @@ class ProjectScreen extends ConsumerWidget {
       );
     }
 
+    final compact = AppLayout.compact(context);
+    final gutter = AppLayout.gutter(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.xxl,
-        AppSpace.xl,
-        AppSpace.xxl,
-        AppSpace.lg,
+      padding: EdgeInsets.fromLTRB(
+        gutter,
+        compact ? AppSpace.sm : AppSpace.xl,
+        gutter,
+        compact ? AppSpace.md : AppSpace.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,21 +65,28 @@ class ProjectScreen extends ConsumerWidget {
             title: project.name,
             subtitle: project.purpose ?? '${sections.length} sections',
             onMenu: onMenu,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ViewSwitcher(projectId: projectId, current: view),
-                const SizedBox(width: AppSpace.sm),
-                _SettingsButton(projectId: projectId),
-              ],
-            ),
+            dense: true,
+            // On a phone the switcher shares a line with the filter instead, lower down,
+            // so the header costs no more height than it has to.
+            accessory: compact
+                ? null
+                : _ViewSwitcher(projectId: projectId, current: view),
+            actions: [_SettingsButton(projectId: projectId)],
           ),
-          const SizedBox(height: AppSpace.lg),
+          SizedBox(height: compact ? AppSpace.md : AppSpace.lg),
           _ProjectPulse(projectId: projectId, tasks: tasks),
-          const SizedBox(height: AppSpace.lg),
+          SizedBox(height: compact ? AppSpace.md : AppSpace.lg),
           SavedViewsBar(projectId: projectId),
-          const FilterBar(),
-          const SizedBox(height: AppSpace.lg),
+          FilterBar(
+            leading: compact
+                ? _ViewSwitcher(
+                    projectId: projectId,
+                    current: view,
+                    expand: true,
+                  )
+                : null,
+          ),
+          SizedBox(height: compact ? AppSpace.md : AppSpace.lg),
           Expanded(
             child: switch (view) {
               BoardView.board => BoardKanban(projectId: projectId),
@@ -129,75 +140,162 @@ class _ProjectPulse extends ConsumerWidget {
 
     final progress = tasks.isEmpty ? null : done / tasks.length;
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < AppBreakpoint.compact) {
+          return _compact(
+            open: open.length,
+            overdue: overdue,
+            atRisk: atRisk,
+            estimate: estimate,
+            untimed: untimed,
+            done: done,
+            progress: progress,
+          );
+        }
+
+        return AppSurface(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.xl,
+            vertical: AppSpace.lg,
+          ),
+          child: Row(
+            children: [
+              _Stat(label: 'Open', value: '${open.length}'),
+              _Divider(),
+              _Stat(
+                label: 'Overdue',
+                value: '$overdue',
+                tint: overdue > 0 ? AppColour.red : null,
+              ),
+              _Divider(),
+              _Stat(
+                label: "Won't fit",
+                value: '$atRisk',
+                tint: atRisk > 0 ? AppColour.red : null,
+              ),
+              _Divider(),
+              _Stat(
+                label: 'Work left',
+                value: estimate == 0 ? '—' : Format.estimate(estimate),
+                // A total that ignored unestimated tasks would be a lie by omission.
+                note: untimed > 0 ? '+$untimed untimed' : null,
+              ),
+              const Spacer(),
+              if (progress != null)
+                SizedBox(
+                  width: 160,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '$done of ${tasks.length} done',
+                        style: AppText.numeric,
+                      ),
+                      const SizedBox(height: AppSpace.xs),
+                      _Progress(value: progress),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// The same figures in four narrow columns, for a phone. Run together as a sentence,
+  /// they wrapped wherever the width ran out and parted a figure from what it counts.
+  Widget _compact({
+    required int open,
+    required int overdue,
+    required int atRisk,
+    required int estimate,
+    required int untimed,
+    required int done,
+    required double? progress,
+  }) {
     return AppSurface(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.xl,
-        vertical: AppSpace.lg,
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.md,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Stat(label: 'Open', value: '${open.length}'),
-          _Divider(),
-          _Stat(
-            label: 'Overdue',
-            value: '$overdue',
-            tint: overdue > 0 ? AppColour.red : null,
-          ),
-          _Divider(),
-          _Stat(
-            label: "Won't fit",
-            value: '$atRisk',
-            tint: atRisk > 0 ? AppColour.red : null,
-          ),
-          _Divider(),
-          _Stat(
-            label: 'Work left',
-            value: estimate == 0 ? '—' : Format.estimate(estimate),
-            // A total that ignored unestimated tasks would be a lie by omission.
-            note: untimed > 0 ? '+$untimed untimed' : null,
-          ),
-          const Spacer(),
-          if (progress != null)
-            SizedBox(
-              width: 160,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$done of ${tasks.length} done',
-                    style: AppText.numeric,
-                  ),
-                  const SizedBox(height: AppSpace.xs),
-                  ClipRRect(
-                    borderRadius: AppRadius.roundAll,
-                    child: SizedBox(
-                      height: 5,
-                      child: Stack(
-                        children: [
-                          const Positioned.fill(
-                            child: ColoredBox(color: AppColour.fill),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progress.clamp(0.0, 1.0),
-                            child: AnimatedContainer(
-                              duration: AppMotion.medium,
-                              curve: AppMotion.standard,
-                              decoration: const BoxDecoration(
-                                color: AppColour.green,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Stat(label: 'Open', value: '$open', compact: true),
               ),
+              Expanded(
+                child: _Stat(
+                  label: 'Overdue',
+                  value: '$overdue',
+                  tint: overdue > 0 ? AppColour.red : null,
+                  compact: true,
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  label: "Won't fit",
+                  value: '$atRisk',
+                  tint: atRisk > 0 ? AppColour.red : null,
+                  compact: true,
+                ),
+              ),
+              Expanded(
+                child: _Stat(
+                  label: 'Work left',
+                  value: estimate == 0 ? '—' : Format.estimate(estimate),
+                  note: untimed > 0 ? '+$untimed untimed' : null,
+                  compact: true,
+                ),
+              ),
+            ],
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Row(
+              children: [
+                Expanded(child: _Progress(value: progress)),
+                const SizedBox(width: AppSpace.md),
+                Text('$done of ${tasks.length} done', style: AppText.numeric),
+              ],
             ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _Progress extends StatelessWidget {
+  const _Progress({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: AppRadius.roundAll,
+    child: SizedBox(
+      height: 5,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: ColoredBox(color: AppColour.fill)),
+          FractionallySizedBox(
+            widthFactor: value.clamp(0.0, 1.0),
+            child: AnimatedContainer(
+              duration: AppMotion.medium,
+              curve: AppMotion.standard,
+              decoration: const BoxDecoration(color: AppColour.green),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Stat extends StatelessWidget {
@@ -206,6 +304,7 @@ class _Stat extends StatelessWidget {
     required this.value,
     this.tint,
     this.note,
+    this.compact = false,
   });
 
   final String label;
@@ -213,36 +312,73 @@ class _Stat extends StatelessWidget {
   final Color? tint;
   final String? note;
 
+  /// Sized for a column a quarter of a phone wide: a smaller figure that shrinks rather
+  /// than spill out of its column, and the note under it instead of beside it.
+  final bool compact;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(label, style: AppText.caption),
-      const SizedBox(height: 2),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            value,
-            style: AppText.title.copyWith(color: tint ?? AppColour.label),
+            label,
+            style: AppText.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          if (note case final n?) ...[
-            const SizedBox(width: AppSpace.xs),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Text(
-                n,
-                style: AppText.numeric.copyWith(
-                  color: AppColour.labelQuaternary,
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: AppText.title3.copyWith(color: tint ?? AppColour.label),
+            ),
+          ),
+          if (note case final n?)
+            Text(
+              n,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.numeric.copyWith(color: AppColour.labelQuaternary),
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: AppText.caption),
+        const SizedBox(height: 2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              value,
+              style: AppText.title.copyWith(color: tint ?? AppColour.label),
+            ),
+            if (note case final n?) ...[
+              const SizedBox(width: AppSpace.xs),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  n,
+                  style: AppText.numeric.copyWith(
+                    color: AppColour.labelQuaternary,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
-      ),
-    ],
-  );
+        ),
+      ],
+    );
+  }
 }
 
 class _Divider extends StatelessWidget {
@@ -268,39 +404,54 @@ class _SettingsButtonState extends ConsumerState<_SettingsButton> {
   bool _hovered = false;
 
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    onEnter: (_) => setState(() => _hovered = true),
-    onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
-      onTap: () => ref
-          .read(projectSettingsOpenProvider.notifier)
-          .open(widget.projectId),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: AppMotion.quick,
-        width: AppSize.control,
-        height: AppSize.control,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _hovered ? AppColour.fill : null,
-          borderRadius: AppRadius.mediumAll,
-        ),
-        child: const Icon(
-          Icons.tune,
-          size: 17,
-          color: AppColour.labelSecondary,
+  Widget build(BuildContext context) {
+    final size = AppLayout.touch ? AppSize.touch : AppSize.control;
+
+    return Tooltip(
+      message: 'Project settings',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => ref
+              .read(projectSettingsOpenProvider.notifier)
+              .open(widget.projectId),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: AppMotion.quick,
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _hovered ? AppColour.fill : null,
+              borderRadius: AppRadius.mediumAll,
+            ),
+            child: const Icon(
+              Icons.tune,
+              size: 17,
+              color: AppColour.labelSecondary,
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ViewSwitcher extends ConsumerWidget {
-  const _ViewSwitcher({required this.projectId, required this.current});
+  const _ViewSwitcher({
+    required this.projectId,
+    required this.current,
+    this.expand = false,
+  });
 
   final String projectId;
   final BoardView current;
+
+  /// Fills the width with equal segments showing names only, as on a phone, where the
+  /// room is for the names or the icons and names say more.
+  final bool expand;
 
   static const _options = [
     (BoardView.board, Icons.view_kanban_outlined, 'Board'),
@@ -311,6 +462,56 @@ class _ViewSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Widget segment(BoardView view, IconData icon, String label) {
+      final selected = view == current;
+      final colour = selected ? AppColour.label : AppColour.labelTertiary;
+      final name = Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.numeric.copyWith(color: colour),
+      );
+
+      return GestureDetector(
+        onTap: () {
+          ref.read(projectViewModeProvider.notifier).set(projectId, view);
+          // Persisted, so a project opens the way you last left it rather than
+          // resetting every launch.
+          ref
+              .read(appScopeProvider)
+              .value
+              ?.projects
+              .updateProject(projectId, viewDefault: view);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: AppMotion.quick,
+            curve: AppMotion.standard,
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(
+              horizontal: expand ? AppSpace.xs : AppSpace.md,
+            ),
+            decoration: BoxDecoration(
+              color: selected ? AppColour.elevated : null,
+              borderRadius: AppRadius.smallAll,
+            ),
+            child: expand
+                ? name
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 15, color: colour),
+                      const SizedBox(width: AppSpace.xs),
+                      name,
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       height: AppSize.control,
       padding: const EdgeInsets.all(2),
@@ -319,55 +520,13 @@ class _ViewSwitcher extends ConsumerWidget {
         borderRadius: AppRadius.mediumAll,
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
         children: [
           for (final (view, icon, label) in _options)
-            GestureDetector(
-              onTap: () {
-                ref.read(projectViewModeProvider.notifier).set(projectId, view);
-                // Persisted, so a project opens the way you last left it rather
-                // than resetting every launch.
-                ref
-                    .read(appScopeProvider)
-                    .value
-                    ?.projects
-                    .updateProject(projectId, viewDefault: view);
-              },
-              behavior: HitTestBehavior.opaque,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: AnimatedContainer(
-                  duration: AppMotion.quick,
-                  curve: AppMotion.standard,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
-                  decoration: BoxDecoration(
-                    color: view == current ? AppColour.elevated : null,
-                    borderRadius: AppRadius.smallAll,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 15,
-                        color: view == current
-                            ? AppColour.label
-                            : AppColour.labelTertiary,
-                      ),
-                      const SizedBox(width: AppSpace.xs),
-                      Text(
-                        label,
-                        style: AppText.numeric.copyWith(
-                          color: view == current
-                              ? AppColour.label
-                              : AppColour.labelTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            if (expand)
+              Expanded(child: segment(view, icon, label))
+            else
+              segment(view, icon, label),
         ],
       ),
     );
@@ -512,19 +671,34 @@ class _SectionHeaderState extends ConsumerState<_SectionHeader> {
                 ),
               )
             else ...[
-              Text(section.name.toUpperCase(), style: AppText.caption),
-              const SizedBox(width: AppSpace.sm),
-              Text(
-                '${widget.count}',
-                style: AppText.numeric.copyWith(
-                  color: AppColour.labelQuaternary,
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        section.name.toUpperCase(),
+                        style: AppText.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(
+                      '${widget.count}',
+                      style: AppText.numeric.copyWith(
+                        color: AppColour.labelQuaternary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               AnimatedOpacity(
                 duration: AppMotion.quick,
-                opacity: _hovered ? 1 : 0,
+                // Revealed on hover with a mouse. A touch screen has no hover, so there
+                // they are simply shown.
+                opacity: _hovered || AppLayout.touch ? 1 : 0,
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     _TinyAction(
                       label: 'Rename',
@@ -627,7 +801,10 @@ class _TinyAction extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpace.sm,
+          vertical: AppLayout.touch ? AppSpace.sm : 0,
+        ),
         child: Text(
           label,
           style: AppText.numeric.copyWith(color: tint ?? AppColour.accent),

@@ -16,6 +16,9 @@ import '../surface.dart';
 /// the scheduler says each task *will* fit, given your real capacity — so a bar
 /// overrunning its deadline marker is not a planning opinion, it is arithmetic. That is
 /// the whole reason this view earns its place over a sorted list.
+///
+/// On a phone each task's name goes above its bar. Beside it, as on a desktop, the name
+/// would leave four weeks about a hundred points to be drawn in.
 class TimelineView extends ConsumerWidget {
   const TimelineView({required this.projectId, super.key});
 
@@ -72,6 +75,7 @@ class TimelineView extends ConsumerWidget {
                   style: AppText.body.copyWith(
                     color: AppColour.labelSecondary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpace.xs),
                 Text(
@@ -89,62 +93,83 @@ class TimelineView extends ConsumerWidget {
       );
     }
 
-    return AppSurface(
-      padding: const EdgeInsets.all(AppSpace.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < AppBreakpoint.compact;
+
+        return AppSurface(
+          padding: EdgeInsets.all(compact ? AppSpace.md : AppSpace.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Planned against deadlines', style: AppText.caption),
-              const SizedBox(width: AppSpace.md),
-              _Key(colour: AppColour.accent, label: 'when it will happen'),
-              const SizedBox(width: AppSpace.md),
-              _Key(colour: AppColour.red, label: "won't make it"),
-              const Spacer(),
-              if (undated > 0)
-                Text(
-                  '$undated undated, not shown',
-                  style: AppText.numeric.copyWith(
-                    color: AppColour.labelQuaternary,
+              Wrap(
+                spacing: AppSpace.md,
+                runSpacing: AppSpace.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Planned against deadlines', style: AppText.caption),
+                  const _Key(
+                    colour: AppColour.accent,
+                    label: 'when it will happen',
                   ),
+                  const _Key(colour: AppColour.red, label: "won't make it"),
+                  if (undated > 0)
+                    Text(
+                      '$undated undated, not shown',
+                      style: AppText.numeric.copyWith(
+                        color: AppColour.labelQuaternary,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.md),
+              _Ruler(
+                start: start,
+                days: _days,
+                labelWidth: compact ? 0 : _TimelineRow.labelWidth,
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: rows.length,
+                  itemBuilder: (context, i) {
+                    final (task, plan) = rows[i];
+                    return _TimelineRow(
+                      task: task,
+                      plan: plan,
+                      start: start,
+                      days: _days,
+                      compact: compact,
+                    );
+                  },
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpace.md),
-          _Ruler(start: start, days: _days),
-          const SizedBox(height: AppSpace.xs),
-          Expanded(
-            child: ListView.builder(
-              itemCount: rows.length,
-              itemBuilder: (context, i) {
-                final (task, plan) = rows[i];
-                return _TimelineRow(
-                  task: task,
-                  plan: plan,
-                  start: start,
-                  days: _days,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
 class _Ruler extends StatelessWidget {
-  const _Ruler({required this.start, required this.days});
+  const _Ruler({
+    required this.start,
+    required this.days,
+    required this.labelWidth,
+  });
 
   final DateTime start;
   final int days;
+
+  /// Width of the task names beside the bars, which the ruler has to clear.
+  final double labelWidth;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const SizedBox(width: _TimelineRow.labelWidth),
+        SizedBox(width: labelWidth),
         Expanded(
           child: SizedBox(
             height: 14,
@@ -157,6 +182,9 @@ class _Ruler extends StatelessWidget {
                       child: i % 7 == 0
                           ? Text(
                               _label(start.add(Duration(days: i))),
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.visible,
                               style: AppText.numeric.copyWith(
                                 fontSize: 9,
                                 color: AppColour.labelQuaternary,
@@ -182,6 +210,7 @@ class _TimelineRow extends ConsumerStatefulWidget {
     required this.plan,
     required this.start,
     required this.days,
+    required this.compact,
   });
 
   static const labelWidth = 190.0;
@@ -190,6 +219,9 @@ class _TimelineRow extends ConsumerStatefulWidget {
   final ScheduledTask plan;
   final DateTime start;
   final int days;
+
+  /// Name above the bar rather than beside it.
+  final bool compact;
 
   @override
   ConsumerState<_TimelineRow> createState() => _TimelineRowState();
@@ -211,6 +243,99 @@ class _TimelineRowState extends ConsumerState<_TimelineRow> {
         : plan.finishDay!.difference(widget.start).inDays;
     final dueIndex = plan.task.dueDay.difference(widget.start).inDays;
 
+    final name = Row(
+      children: [
+        Expanded(
+          child: Text(
+            widget.task.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.callout.copyWith(color: AppColour.label),
+          ),
+        ),
+        if (widget.task.estimateMin case final m?)
+          Padding(
+            padding: const EdgeInsets.only(left: AppSpace.sm),
+            child: Text(
+              Format.estimate(m),
+              style: AppText.numeric.copyWith(
+                color: AppColour.labelQuaternary,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final bar = LayoutBuilder(
+      builder: (context, constraints) {
+        final cell = constraints.maxWidth / widget.days;
+
+        return Stack(
+          children: [
+            // Week separators, so a four-week span stays readable.
+            for (var i = 0; i < widget.days; i += 7)
+              Positioned(
+                left: i * cell,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 0.5, color: AppColour.separator),
+              ),
+
+            // The deadline, drawn even when it falls before the bar ends — that overlap
+            // is the point.
+            if (dueIndex >= 0 && dueIndex < widget.days)
+              Positioned(
+                left: (dueIndex + 1) * cell - 1,
+                top: 2,
+                bottom: 2,
+                child: Container(
+                  width: 2,
+                  decoration: BoxDecoration(
+                    color: impossible ? AppColour.red : AppColour.labelTertiary,
+                    borderRadius: AppRadius.smallAll,
+                  ),
+                ),
+              ),
+
+            // Where the work actually lands.
+            if (plan.startDay != null)
+              Positioned(
+                left: (startIndex.clamp(0, widget.days - 1)) * cell + 1,
+                width:
+                    ((finishIndex - startIndex + 1).clamp(1, widget.days)) *
+                        cell -
+                    2,
+                top: 7,
+                height: 16,
+                child: Tooltip(
+                  message: _tooltip(plan),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: impossible
+                          ? AppColour.red.withValues(alpha: 0.75)
+                          : AppColour.accent.withValues(alpha: 0.75),
+                      borderRadius: AppRadius.smallAll,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Positioned(
+                left: 2,
+                top: 9,
+                child: Text(
+                  'no room in the next four weeks',
+                  style: AppText.numeric.copyWith(
+                    fontSize: 9,
+                    color: AppColour.red,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -219,123 +344,33 @@ class _TimelineRowState extends ConsumerState<_TimelineRow> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppMotion.quick,
-          height: 30,
+          padding: widget.compact
+              ? const EdgeInsets.only(top: AppSpace.sm)
+              : EdgeInsets.zero,
           decoration: BoxDecoration(
             color: _hovered ? AppColour.fill : null,
             borderRadius: AppRadius.smallAll,
           ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: _TimelineRow.labelWidth,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: AppSpace.sm),
+          child: widget.compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [name, SizedBox(height: 30, child: bar)],
+                )
+              : SizedBox(
+                  height: 30,
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          widget.task.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.callout.copyWith(
-                            color: AppColour.label,
-                          ),
+                      SizedBox(
+                        width: _TimelineRow.labelWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: AppSpace.sm),
+                          child: name,
                         ),
                       ),
-                      if (widget.task.estimateMin case final m?)
-                        Text(
-                          Format.estimate(m),
-                          style: AppText.numeric.copyWith(
-                            color: AppColour.labelQuaternary,
-                          ),
-                        ),
+                      Expanded(child: bar),
                     ],
                   ),
                 ),
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cell = constraints.maxWidth / widget.days;
-
-                    return Stack(
-                      children: [
-                        // Week separators, so a four-week span stays readable.
-                        for (var i = 0; i < widget.days; i += 7)
-                          Positioned(
-                            left: i * cell,
-                            top: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 0.5,
-                              color: AppColour.separator,
-                            ),
-                          ),
-
-                        // The deadline, drawn even when it falls before the bar ends —
-                        // that overlap is the point.
-                        if (dueIndex >= 0 && dueIndex < widget.days)
-                          Positioned(
-                            left: (dueIndex + 1) * cell - 1,
-                            top: 2,
-                            bottom: 2,
-                            child: Container(
-                              width: 2,
-                              decoration: BoxDecoration(
-                                color: impossible
-                                    ? AppColour.red
-                                    : AppColour.labelTertiary,
-                                borderRadius: AppRadius.smallAll,
-                              ),
-                            ),
-                          ),
-
-                        // Where the work actually lands.
-                        if (plan.startDay != null)
-                          Positioned(
-                            left: (startIndex.clamp(0, widget.days - 1)) * cell + 1,
-                            width:
-                                ((finishIndex - startIndex + 1).clamp(
-                                      1,
-                                      widget.days,
-                                    )) *
-                                    cell -
-                                2,
-                            top: 7,
-                            height: 16,
-                            child: Tooltip(
-                              message: _tooltip(plan),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: impossible
-                                      ? AppColour.red.withValues(alpha: 0.75)
-                                      : AppColour.accent.withValues(
-                                          alpha: 0.75,
-                                        ),
-                                  borderRadius: AppRadius.smallAll,
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          Positioned(
-                            left: 2,
-                            top: 9,
-                            child: Text(
-                              'no room in the next four weeks',
-                              style: AppText.numeric.copyWith(
-                                fontSize: 9,
-                                color: AppColour.red,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

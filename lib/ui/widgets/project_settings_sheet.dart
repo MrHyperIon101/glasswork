@@ -8,7 +8,8 @@ import '../../data/repository/project_repository.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
-import '../motion.dart';
+import '../layout.dart';
+import '../sheet.dart';
 import '../surface.dart';
 import 'confirm_dialog.dart';
 import 'field_controls.dart';
@@ -28,33 +29,10 @@ class ProjectSettingsSheet extends ConsumerWidget {
 
     void close() => ref.read(projectSettingsOpenProvider.notifier).close();
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: close,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.62 * t)),
-            ),
-          ),
-        ),
-        Align(
-          alignment: const Alignment(0, -0.05),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: SpringIn(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
-                child: VibrancyMaterial.sheet(
-                  child: _Body(projectId: projectId, onClose: close),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ModalSheet(
+      onClose: close,
+      alignment: const Alignment(0, -0.05),
+      child: _Body(projectId: projectId, onClose: close),
     );
   }
 }
@@ -612,13 +590,23 @@ class _DeletableLabelState extends State<_DeletableLabel> {
             ),
             AnimatedSize(
               duration: AppMotion.quick,
-              child: _hovered
-                  ? Padding(
-                      padding: const EdgeInsets.only(left: AppSpace.sm),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: widget.onDelete,
+              // Revealed on hover with a mouse. A touch screen has no hover, so there it is
+              // always shown, with a little more around it to hit.
+              child: _hovered || AppLayout.touch
+                  ? MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: widget.onDelete,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: AppLayout.touch
+                              ? const EdgeInsets.fromLTRB(
+                                  AppSpace.md,
+                                  AppSpace.xs,
+                                  0,
+                                  AppSpace.xs,
+                                )
+                              : const EdgeInsets.only(left: AppSpace.sm),
                           child: const Icon(
                             Icons.close,
                             size: 13,

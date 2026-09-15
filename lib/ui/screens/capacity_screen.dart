@@ -6,6 +6,7 @@ import '../../data/db/database.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../layout.dart';
 import '../surface.dart';
 import '../../data/repository/capacity_repository.dart';
 import '../../state/undo_controller.dart';
@@ -30,25 +31,31 @@ class CapacityScreen extends ConsumerWidget {
     final rejected = ref.watch(rejectedCommitmentsProvider);
     final capacity = ref.watch(dayCapacityProvider);
 
+    final compact = AppLayout.compact(context);
+    final gutter = AppLayout.gutter(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpace.xxl,
-        AppSpace.xl,
-        AppSpace.xxl,
-        AppSpace.xl,
+      padding: EdgeInsets.fromLTRB(
+        gutter,
+        compact ? AppSpace.sm : AppSpace.xl,
+        gutter,
+        compact ? 0 : AppSpace.xl,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ContentHeader(
-            title: 'Capacity',
-            subtitle: 'What the day actually has room for',
+            // The same name the sidebar gives it.
+            title: 'Time budget',
+            subtitle: 'What your days actually have room for',
             onMenu: onMenu,
             showNewTask: false,
           ),
-          const SizedBox(height: AppSpace.xl),
+          SizedBox(height: compact ? AppSpace.lg : AppSpace.xl),
           Expanded(
             child: ListView(
+              // On a phone the list runs to the bottom edge, so its end needs room to clear it.
+              padding: EdgeInsets.only(bottom: compact ? AppSpace.xxl : 0),
               children: [
                 if (rejected.isNotEmpty) ...[
                   _RejectedRules(rejected: rejected),
@@ -231,6 +238,17 @@ class _WeekCard extends ConsumerWidget {
     final settings = CapacityMapping.settings(profile);
     final timetable = ref.watch(timetableProvider);
     final schedule = ref.watch(scheduleProvider);
+    final compact = AppLayout.compact(context);
+
+    Widget timeline(DayCapacity day) => DayTimeline(
+      day: day,
+      settings: settings,
+      blocks: timetable.blocksOn(day.date),
+      allocatedMin: schedule.allocatedOn(day.date),
+      showHours: false,
+      // Seven full legends down a phone make a wall of figures.
+      dense: compact,
+    );
 
     return AppSurface(
       child: Column(
@@ -241,44 +259,62 @@ class _WeekCard extends ConsumerWidget {
           for (final day in days)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 62,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: AppSpace.xs),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _names[day.date.weekday - 1],
-                            style: AppText.numeric.copyWith(
-                              color: AppColour.label,
+              child: compact
+                  // The day named above its bar, so the bar has the phone's whole width.
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            style: AppText.numeric,
+                            children: [
+                              TextSpan(
+                                text: _names[day.date.weekday - 1],
+                                style: const TextStyle(color: AppColour.label),
+                              ),
+                              TextSpan(
+                                text: '  ${day.date.day}/${day.date.month}',
+                                style: const TextStyle(
+                                  color: AppColour.labelQuaternary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpace.xs),
+                        timeline(day),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 62,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: AppSpace.xs),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _names[day.date.weekday - 1],
+                                  style: AppText.numeric.copyWith(
+                                    color: AppColour.label,
+                                  ),
+                                ),
+                                Text(
+                                  '${day.date.day}/${day.date.month}',
+                                  style: AppText.numeric.copyWith(
+                                    fontSize: 10,
+                                    color: AppColour.labelQuaternary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            '${day.date.day}/${day.date.month}',
-                            style: AppText.numeric.copyWith(
-                              fontSize: 10,
-                              color: AppColour.labelQuaternary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        Expanded(child: timeline(day)),
+                      ],
                     ),
-                  ),
-                  Expanded(
-                    child: DayTimeline(
-                      day: day,
-                      settings: settings,
-                      blocks: timetable.blocksOn(day.date),
-                      allocatedMin: schedule.allocatedOn(day.date),
-                      showHours: false,
-                    ),
-                  ),
-                ],
-              ),
             ),
         ],
       ),
@@ -423,8 +459,9 @@ class _Step extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 26,
-        height: 26,
+        // A finger gets a bigger target than a pointer needs.
+        width: AppLayout.touch ? AppSize.touch - AppSpace.sm : 26,
+        height: AppLayout.touch ? AppSize.touch - AppSpace.sm : 26,
         decoration: const BoxDecoration(
           color: AppColour.fill,
           borderRadius: AppRadius.smallAll,
@@ -504,9 +541,12 @@ class _CommitmentsCard extends ConsumerWidget {
                             .value
                             ?.capacity
                             .deleteCommitment(c.id),
-                        child: const Padding(
-                          padding: EdgeInsets.all(AppSpace.xs),
-                          child: Icon(
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: EdgeInsets.all(
+                            AppLayout.touch ? AppSpace.md : AppSpace.xs,
+                          ),
+                          child: const Icon(
                             Icons.close,
                             size: 15,
                             color: AppColour.labelTertiary,
@@ -636,120 +676,137 @@ class _AddCommitmentDialogState extends State<_AddCommitmentDialog> {
     return Dialog(
       backgroundColor: AppColour.elevated,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.largeAll),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Fixed block', style: AppText.title3),
-            const SizedBox(height: AppSpace.lg),
-            TextField(
-              controller: _title,
-              autofocus: true,
-              style: AppText.body,
-              cursorColor: AppColour.accent,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColour.fill,
-                border: OutlineInputBorder(
-                  borderRadius: AppRadius.mediumAll,
-                  borderSide: BorderSide.none,
-                ),
-                hintText: 'DBMS lecture',
-                hintStyle: AppText.body.copyWith(
-                  color: AppColour.labelTertiary,
+      insetPadding: _dialogInsets,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Fixed block', style: AppText.title3),
+              const SizedBox(height: AppSpace.lg),
+              TextField(
+                controller: _title,
+                autofocus: true,
+                style: AppText.body,
+                cursorColor: AppColour.accent,
+                // Add is enabled by what is typed, so each keystroke has to rebuild it.
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColour.fill,
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.mediumAll,
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'DBMS lecture',
+                  hintStyle: AppText.body.copyWith(
+                    color: AppColour.labelTertiary,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            Text('Repeats', style: AppText.caption),
-            const SizedBox(height: AppSpace.sm),
-            Row(
-              children: [
-                for (var d = 1; d <= 7; d++)
-                  Padding(
-                    padding: const EdgeInsets.only(right: AppSpace.xs),
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _weekdays.contains(d)
-                            ? _weekdays.remove(d)
-                            : _weekdays.add(d);
-                      }),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: _weekdays.contains(d)
-                              ? AppColour.accent
-                              : AppColour.fill,
-                          borderRadius: AppRadius.smallAll,
-                        ),
-                        child: Text(
-                          _letters[d - 1],
-                          style: AppText.numeric.copyWith(
-                            color: _weekdays.contains(d)
-                                ? AppColour.label
-                                : AppColour.labelSecondary,
+              const SizedBox(height: AppSpace.lg),
+              Text('Repeats', style: AppText.caption),
+              const SizedBox(height: AppSpace.sm),
+              // Squares sharing the width, so all seven fit a phone's dialog, and no bigger
+              // than a finger needs where there is more room than that.
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 7 * AppSize.touch + 6 * AppSpace.xs,
+                ),
+                child: Row(
+                  children: [
+                    for (var d = 1; d <= 7; d++) ...[
+                      // Gaps between squares rather than padding on each, which left the
+                      // last one bigger than the rest.
+                      if (d > 1) const SizedBox(width: AppSpace.xs),
+                      Expanded(
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _weekdays.contains(d)
+                                  ? _weekdays.remove(d)
+                                  : _weekdays.add(d);
+                            }),
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _weekdays.contains(d)
+                                    ? AppColour.accent
+                                    : AppColour.fill,
+                                borderRadius: AppRadius.smallAll,
+                              ),
+                              child: Text(
+                                _letters[d - 1],
+                                style: AppText.numeric.copyWith(
+                                  color: _weekdays.contains(d)
+                                      ? AppColour.label
+                                      : AppColour.labelSecondary,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpace.lg),
-            _Stepper(
-              label: 'Starts',
-              value:
-                  '${(_startMin ~/ 60).toString().padLeft(2, '0')}:'
-                  '${(_startMin % 60).toString().padLeft(2, '0')}',
-              onChange: (d) =>
-                  setState(() => _startMin = (_startMin + d * 15).clamp(0, 1380)),
-            ),
-            _Stepper(
-              label: 'Lasts',
-              value: Format.estimate(_durationMin),
-              onChange: (d) => setState(
-                () => _durationMin = (_durationMin + d * 15).clamp(15, 600),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Cancel',
-                    style: AppText.body.copyWith(
-                      color: AppColour.labelSecondary,
+              const SizedBox(height: AppSpace.lg),
+              _Stepper(
+                label: 'Starts',
+                value:
+                    '${(_startMin ~/ 60).toString().padLeft(2, '0')}:'
+                    '${(_startMin % 60).toString().padLeft(2, '0')}',
+                onChange: (d) => setState(
+                  () => _startMin = (_startMin + d * 15).clamp(0, 1380),
+                ),
+              ),
+              _Stepper(
+                label: 'Lasts',
+                value: Format.estimate(_durationMin),
+                onChange: (d) => setState(
+                  () => _durationMin = (_durationMin + d * 15).clamp(15, 600),
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Cancel',
+                      style: AppText.body.copyWith(
+                        color: AppColour.labelSecondary,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpace.sm),
-                TextButton(
-                  onPressed:
-                      _title.text.trim().isEmpty || _weekdays.isEmpty
-                      ? null
-                      : () => Navigator.pop(
-                          context,
-                          _NewCommitment(
-                            title: _title.text.trim(),
-                            weekdays: _weekdays,
-                            startMin: _startMin,
-                            durationMin: _durationMin,
+                  const SizedBox(width: AppSpace.sm),
+                  TextButton(
+                    onPressed: _title.text.trim().isEmpty || _weekdays.isEmpty
+                        ? null
+                        : () => Navigator.pop(
+                            context,
+                            _NewCommitment(
+                              title: _title.text.trim(),
+                              weekdays: _weekdays,
+                              startMin: _startMin,
+                              durationMin: _durationMin,
+                            ),
                           ),
-                        ),
-                  child: Text(
-                    'Add',
-                    style: AppText.headline.copyWith(color: AppColour.accent),
+                    child: Text(
+                      'Add',
+                      style: AppText.headline.copyWith(color: AppColour.accent),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -778,10 +835,12 @@ class _RejectedRules extends StatelessWidget {
               color: AppColour.orange,
             ),
             const SizedBox(width: AppSpace.sm),
-            Text(
-              '${rejected.length} block${rejected.length == 1 ? '' : 's'} '
-              'could not be read',
-              style: AppText.headline.copyWith(color: AppColour.orange),
+            Flexible(
+              child: Text(
+                '${rejected.length} block${rejected.length == 1 ? '' : 's'} '
+                'could not be read',
+                style: AppText.headline.copyWith(color: AppColour.orange),
+              ),
             ),
           ],
         ),
@@ -963,15 +1022,71 @@ class _ScheduleRow extends StatefulWidget {
 class _ScheduleRowState extends State<_ScheduleRow> {
   bool _hovered = false;
 
+  /// Narrower than this, a row's actions go on a line under its name instead of beside it.
+  static const _actionsBesideFrom = 420.0;
+
   @override
   Widget build(BuildContext context) {
     final set = widget.set;
+    // Shown for the row under the pointer, and for the selected row, which is how a touch
+    // screen, where nothing hovers, reaches them.
+    final showActions = _hovered || widget.editing;
 
     final dates = set.isFallback
         ? 'Any day no other timetable covers'
         : (set.startsOn == null && set.endsOn == null)
         ? 'Every day'
         : '${set.startsOn ?? '…'}  →  ${set.endsOn ?? '…'}';
+
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                set.name,
+                style: AppText.headline,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (widget.inForce) ...[
+              const SizedBox(width: AppSpace.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.sm,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColour.green.withValues(alpha: 0.18),
+                  borderRadius: AppRadius.smallAll,
+                ),
+                child: Text(
+                  'in force',
+                  style: AppText.numeric.copyWith(color: AppColour.green),
+                ),
+              ),
+            ],
+          ],
+        ),
+        Text(dates, style: AppText.numeric),
+      ],
+    );
+
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _SmallAction(label: 'Duplicate', onTap: widget.onDuplicate),
+        _SmallAction(label: 'Edit', onTap: widget.onEdit),
+        if (!set.isFallback)
+          _SmallAction(
+            label: 'Delete',
+            tint: AppColour.red,
+            onTap: widget.onDelete,
+          ),
+      ],
+    );
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -996,57 +1111,47 @@ class _ScheduleRowState extends State<_ScheduleRow> {
                 : null,
             borderRadius: AppRadius.mediumAll,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < _actionsBesideFrom) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        Text(set.name, style: AppText.headline),
-                        if (widget.inForce) ...[
-                          const SizedBox(width: AppSpace.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpace.sm,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColour.green.withValues(alpha: 0.18),
-                              borderRadius: AppRadius.smallAll,
-                            ),
-                            child: Text(
-                              'in force',
-                              style: AppText.numeric.copyWith(
-                                color: AppColour.green,
+                    details,
+                    AnimatedSize(
+                      duration: AppMotion.quick,
+                      curve: AppMotion.standard,
+                      alignment: Alignment.topLeft,
+                      child: showActions
+                          ? Align(
+                              alignment: Alignment.centerLeft,
+                              // Level with the name above, past the first action's padding.
+                              child: Transform.translate(
+                                offset: const Offset(-AppSpace.sm, 0),
+                                child: actions,
                               ),
-                            ),
-                          ),
-                        ],
-                      ],
+                            )
+                          : const SizedBox(width: double.infinity),
                     ),
-                    Text(dates, style: AppText.numeric),
                   ],
-                ),
-              ),
-              AnimatedOpacity(
-                duration: AppMotion.quick,
-                opacity: _hovered || widget.editing ? 1 : 0,
-                child: Row(
-                  children: [
-                    _SmallAction(label: 'Duplicate', onTap: widget.onDuplicate),
-                    _SmallAction(label: 'Edit', onTap: widget.onEdit),
-                    if (!set.isFallback)
-                      _SmallAction(
-                        label: 'Delete',
-                        tint: AppColour.red,
-                        onTap: widget.onDelete,
-                      ),
-                  ],
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: details),
+                  // Invisible actions must not still take taps.
+                  IgnorePointer(
+                    ignoring: !showActions,
+                    child: AnimatedOpacity(
+                      duration: AppMotion.quick,
+                      opacity: showActions ? 1 : 0,
+                      child: actions,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -1068,9 +1173,9 @@ class _SmallAction extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
+        padding: EdgeInsets.symmetric(
           horizontal: AppSpace.sm,
-          vertical: AppSpace.xs,
+          vertical: AppLayout.touch ? AppSpace.md : AppSpace.xs,
         ),
         child: Text(
           label,
@@ -1080,6 +1185,12 @@ class _SmallAction extends StatelessWidget {
     ),
   );
 }
+
+/// Room around a dialog. Material's default takes 80 points off a phone's width.
+const _dialogInsets = EdgeInsets.symmetric(
+  horizontal: AppSpace.lg,
+  vertical: AppSpace.xxl,
+);
 
 class _ScheduleDraft {
   const _ScheduleDraft({required this.name, this.startsOn, this.endsOn});
@@ -1132,6 +1243,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
     return Dialog(
       backgroundColor: AppColour.elevated,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.largeAll),
+      insetPadding: _dialogInsets,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Padding(
@@ -1151,6 +1263,8 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                 autofocus: true,
                 style: AppText.body,
                 cursorColor: AppColour.accent,
+                // Create is enabled by what is typed, so each keystroke has to rebuild it.
+                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColour.fill,
@@ -1167,24 +1281,33 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
               const SizedBox(height: AppSpace.lg),
               Text('In force between', style: AppText.caption),
               const SizedBox(height: AppSpace.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DateButton(
-                      label: 'From',
-                      value: _startsOn,
-                      onPick: (d) => setState(() => _startsOn = d),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
-                  Expanded(
-                    child: _DateButton(
-                      label: 'Until',
-                      value: _endsOn,
-                      onPick: (d) => setState(() => _endsOn = d),
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final from = _DateButton(
+                    label: 'From',
+                    value: _startsOn,
+                    onPick: (d) => setState(() => _startsOn = d),
+                  );
+                  final until = _DateButton(
+                    label: 'Until',
+                    value: _endsOn,
+                    onPick: (d) => setState(() => _endsOn = d),
+                  );
+
+                  // Side by side on a phone, each date would get a few characters of room.
+                  if (constraints.maxWidth < 360) {
+                    return Column(
+                      children: [from, const SizedBox(height: AppSpace.sm), until],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: from),
+                      const SizedBox(width: AppSpace.sm),
+                      Expanded(child: until),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: AppSpace.sm),
               Text(
@@ -1267,6 +1390,8 @@ class _DateButton extends StatelessWidget {
             Expanded(
               child: Text(
                 value == null ? '—' : Format.shortDate(value!),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppText.body.copyWith(
                   color: value == null
                       ? AppColour.labelTertiary

@@ -7,6 +7,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../layout.dart';
 import '../motion.dart';
 import 'task_chips.dart';
 
@@ -36,13 +37,24 @@ class TaskRow extends ConsumerStatefulWidget {
 class _TaskRowState extends ConsumerState<TaskRow> {
   bool _hovered = false;
 
+  /// Narrower than this, a row's flags join its date and estimate under the title rather
+  /// than standing to the right of it, where they would take the title's width.
+  static const _flagsBesideFrom = 480.0;
+
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
     final done = task.status == TaskStatus.done;
     final due = Format.due(task, DateTime.now());
     final hasLabels = ref.watch(labelsForTaskProvider(task.id)).isNotEmpty;
-    final hasMeta = due != null || task.estimateMin != null || hasLabels;
+    final plan = done ? null : ref.watch(taskFeasibilityProvider(task.id));
+    final touch = AppLayout.touch;
+
+    final flags = [
+      if (plan != null && plan.state != Feasibility.fine)
+        _FeasibilityFlag(plan: plan),
+      if (!done && task.priority > 0) _PriorityFlag(priority: task.priority),
+    ];
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -54,90 +66,95 @@ class _TaskRowState extends ConsumerState<TaskRow> {
         child: AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.md,
-          ),
+          padding: touch
+              ? const EdgeInsets.all(AppSpace.xs)
+              : const EdgeInsets.all(AppSpace.md),
           decoration: BoxDecoration(
             color: _hovered ? AppColour.fill : null,
             borderRadius: AppRadius.mediumAll,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Checkbox(done: done, onTap: widget.onToggle),
-              const SizedBox(width: AppSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.title,
-                      style: AppText.body.copyWith(
-                        color: done
-                            ? AppColour.labelTertiary
-                            : AppColour.label,
-                        decoration: done ? TextDecoration.lineThrough : null,
-                        decorationColor: AppColour.labelTertiary,
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final flagsBeside = constraints.maxWidth >= _flagsBesideFrom;
+
+              final meta = [
+                // Dots rather than names: a row already carries a due date and an
+                // estimate, and four label names would push the title out.
+                if (hasLabels) TaskLabelChips(taskId: task.id, dense: true),
+                if (due != null)
+                  Text(
+                    due.label,
+                    style: AppText.numeric.copyWith(color: due.colour),
+                  ),
+                if (due != null && task.estimateMin != null)
+                  Text(
+                    '·',
+                    style: AppText.numeric.copyWith(
+                      color: AppColour.labelQuaternary,
                     ),
-                    if (hasMeta && !done) ...[
-                      const SizedBox(height: 3),
-                      Row(
+                  ),
+                if (task.estimateMin case final mins?)
+                  Text(Format.estimate(mins), style: AppText.numeric),
+                if (!flagsBeside) ...flags,
+              ];
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Checkbox(done: done, onTap: widget.onToggle),
+                  SizedBox(width: touch ? AppSpace.xs : AppSpace.md),
+                  Expanded(
+                    child: Padding(
+                      // Level with the middle of the larger checkbox a finger gets.
+                      padding: EdgeInsets.only(top: touch ? AppSpace.sm : 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Dots rather than names: a row already carries a due date and
-                          // an estimate, and four label names would push the title out.
-                          TaskLabelChips(taskId: task.id, dense: true),
-                          if (due != null)
-                            Text(
-                              due.label,
-                              style: AppText.numeric.copyWith(
-                                color: due.colour,
-                              ),
+                          Text(
+                            task.title,
+                            style: AppText.body.copyWith(
+                              color: done
+                                  ? AppColour.labelTertiary
+                                  : AppColour.label,
+                              decoration: done
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: AppColour.labelTertiary,
                             ),
-                          if (due != null && task.estimateMin != null)
-                            Text(
-                              '  ·  ',
-                              style: AppText.numeric.copyWith(
-                                color: AppColour.labelQuaternary,
-                              ),
+                          ),
+                          if (!done && meta.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Wrap(
+                              spacing: AppSpace.sm,
+                              runSpacing: AppSpace.xs,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: meta,
                             ),
-                          if (task.estimateMin case final mins?)
-                            Text(Format.estimate(mins), style: AppText.numeric),
+                          ],
                         ],
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              if (!done) ...[
-                Builder(
-                  builder: (context) {
-                    final plan = ref.watch(taskFeasibilityProvider(task.id));
-                    if (plan == null || plan.state == Feasibility.fine) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(left: AppSpace.sm),
-                      child: _FeasibilityFlag(plan: plan),
-                    );
-                  },
-                ),
-                if (task.priority > 0) ...[
-                  const SizedBox(width: AppSpace.sm),
-                  _PriorityFlag(priority: task.priority),
+                    ),
+                  ),
+                  if (flagsBeside)
+                    for (final flag in flags)
+                      Padding(
+                        padding: const EdgeInsets.only(left: AppSpace.sm),
+                        child: flag,
+                      ),
+                  // Revealed on hover so the row stays quiet at rest. A touch screen has no
+                  // hover, so there a task is deleted from its sheet instead.
+                  if (!touch)
+                    AnimatedOpacity(
+                      duration: AppMotion.quick,
+                      opacity: _hovered ? 1 : 0,
+                      child: _RowButton(
+                        icon: Icons.close,
+                        onTap: _hovered ? widget.onDelete : null,
+                      ),
+                    ),
                 ],
-              ],
-              // Revealed on hover so the row stays quiet at rest.
-              AnimatedOpacity(
-                duration: AppMotion.quick,
-                opacity: _hovered ? 1 : 0,
-                child: _RowButton(
-                  icon: Icons.close,
-                  onTap: _hovered ? widget.onDelete : null,
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -160,6 +177,34 @@ class _CheckboxState extends State<_Checkbox> {
 
   @override
   Widget build(BuildContext context) {
+    final touch = AppLayout.touch;
+    final size = touch ? 22.0 : 19.0;
+
+    final circle = CheckPop(
+      done: widget.done,
+      child: AnimatedContainer(
+        duration: AppMotion.quick,
+        curve: AppMotion.standard,
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.done ? AppColour.green : null,
+          border: Border.all(
+            color: widget.done
+                ? AppColour.green
+                : _hovered
+                ? AppColour.labelSecondary
+                : AppColour.labelQuaternary,
+            width: 1.5,
+          ),
+        ),
+        child: widget.done
+            ? Icon(Icons.check, size: size * 0.63, color: AppColour.base)
+            : null,
+      ),
+    );
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -167,33 +212,13 @@ class _CheckboxState extends State<_Checkbox> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: CheckPop(
-            done: widget.done,
-            child: AnimatedContainer(
-            duration: AppMotion.quick,
-            curve: AppMotion.standard,
-            width: 19,
-            height: 19,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.done ? AppColour.green : null,
-              border: Border.all(
-                color: widget.done
-                    ? AppColour.green
-                    : _hovered
-                    ? AppColour.labelSecondary
-                    : AppColour.labelQuaternary,
-                width: 1.5,
-              ),
-            ),
-            child: widget.done
-                ? const Icon(Icons.check, size: 12, color: AppColour.base)
-                : null,
-            ),
-          ),
-        ),
+        // A finger gets a target bigger than the circle it can see.
+        child: touch
+            ? SizedBox.square(
+                dimension: AppSize.touch - AppSpace.sm,
+                child: Center(child: circle),
+              )
+            : Padding(padding: const EdgeInsets.only(top: 1), child: circle),
       ),
     );
   }

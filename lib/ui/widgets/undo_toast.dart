@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
+import '../layout.dart';
 import '../surface.dart';
 
 /// Shows the pending undo, if there is one.
@@ -44,14 +45,28 @@ class UndoToast extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(offer.label, style: AppText.callout.copyWith(color: AppColour.label)),
+                  // A long task title is cut short rather than pushing Undo off the edge,
+                  // which is the one part of this that has to stay in reach.
+                  Flexible(
+                    child: Text(
+                      offer.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.callout.copyWith(color: AppColour.label),
+                    ),
+                  ),
                   const SizedBox(width: AppSpace.xl),
                   GestureDetector(
                     onTap: () => ref.read(undoProvider.notifier).undo(),
                     behavior: HitTestBehavior.opaque,
-                    child: Text(
-                      'Undo',
-                      style: AppText.headline.copyWith(color: AppColour.accent),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: AppLayout.touch ? AppSpace.sm : 0,
+                      ),
+                      child: Text(
+                        'Undo',
+                        style: AppText.headline.copyWith(color: AppColour.accent),
+                      ),
                     ),
                   ),
                 ],

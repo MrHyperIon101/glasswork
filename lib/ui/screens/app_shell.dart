@@ -8,6 +8,7 @@ import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../state/sync_controller.dart';
 import '../../theme/tokens.dart';
+import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/new_project_sheet.dart';
@@ -22,8 +23,6 @@ import 'list_screen.dart';
 import 'project_screen.dart';
 import 'today_screen.dart';
 
-/// Width below which the sidebar is hidden behind a button rather than pinned.
-const _sidebarBreakpoint = 900.0;
 const _sidebarWidth = 262.0;
 
 class AppShell extends ConsumerWidget {
@@ -118,9 +117,9 @@ class _ShellState extends ConsumerState<_Shell> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= _sidebarBreakpoint;
+        final wide = constraints.maxWidth >= AppBreakpoint.sidebar;
 
-        return CallbackShortcuts(
+        final shell = CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.keyN, control: true): () =>
                 ref.read(composerOpenProvider.notifier).open(),
@@ -180,17 +179,71 @@ class _ShellState extends ConsumerState<_Shell> {
                 const Positioned.fill(child: ProjectSettingsSheet()),
                 const Positioned.fill(child: SyncSheet()),
 
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: AppSpace.xxxl,
-                  child: Center(child: UndoToast()),
+                // Inset from the sides, so a long label is cut short rather than running
+                // to the edge of a phone.
+                Positioned(
+                  left: AppSpace.lg,
+                  right: AppSpace.lg,
+                  bottom: wide ? AppSpace.xxxl : AppSpace.lg,
+                  child: const Center(child: UndoToast()),
                 ),
               ],
             ),
           ),
         );
+
+        return _BackCloses(
+          drawerOpen: !wide && _drawerOpen,
+          onCloseDrawer: () => setState(() => _drawerOpen = false),
+          child: shell,
+        );
       },
+    );
+  }
+}
+
+/// Back, on Android, closes what is open before it may leave the app: the topmost sheet,
+/// then the drawer, then a search.
+///
+/// The shell draws its sheets itself rather than pushing them as routes, so the navigator
+/// knows nothing of them, and without this a back gesture meant to dismiss one closes the
+/// whole app instead.
+class _BackCloses extends ConsumerWidget {
+  const _BackCloses({
+    required this.drawerOpen,
+    required this.onCloseDrawer,
+    required this.child,
+  });
+
+  final bool drawerOpen;
+  final VoidCallback onCloseDrawer;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Topmost first: the reverse of the order the shell stacks them in.
+    final closers = <VoidCallback>[
+      if (ref.watch(syncSheetOpenProvider))
+        ref.read(syncSheetOpenProvider.notifier).close,
+      if (ref.watch(projectSettingsOpenProvider) != null)
+        ref.read(projectSettingsOpenProvider.notifier).close,
+      if (ref.watch(newProjectOpenProvider))
+        ref.read(newProjectOpenProvider.notifier).close,
+      if (ref.watch(composerOpenProvider))
+        ref.read(composerOpenProvider.notifier).close,
+      if (ref.watch(openTaskProvider) != null)
+        ref.read(openTaskProvider.notifier).close,
+      if (drawerOpen) onCloseDrawer,
+      if (ref.watch(searchQueryProvider).isNotEmpty)
+        ref.read(searchQueryProvider.notifier).clear,
+    ];
+
+    return PopScope<Object?>(
+      canPop: closers.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && closers.isNotEmpty) closers.first();
+      },
+      child: child,
     );
   }
 }
@@ -391,9 +444,10 @@ class _SidebarRowState extends State<_SidebarRow> {
           duration: AppMotion.quick,
           curve: AppMotion.standard,
           margin: const EdgeInsets.only(bottom: 2),
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
+            // Rows a finger can hit without catching the one beside them.
+            vertical: AppLayout.touch ? AppSpace.md : AppSpace.sm,
           ),
           decoration: BoxDecoration(
             color: background,
@@ -431,8 +485,11 @@ class _SidebarRowState extends State<_SidebarRow> {
                   ),
                 ),
               ),
-              if (widget.badge case final n? when n > 0)
+              if (widget.badge case final n? when n > 0) ...[
+                // Kept clear of a name cut short, which otherwise runs into it.
+                const SizedBox(width: AppSpace.sm),
                 Text('$n', style: AppText.numeric),
+              ],
             ],
           ),
         ),

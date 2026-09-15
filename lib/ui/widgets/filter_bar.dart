@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/db/database.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
+import '../layout.dart';
 import '../surface.dart';
 
 /// Filters for the open project.
@@ -12,8 +13,17 @@ import '../surface.dart';
 /// every board is clutter for the common case of not filtering at all. Once something is
 /// active the button says how many and the bar stays open — a filter you cannot see is a
 /// filter that quietly hides your work.
+///
+/// Sharing a phone's line with another control, an open bar would cost a third of the
+/// screen for as long as a filter is on. There it closes to a single line saying what the
+/// filter is hiding, which keeps the same promise in a fraction of the height.
 class FilterBar extends ConsumerStatefulWidget {
-  const FilterBar({super.key});
+  const FilterBar({this.leading, super.key});
+
+  /// A control sharing the toggle's line, such as a phone's view switcher. With one, the
+  /// toggle shrinks to its icon, and Clear and the count move under it, where there is
+  /// room for them.
+  final Widget? leading;
 
   @override
   ConsumerState<FilterBar> createState() => _FilterBarState();
@@ -27,34 +37,131 @@ class _FilterBarState extends ConsumerState<FilterBar> {
     final filter = ref.watch(effectiveProjectFilterProvider);
     final labels = ref.watch(labelsProvider).value ?? const <Label>[];
     final notifier = ref.read(projectFilterProvider.notifier);
+    final leading = widget.leading;
+    final shared = leading != null;
 
-    final showing = _open || !filter.isEmpty;
+    final clear = _Plain(
+      label: 'Clear',
+      onTap: () {
+        notifier.clear();
+        setState(() => _open = false);
+      },
+    );
+    // Says what the filter is doing to the list, not just that one exists.
+    final count = Text(
+      '${ref.watch(filteredProjectTasksProvider).length} of '
+      '${ref.watch(visibleTasksProvider).length} shown',
+      style: AppText.numeric,
+    );
+    final summary = Row(children: [Expanded(child: count), clear]);
+
+    final status = [
+      _Pill(
+        label: 'Hide completed',
+        selected: filter.hideCompleted,
+        onTap: () => notifier.setHideCompleted(!filter.hideCompleted),
+      ),
+      _Pill(
+        label: "Only what won't fit",
+        tint: AppColour.red,
+        selected: filter.onlyAtRisk,
+        onTap: () => notifier.setOnlyAtRisk(!filter.onlyAtRisk),
+      ),
+    ];
+    final priorities = [
+      for (final (value, label, tint) in const [
+        (3, 'High', AppColour.red),
+        (2, 'Medium', AppColour.orange),
+        (1, 'Low', AppColour.grey),
+      ])
+        _Pill(
+          label: label,
+          tint: tint,
+          selected: filter.priorities.contains(value),
+          onTap: () => notifier.togglePriority(value),
+        ),
+    ];
+    final tags = [
+      for (final label in labels)
+        _Pill(
+          label: '#${label.name}',
+          tint: label.colour == null ? AppColour.purple : Color(label.colour!),
+          selected: filter.labelIds.contains(label.id),
+          onTap: () => notifier.toggleLabel(label.id),
+        ),
+    ];
+
+    Widget pills(List<Widget> children) => Wrap(
+      spacing: AppSpace.sm,
+      runSpacing: AppSpace.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: children,
+    );
+
+    final panel = AppSurface(
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: shared
+          // Narrow, the pills wrap, and a separator between groups ends up hanging at the
+          // end of a line. Each group starts a line of its own instead.
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!filter.isEmpty) ...[
+                  summary,
+                  const SizedBox(height: AppSpace.md),
+                ],
+                pills(status),
+                const SizedBox(height: AppSpace.sm),
+                pills(priorities),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.sm),
+                  pills(tags),
+                ],
+              ],
+            )
+          : pills([
+              ...status,
+              _Sep(),
+              ...priorities,
+              if (tags.isNotEmpty) _Sep(),
+              ...tags,
+            ]),
+    );
+
+    final Widget below;
+    if (_open || (!shared && !filter.isEmpty)) {
+      below = Padding(
+        padding: const EdgeInsets.only(top: AppSpace.sm),
+        child: panel,
+      );
+    } else if (!filter.isEmpty) {
+      below = Padding(
+        padding: const EdgeInsets.only(top: AppSpace.sm),
+        child: summary,
+      );
+    } else {
+      below = const SizedBox(width: double.infinity);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
+            if (leading != null) ...[
+              Expanded(child: leading),
+              const SizedBox(width: AppSpace.sm),
+            ],
             _FilterToggle(
               count: filter.activeCount,
+              iconOnly: shared,
               onTap: () => setState(() => _open = !_open),
             ),
-            if (!filter.isEmpty) ...[
+            if (!shared && !filter.isEmpty) ...[
               const SizedBox(width: AppSpace.sm),
-              _Plain(
-                label: 'Clear',
-                onTap: () {
-                  notifier.clear();
-                  setState(() => _open = false);
-                },
-              ),
+              clear,
               const SizedBox(width: AppSpace.sm),
-              // Says what the filter is doing to the list, not just that one exists.
-              Text(
-                '${ref.watch(filteredProjectTasksProvider).length} of '
-                '${ref.watch(visibleTasksProvider).length} shown',
-                style: AppText.numeric,
-              ),
+              count,
             ],
           ],
         ),
@@ -62,55 +169,7 @@ class _FilterBarState extends ConsumerState<FilterBar> {
           duration: AppMotion.medium,
           curve: AppMotion.standard,
           alignment: Alignment.topCenter,
-          child: !showing
-              ? const SizedBox(width: double.infinity)
-              : Padding(
-                  padding: const EdgeInsets.only(top: AppSpace.sm),
-                  child: AppSurface(
-                    padding: const EdgeInsets.all(AppSpace.md),
-                    child: Wrap(
-                      spacing: AppSpace.sm,
-                      runSpacing: AppSpace.sm,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _Pill(
-                          label: 'Hide completed',
-                          selected: filter.hideCompleted,
-                          onTap: () =>
-                              notifier.setHideCompleted(!filter.hideCompleted),
-                        ),
-                        _Pill(
-                          label: "Only what won't fit",
-                          tint: AppColour.red,
-                          selected: filter.onlyAtRisk,
-                          onTap: () => notifier.setOnlyAtRisk(!filter.onlyAtRisk),
-                        ),
-                        _Sep(),
-                        for (final (value, label, tint) in const [
-                          (3, 'High', AppColour.red),
-                          (2, 'Medium', AppColour.orange),
-                          (1, 'Low', AppColour.grey),
-                        ])
-                          _Pill(
-                            label: label,
-                            tint: tint,
-                            selected: filter.priorities.contains(value),
-                            onTap: () => notifier.togglePriority(value),
-                          ),
-                        if (labels.isNotEmpty) _Sep(),
-                        for (final label in labels)
-                          _Pill(
-                            label: '#${label.name}',
-                            tint: label.colour == null
-                                ? AppColour.purple
-                                : Color(label.colour!),
-                            selected: filter.labelIds.contains(label.id),
-                            onTap: () => notifier.toggleLabel(label.id),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
+          child: below,
         ),
       ],
     );
@@ -118,10 +177,17 @@ class _FilterBarState extends ConsumerState<FilterBar> {
 }
 
 class _FilterToggle extends StatefulWidget {
-  const _FilterToggle({required this.count, required this.onTap});
+  const _FilterToggle({
+    required this.count,
+    required this.onTap,
+    this.iconOnly = false,
+  });
 
   final int count;
   final VoidCallback onTap;
+
+  /// Just the icon, and the count when there is one.
+  final bool iconOnly;
 
   @override
   State<_FilterToggle> createState() => _FilterToggleState();
@@ -133,49 +199,58 @@ class _FilterToggleState extends State<_FilterToggle> {
   @override
   Widget build(BuildContext context) {
     final active = widget.count > 0;
+    final colour = active ? AppColour.accent : AppColour.labelSecondary;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppMotion.quick,
-          curve: AppMotion.standard,
-          height: AppSize.control,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
-          decoration: BoxDecoration(
-            color: active
-                ? AppColour.accent.withValues(alpha: 0.18)
-                : _hovered
-                ? AppColour.fillStrong
-                : AppColour.fill,
-            borderRadius: AppRadius.mediumAll,
-            border: Border.all(
-              color: active
-                  ? AppColour.accent.withValues(alpha: 0.5)
-                  : const Color(0x00000000),
+    return Tooltip(
+      message: widget.iconOnly ? 'Filter' : '',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: AppMotion.quick,
+            curve: AppMotion.standard,
+            height: AppSize.control,
+            constraints: const BoxConstraints(minWidth: AppSize.control),
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.iconOnly ? AppSpace.sm : AppSpace.md,
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.filter_list,
-                size: 15,
-                color: active ? AppColour.accent : AppColour.labelSecondary,
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColour.accent.withValues(alpha: 0.18)
+                  : _hovered
+                  ? AppColour.fillStrong
+                  : AppColour.fill,
+              borderRadius: AppRadius.mediumAll,
+              border: Border.all(
+                color: active
+                    ? AppColour.accent.withValues(alpha: 0.5)
+                    : const Color(0x00000000),
               ),
-              const SizedBox(width: AppSpace.xs),
-              Text(
-                active ? 'Filtered · ${widget.count}' : 'Filter',
-                style: AppText.callout.copyWith(
-                  color: active ? AppColour.accent : AppColour.labelSecondary,
-                ),
-              ),
-            ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.filter_list, size: 15, color: colour),
+                if (!widget.iconOnly) ...[
+                  const SizedBox(width: AppSpace.xs),
+                  Text(
+                    active ? 'Filtered · ${widget.count}' : 'Filter',
+                    style: AppText.callout.copyWith(color: colour),
+                  ),
+                ] else if (active) ...[
+                  const SizedBox(width: AppSpace.xs),
+                  Text(
+                    '${widget.count}',
+                    style: AppText.callout.copyWith(color: colour),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -216,9 +291,10 @@ class _PillState extends State<_Pill> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppMotion.quick,
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: AppSpace.md,
-            vertical: AppSpace.xs + 1,
+            // Taller for a finger, which has no pointer's precision.
+            vertical: AppLayout.touch ? AppSpace.sm : AppSpace.xs + 1,
           ),
           decoration: BoxDecoration(
             color: widget.selected
@@ -266,9 +342,16 @@ class _Plain extends StatelessWidget {
     child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Text(
-        label,
-        style: AppText.numeric.copyWith(color: AppColour.accent),
+      child: Padding(
+        // Room around the word to hit on a touch screen, none to throw off alignment
+        // under a pointer.
+        padding: AppLayout.touch
+            ? const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, 0, AppSpace.sm)
+            : EdgeInsets.zero,
+        child: Text(
+          label,
+          style: AppText.numeric.copyWith(color: AppColour.accent),
+        ),
       ),
     ),
   );

@@ -7,7 +7,7 @@ import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
-import '../motion.dart';
+import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
 
@@ -46,32 +46,12 @@ class _Sheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     void close() => ref.read(openTaskProvider.notifier).close();
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: close,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.65 * t)),
-            ),
-          ),
-        ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xxl),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-              child: SpringIn(
-                child: VibrancyMaterial.sheet(
-                  child: _Body(task: task, onClose: close),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ModalSheet(
+      onClose: close,
+      maxWidth: 560,
+      alignment: Alignment.center,
+      scrim: 0.65,
+      child: _Body(task: task, onClose: close),
     );
   }
 }
