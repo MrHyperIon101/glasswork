@@ -119,6 +119,10 @@ class Tasks extends Table with SyncColumns, WorkspaceScoped {
   /// Three slips means something is wrong with the task, not with your discipline.
   IntColumn get slipCount => integer().withDefault(const Constant(0))();
   DateTimeColumn get lastDeferredAt => dateTime().nullable()();
+
+  /// When to be reminded, stored UTC. Null for no reminder. Every device with the task
+  /// raises it, so the reminder reaches whichever one is at hand.
+  DateTimeColumn get remindAt => dateTime().nullable()();
 }
 
 @TableIndex(name: 'subtask_task_order', columns: {#taskId, #orderKey})
@@ -192,15 +196,36 @@ enum CommitmentKind { classes, lab, work, travel, personal }
 /// These are the numbers every capacity figure in the app is derived from, so they are
 /// deliberately explicit rather than hidden behind heuristics.
 class CapacityProfiles extends Table with SyncColumns, WorkspaceScoped {
-  /// Protected floor, not a resource. No code path may schedule into it or offer it as a
-  /// way to make something fit.
+  /// The least sleep wanted in a night. Protected floor, not a resource: no code path may
+  /// schedule into sleep or offer it as a way to make something fit, and nights shorter
+  /// than this are reported.
   IntColumn get sleepTargetMin =>
       integer().withDefault(const Constant(450))();
 
-  /// When sleep begins, as minutes past midnight. Needed because gaps are computed over
-  /// a real waking window, not just a duration subtracted from 1440.
+  /// When sleep began, before sleep was set per day. Kept so a version of the app from
+  /// before then, still syncing, reads a sensible value; nothing current reads it.
   IntColumn get sleepStartMin =>
       integer().withDefault(const Constant(23 * 60 + 30))();
+
+  // Sleep, per day: when you get up on each day, and when you go to bed that night, in
+  // minutes past midnight. A bedtime at or before the time you get up is after midnight.
+  // Two columns a day rather than one list, so an edit to Monday on one device and to
+  // Tuesday on another merge, where a single value would have one overwrite the other.
+
+  IntColumn get wakeMonMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeMonMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeTueMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeTueMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeWedMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeWedMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeThuMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeThuMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeFriMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeFriMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeSatMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeSatMin => integer().withDefault(const Constant(1410))();
+  IntColumn get wakeSunMin => integer().withDefault(const Constant(420))();
+  IntColumn get bedtimeSunMin => integer().withDefault(const Constant(1410))();
 
   IntColumn get mealsMin => integer().withDefault(const Constant(90))();
 

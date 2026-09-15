@@ -21,6 +21,21 @@ void main() {
     expect(Format.weekdays({5, 1, 3}), 'Mon Wed Fri');
   });
 
+  test('days end a sentence', () {
+    expect(Format.onDays({1, 2, 3, 4, 5, 6, 7}), 'every day');
+    expect(Format.onDays({1, 2, 3, 4, 5}), 'on weekdays');
+    expect(Format.onDays({6, 7}), 'at weekends');
+    expect(Format.onDays({2}), 'on Tue');
+  });
+
+  test('a reminder time says no more than it needs to', () {
+    final now = DateTime(2026, 9, 15, 14);
+    expect(Format.reminderTime(DateTime(2026, 9, 15, 15, 5), now), '15:05');
+    expect(Format.reminderTime(DateTime(2026, 9, 16, 9), now), 'Tomorrow 09:00');
+    expect(Format.reminderTime(DateTime(2026, 9, 18, 9), now), 'Fri 09:00');
+    expect(Format.reminderTime(DateTime(2026, 9, 25, 9), now), '25 Sep 09:00');
+  });
+
   test('a date carries its day', () {
     expect(Format.dayAndDate(DateTime(2026, 9, 21)), 'Mon 21 Sep');
   });

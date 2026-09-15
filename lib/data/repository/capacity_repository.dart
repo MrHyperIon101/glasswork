@@ -76,6 +76,59 @@ class CapacityRepository {
     ),
   );
 
+  /// Sets the sleep of the days in [days], by weekday, `DateTime.monday` to
+  /// `DateTime.sunday`.
+  ///
+  /// Only the times that actually change are written. A later bedtime set on the phone and
+  /// an earlier start set on the laptop, for the same day, then both hold; writing the whole
+  /// day would have one device put back the time the other had just changed.
+  Future<void> setSleep(String id, Map<int, DaySleep> days) async {
+    final current =
+        await (_db.select(_db.capacityProfiles)..where((p) => p.id.equals(id)))
+            .getSingleOrNull();
+    if (current == null) return;
+    final before = CapacityMapping.sleepOf(current);
+
+    Value<int> wake(int day) => switch (days[day]) {
+      final next? when next.wakeMin != before[day - 1].wakeMin => Value(next.wakeMin),
+      _ => const Value.absent(),
+    };
+    Value<int> bedtime(int day) => switch (days[day]) {
+      final next? when next.bedtimeMin != before[day - 1].bedtimeMin =>
+        Value(next.bedtimeMin),
+      _ => const Value.absent(),
+    };
+
+    final changes = [
+      for (var day = DateTime.monday; day <= DateTime.sunday; day++) ...[
+        wake(day),
+        bedtime(day),
+      ],
+    ];
+    if (!changes.any((value) => value.present)) return;
+
+    await _writer.update(
+      _db.capacityProfiles,
+      id,
+      CapacityProfilesCompanion(
+        wakeMonMin: wake(DateTime.monday),
+        bedtimeMonMin: bedtime(DateTime.monday),
+        wakeTueMin: wake(DateTime.tuesday),
+        bedtimeTueMin: bedtime(DateTime.tuesday),
+        wakeWedMin: wake(DateTime.wednesday),
+        bedtimeWedMin: bedtime(DateTime.wednesday),
+        wakeThuMin: wake(DateTime.thursday),
+        bedtimeThuMin: bedtime(DateTime.thursday),
+        wakeFriMin: wake(DateTime.friday),
+        bedtimeFriMin: bedtime(DateTime.friday),
+        wakeSatMin: wake(DateTime.saturday),
+        bedtimeSatMin: bedtime(DateTime.saturday),
+        wakeSunMin: wake(DateTime.sunday),
+        bedtimeSunMin: bedtime(DateTime.sunday),
+      ),
+    );
+  }
+
   /// 'YYYY-MM-DD'. Text rather than a timestamp: a semester starts on a date, not at
   /// an instant in some timezone.
   static String? _isoOf(DateTime? d) => d == null
@@ -410,14 +463,25 @@ abstract final class CapacityMapping {
   static CapacitySettings settings(CapacityProfile? profile) {
     if (profile == null) return const CapacitySettings();
     return CapacitySettings(
+      sleep: sleepOf(profile),
       sleepTargetMin: profile.sleepTargetMin,
-      sleepStartMin: profile.sleepStartMin,
       mealsMin: profile.mealsMin,
       bufferMin: profile.bufferMin,
       focusFactor: profile.focusFactor,
       minGapMin: profile.minGapMin,
     );
   }
+
+  /// A profile's sleep, Monday first.
+  static List<DaySleep> sleepOf(CapacityProfile p) => [
+    DaySleep(wakeMin: p.wakeMonMin, bedtimeMin: p.bedtimeMonMin),
+    DaySleep(wakeMin: p.wakeTueMin, bedtimeMin: p.bedtimeTueMin),
+    DaySleep(wakeMin: p.wakeWedMin, bedtimeMin: p.bedtimeWedMin),
+    DaySleep(wakeMin: p.wakeThuMin, bedtimeMin: p.bedtimeThuMin),
+    DaySleep(wakeMin: p.wakeFriMin, bedtimeMin: p.bedtimeFriMin),
+    DaySleep(wakeMin: p.wakeSatMin, bedtimeMin: p.bedtimeSatMin),
+    DaySleep(wakeMin: p.wakeSunMin, bedtimeMin: p.bedtimeSunMin),
+  ];
 
   /// Commitments whose recurrence the engine understands.
   ///

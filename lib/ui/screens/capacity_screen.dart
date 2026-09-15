@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../capacity/block_check.dart';
 import '../../capacity/ledger.dart';
 import '../../capacity/recurrence.dart';
+import '../../capacity/setting_effects.dart';
 import '../../capacity/timetable.dart' as tt;
 import '../../data/db/database.dart';
 import '../../data/repository/capacity_repository.dart';
@@ -19,7 +20,9 @@ import '../widgets/block_dialog.dart';
 import '../widgets/content_header.dart';
 import '../widgets/day_timeline.dart';
 import '../widgets/field_controls.dart';
+import '../widgets/typed_value.dart';
 import '../widgets/value_stepper.dart';
+import '../widgets/weekday_picker.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
 ///
@@ -115,7 +118,6 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
   Widget build(BuildContext context) {
     final day = widget.day;
     final profile = ref.watch(capacityProfileProvider).value;
-    final settings = CapacityMapping.settings(profile);
     final planned = ref.watch(scheduleProvider).allocatedOn(day.date);
     final spare = day.spareAfter(planned);
 
@@ -144,7 +146,7 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
           ),
           const SizedBox(height: AppSpace.lg),
 
-          DayTimeline(day: day, settings: settings, allocatedMin: planned),
+          DayTimeline(day: day, allocatedMin: planned),
 
           const SizedBox(height: AppSpace.md),
           const AppDivider(),
@@ -244,14 +246,11 @@ class _WeekCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(capacityProfileProvider).value;
-    final settings = CapacityMapping.settings(profile);
     final schedule = ref.watch(scheduleProvider);
     final compact = AppLayout.compact(context);
 
     Widget timeline(DayCapacity day) => DayTimeline(
       day: day,
-      settings: settings,
       allocatedMin: schedule.allocatedOn(day.date),
       showHours: false,
       // Seven full legends down a phone make a wall of figures.
@@ -360,6 +359,8 @@ class _ProfileCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(appScopeProvider).value?.capacity;
+    final effects = ref.watch(settingEffectsProvider);
+    final focusPercent = (profile.focusFactor * 100).round();
 
     // A length, stepped or typed, kept inside [min, max].
     Widget length({
@@ -369,11 +370,15 @@ class _ProfileCard extends ConsumerWidget {
       required int min,
       required int max,
       required void Function(int minutes) save,
+      required String explanation,
+      required String effect,
       bool bareMinutes = false,
     }) => ValueStepper(
       label: label,
       text: Format.estimate(value),
       keyboardType: TextInputType.datetime,
+      explanation: explanation,
+      effect: effect,
       onStep: (direction) => save((value + direction * step).clamp(min, max)),
       onSubmit: (text) {
         final typed = TimeEntry.duration(text, bareMinutes: bareMinutes);
@@ -383,66 +388,97 @@ class _ProfileCard extends ConsumerWidget {
       },
     );
 
+    // What one step more does to an average day's time to spend.
+    String stepEffect(String step, int change) => change == 0
+        ? '$step more would change nothing this week.'
+        : change < 0
+        ? '$step more leaves about ${Format.estimate(-change)} less a day to spend.'
+        : '$step more adds about ${Format.estimate(change)} a day to spend.';
+
+    final shortNights = [
+      for (final day in effects.shortNights.keys) _SleepWeek.names[day - 1],
+    ];
+
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Profile', style: AppText.caption),
-          const SizedBox(height: AppSpace.md),
-          // Where sleep falls decides which hours count at all, so it has to be settable:
-          // without it, everyone was asleep from 23:30 whether they were or not.
-          ValueStepper(
-            label: 'Bedtime',
-            detail:
-                'Up at ${Format.clock(CapacityMapping.settings(profile).wakeMin)}',
-            text: Format.clock(profile.sleepStartMin),
-            keyboardType: TextInputType.datetime,
-            onStep: (direction) => repo?.updateProfile(
-              profile.id,
-              sleepStartMin:
-                  (profile.sleepStartMin + direction * 15) % minutesInDay,
-            ),
-            onSubmit: (text) {
-              final typed = TimeEntry.clock(text);
-              if (typed == null) return false;
-              repo?.updateProfile(profile.id, sleepStartMin: typed);
-              return true;
-            },
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            'Every figure on this screen is worked out from these. Under each is what it '
+            'means, and what changing it would do to an average day this week.',
+            style: AppText.footnote,
           ),
+          const SizedBox(height: AppSpace.lg),
+          _SleepWeek(profile: profile),
+          const SizedBox(height: AppSpace.md),
+          const AppDivider(),
+          const SizedBox(height: AppSpace.sm),
           length(
-            label: 'Sleep target',
+            label: 'Sleep at least',
             value: profile.sleepTargetMin,
             step: 15,
             min: 240,
             max: 720,
             save: (v) => repo?.updateProfile(profile.id, sleepTargetMin: v),
+            explanation:
+                'The least sleep you want in a night. Nothing is planned into sleep '
+                'either way: this only marks the nights above that fall short of it.',
+            effect: shortNights.isEmpty
+                ? 'Every night this week gets at least this.'
+                : '${shortNights.length == 1 ? 'The night after ${shortNights.single} '
+                          'falls' : '${shortNights.length} nights fall'} short of it.',
           ),
           length(
             label: 'Meals',
             value: profile.mealsMin,
-            step: 15,
+            step: SettingEffects.mealsStepMin,
             min: 0,
             max: 300,
             save: (v) => repo?.updateProfile(profile.id, mealsMin: v),
+            explanation:
+                "Time for eating, taken out of each day's free time before anything is "
+                'planned, spread across the day.',
+            effect: stepEffect(
+              Format.estimate(SettingEffects.mealsStepMin),
+              effects.mealsStep,
+            ),
           ),
           length(
-            label: 'Buffer — transit, admin, life',
+            label: 'Buffer',
             value: profile.bufferMin,
-            step: 15,
+            step: SettingEffects.bufferStepMin,
             min: 0,
             max: 300,
             save: (v) => repo?.updateProfile(profile.id, bufferMin: v),
+            explanation:
+                'Getting around, admin, and the small things every day loses. Taken out '
+                'of free time the same way as meals.',
+            effect: stepEffect(
+              Format.estimate(SettingEffects.bufferStepMin),
+              effects.bufferStep,
+            ),
           ),
           ValueStepper(
             label: 'Focus factor',
-            text: '${(profile.focusFactor * 100).round()}%',
+            text: '$focusPercent%',
             keyboardType: TextInputType.number,
+            explanation:
+                'How much of your free time turns into real work. At $focusPercent%, a '
+                'free hour counts as ${Format.estimate((60 * profile.focusFactor).round())}.',
+            effect: profile.focusFactor >= 1
+                ? 'Already all of it: every free minute counts.'
+                : stepEffect(
+                    '${SettingEffects.focusStepPercent}%',
+                    effects.focusStep,
+                  ),
             onStep: (direction) => repo?.updateProfile(
               profile.id,
-              focusFactor: (profile.focusFactor + direction * 0.05).clamp(
-                0.3,
-                1.0,
-              ),
+              focusFactor:
+                  (profile.focusFactor +
+                          direction * SettingEffects.focusStepPercent / 100)
+                      .clamp(0.3, 1.0),
             ),
             onSubmit: (text) {
               final typed = TimeEntry.percent(text);
@@ -457,19 +493,369 @@ class _ProfileCard extends ConsumerWidget {
           length(
             label: 'Shortest usable gap',
             value: profile.minGapMin,
-            step: 5,
+            step: SettingEffects.minGapStepMin,
             min: 5,
             max: 120,
             bareMinutes: true,
             save: (v) => repo?.updateProfile(profile.id, minGapMin: v),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Text(
-            'Six free hours is not six hours of assignment. The focus factor is the '
-            'honest correction, and it will be tuned from your own completion data later.',
-            style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
+            explanation:
+                'Free stretches shorter than this are ignored, because real work does not '
+                'get started in them.',
+            effect:
+                '${effects.discardedPerDay == 0 ? 'No free time this week comes in '
+                          'stretches that short. ' : 'This week that sets aside about '
+                          '${Format.estimate(effects.discardedPerDay)} of free time a day. '}'
+                '${stepEffect(Format.estimate(SettingEffects.minGapStepMin), effects.minGapStep)}',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Sleep, day by day: when you get up, and when you go to bed that night.
+class _SleepWeek extends ConsumerWidget {
+  const _SleepWeek({required this.profile});
+
+  final CapacityProfile profile;
+
+  static const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /// Room for the arrow between getting up and going to bed.
+  static const arrowWidth = AppSpace.xl;
+
+  /// Shares of the width for a day's name, each of its times, and how long it is awake.
+  /// The heading and the rows use the same shares, so the columns line up at any width and
+  /// any text size: fixed widths cut the lengths short on a phone, and wrapped the day
+  /// names with larger text.
+  static const nameFlex = 4;
+  static const timeFlex = 5;
+  static const awakeFlex = 5;
+
+  /// Wide enough for every column and no wider. Stretched across a desktop, each day's
+  /// length ended up far from its times.
+  static const maxWidth = 460.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(appScopeProvider).value?.capacity;
+    final settings = CapacityMapping.settings(profile);
+
+    // Only the days that actually change are written.
+    void save(Map<int, DaySleep> days) {
+      final changed = {
+        for (final MapEntry(key: day, value: sleep) in days.entries)
+          if (settings.sleepOn(day) != sleep) day: sleep,
+      };
+      if (changed.isNotEmpty) repo?.setSleep(profile.id, changed);
+    }
+
+    Widget heading(String text, {TextAlign align = TextAlign.center}) =>
+        Text(text, style: AppText.caption, textAlign: align);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Sleep', style: AppText.headline)),
+            _SmallAction(
+              label: 'Set several days',
+              onTap: () => _setSeveral(context, settings, save),
+            ),
+          ],
+        ),
+        Text(
+          'When you get up on each day, and when you go to bed that night: after '
+          'midnight, if earlier than getting up. Nothing is ever planned into sleep, and '
+          'blocks that fall in it do not count.',
+          style: AppText.footnote,
+        ),
+        const SizedBox(height: AppSpace.md),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: maxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Spacer(flex: nameFlex),
+                  Expanded(flex: timeFlex, child: heading('Up at')),
+                  const SizedBox(width: arrowWidth),
+                  Expanded(flex: timeFlex, child: heading('To bed')),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    flex: awakeFlex,
+                    child: heading('Awake', align: TextAlign.end),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.xs),
+              for (var day = DateTime.monday; day <= DateTime.sunday; day++)
+                _SleepDayRow(
+                  name: names[day - 1],
+                  nextName: names[CapacitySettings.dayAfter(day) - 1],
+                  sleep: settings.sleepOn(day),
+                  night: settings.nightAfter(day),
+                  target: settings.sleepTargetMin,
+                  onChanged: (sleep) => save({day: sleep}),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _setSeveral(
+    BuildContext context,
+    CapacitySettings settings,
+    void Function(Map<int, DaySleep> days) save,
+  ) async {
+    final result = await showDialog<(Set<int>, DaySleep)>(
+      context: context,
+      builder: (context) =>
+          _SleepDialog(initial: settings.sleepOn(DateTime.monday)),
+    );
+    if (result == null) return;
+    final (days, sleep) = result;
+    save({for (final day in days) day: sleep});
+  }
+}
+
+class _SleepDayRow extends StatelessWidget {
+  const _SleepDayRow({
+    required this.name,
+    required this.nextName,
+    required this.sleep,
+    required this.night,
+    required this.target,
+    required this.onChanged,
+  });
+
+  final String name;
+
+  /// The day after, for naming the night between them.
+  final String nextName;
+
+  final DaySleep sleep;
+
+  /// Sleep in the night that follows.
+  final int night;
+
+  /// The least sleep wanted in a night.
+  final int target;
+
+  final ValueChanged<DaySleep> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    bool submit(String text, DaySleep Function(int minutes) apply) {
+      final minutes = TimeEntry.clock(text);
+      if (minutes == null) return false;
+      final changed = apply(minutes);
+      // Getting up and going to bed at the same minute is a day of no length.
+      if (changed.wakeMin == changed.bedtimeMin) return false;
+      onChanged(changed);
+      return true;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: _SleepWeek.nameFlex,
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.body,
+                ),
+              ),
+              Expanded(
+                flex: _SleepWeek.timeFlex,
+                child: TypedValue(
+                  key: ValueKey('wake-$name'),
+                  fill: true,
+                  text: Format.clock(sleep.wakeMin),
+                  keyboardType: TextInputType.datetime,
+                  onSubmit: (text) => submit(
+                    text,
+                    (m) => DaySleep(wakeMin: m, bedtimeMin: sleep.bedtimeMin),
+                  ),
+                ),
+              ),
+              const SizedBox(
+                width: _SleepWeek.arrowWidth,
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 13,
+                  color: AppColour.labelTertiary,
+                ),
+              ),
+              Expanded(
+                flex: _SleepWeek.timeFlex,
+                child: TypedValue(
+                  key: ValueKey('bedtime-$name'),
+                  fill: true,
+                  text: Format.clock(sleep.bedtimeMin),
+                  keyboardType: TextInputType.datetime,
+                  onSubmit: (text) => submit(
+                    text,
+                    (m) => DaySleep(wakeMin: sleep.wakeMin, bedtimeMin: m),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                flex: _SleepWeek.awakeFlex,
+                child: Text(
+                  Format.estimate(sleep.awakeMin),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.numeric,
+                ),
+              ),
+            ],
+          ),
+          if (night < target)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: AppSpace.xs),
+              child: Text(
+                night == 0
+                    ? 'No sleep at all before $nextName'
+                    : 'Only ${Format.estimate(night)} of sleep before $nextName',
+                style: AppText.footnote.copyWith(color: AppColour.orange),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The same sleep for several days at once.
+class _SleepDialog extends StatefulWidget {
+  const _SleepDialog({required this.initial});
+
+  final DaySleep initial;
+
+  @override
+  State<_SleepDialog> createState() => _SleepDialogState();
+}
+
+class _SleepDialogState extends State<_SleepDialog> {
+  final _days = <int>{};
+  late int _wake = widget.initial.wakeMin;
+  late int _bedtime = widget.initial.bedtimeMin;
+
+  void _setDays(Iterable<int> days) => setState(
+    () => _days
+      ..clear()
+      ..addAll(days),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final sleep = DaySleep(wakeMin: _wake, bedtimeMin: _bedtime);
+    final valid = _days.isNotEmpty && _wake != _bedtime;
+
+    ValueStepper time(String label, int value, void Function(int minutes) set) =>
+        ValueStepper(
+          label: label,
+          text: Format.clock(value),
+          keyboardType: TextInputType.datetime,
+          onStep: (direction) =>
+              setState(() => set((value + direction * 15) % minutesInDay)),
+          onSubmit: (text) {
+            final minutes = TimeEntry.clock(text);
+            if (minutes == null) return false;
+            setState(() => set(minutes));
+            return true;
+          },
+        );
+
+    return Dialog(
+      backgroundColor: AppColour.elevated,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.largeAll),
+      insetPadding: _dialogInsets,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpace.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sleep for several days', style: AppText.title3),
+              const SizedBox(height: AppSpace.lg),
+              Text('Days', style: AppText.caption),
+              const SizedBox(height: AppSpace.sm),
+              WeekdayPicker(
+                selected: _days,
+                onToggle: (day) => setState(
+                  () => _days.contains(day) ? _days.remove(day) : _days.add(day),
+                ),
+              ),
+              // Under the days, not beside the heading: on a phone with larger text, three
+              // of them there left the heading a column one letter wide.
+              Transform.translate(
+                // Level with the squares, past the first choice's own padding.
+                offset: const Offset(-AppSpace.sm, 0),
+                child: Wrap(
+                  children: [
+                    _SmallAction(
+                      label: 'Weekdays',
+                      onTap: () => _setDays(const [1, 2, 3, 4, 5]),
+                    ),
+                    _SmallAction(
+                      label: 'Weekends',
+                      onTap: () => _setDays(const [6, 7]),
+                    ),
+                    _SmallAction(
+                      label: 'Every day',
+                      onTap: () => _setDays(const [1, 2, 3, 4, 5, 6, 7]),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpace.lg),
+              time('Up at', _wake, (m) => _wake = m),
+              time('To bed', _bedtime, (m) => _bedtime = m),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                _wake == _bedtime
+                    ? 'Getting up and going to bed at the same time leaves no day at all.'
+                    : '${Format.estimate(sleep.awakeMin)} awake'
+                          '${sleep.bedtimeFromMidnight > minutesInDay ? ', to bed after midnight' : ''}.',
+                style: AppText.footnote,
+              ),
+              const SizedBox(height: AppSpace.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GhostButton(
+                    label: 'Cancel',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  PrimaryButton(
+                    label: 'Set',
+                    enabled: valid,
+                    onTap: () {
+                      if (valid) Navigator.pop(context, ({..._days}, sleep));
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -759,9 +1145,8 @@ class _UncountedBlocks extends ConsumerWidget {
           ),
         const SizedBox(height: AppSpace.sm),
         Text(
-          'You sleep ${Format.clockRange(settings.bedtimeMin, settings.wakeMin)}, and '
-          'sleep is never counted as time to spend. Tap a block to move it, or if you '
-          'are up then, set a later bedtime under Profile.',
+          'Sleep is never counted as time to spend. Tap a block to move it, or if you '
+          'are up then, change your sleep under Profile.',
           style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
         ),
       ],

@@ -113,6 +113,30 @@ abstract final class Format {
     return ordered.map((d) => _weekdayNames[d - 1]).join(' ');
   }
 
+  /// The days something happens, to end a sentence with: "every day", "on weekdays", "at
+  /// weekends", "on Mon Wed Fri".
+  static String onDays(Set<int> days) => switch (weekdays(days)) {
+    'Every day' => 'every day',
+    'Weekdays' => 'on weekdays',
+    'Weekends' => 'at weekends',
+    final list => 'on $list',
+  };
+
+  /// When a reminder is, as briefly as it can be said from [now]: "15:05" today,
+  /// "Tomorrow 09:00", "Fri 09:00" within the week, "21 Sep 09:00" beyond.
+  static String reminderTime(DateTime at, DateTime now) {
+    final local = at.toLocal();
+    // Counted in whole dates, which a daylight saving change cannot throw off.
+    final days = DateTime.utc(local.year, local.month, local.day)
+        .difference(DateTime.utc(now.year, now.month, now.day))
+        .inDays;
+    final time = clock(local.hour * 60 + local.minute);
+    if (days == 0) return time;
+    if (days == 1) return 'Tomorrow $time';
+    if (days > 1 && days < 7) return '${_weekdayNames[local.weekday - 1]} $time';
+    return '${shortDate(local)} $time';
+  }
+
   /// "Mon 21 Sep".
   static String dayAndDate(DateTime d) =>
       '${_weekdayNames[d.weekday - 1]} ${shortDate(d)}';

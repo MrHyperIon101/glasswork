@@ -113,6 +113,13 @@ class TaskRepository {
     TasksCompanion(dueAt: Value(dueAt), dueDate: Value(dueDate)),
   );
 
+  /// Sets when to be reminded, or clears it with null. Stored in UTC, so every device raises
+  /// it at the same instant wherever each one is.
+  Future<void> setReminder(String id, DateTime? at) => _write(
+    id,
+    TasksCompanion(remindAt: Value(at?.toUtc())),
+  );
+
   Future<void> setNotes(String id, String? notesMd) => _write(
     id,
     TasksCompanion(notesMd: Value(notesMd)),

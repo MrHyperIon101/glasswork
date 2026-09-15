@@ -4,6 +4,7 @@ import '../data/db/database.dart';
 import '../data/db/tables.dart';
 import '../capacity/ledger.dart';
 import '../capacity/scheduler.dart';
+import '../capacity/setting_effects.dart';
 import '../capacity/timetable.dart' as tt;
 import '../data/repository/capacity_repository.dart';
 import '../data/repository/label_repository.dart';
@@ -368,6 +369,15 @@ final dayCapacityProvider = Provider<List<DayCapacity>>((ref) {
     capacityHorizonDays,
     CapacityMapping.settings(profile),
     ref.watch(timetableProvider),
+  );
+});
+
+/// What each capacity setting does to the figures, for the profile to explain itself with.
+final settingEffectsProvider = Provider<SettingEffects>((ref) {
+  return SettingEffects.of(
+    CapacityMapping.settings(ref.watch(capacityProfileProvider).value),
+    ref.watch(timetableProvider),
+    DateTime.now(),
   );
 });
 

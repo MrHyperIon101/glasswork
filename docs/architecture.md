@@ -147,6 +147,18 @@ six hours in three gaps between classes. Discard gaps under ~25 minutes.
 fix. If the only way to fit everything is to eat sleep, report the deficit and ask what comes off the
 list.
 
+**Sleep is set per day:** when you get up, and when you go to bed that night (`wake_<day>_min`,
+`bedtime_<day>_min`), a bedtime at or before getting up being after midnight. A date's waking hours
+come from that day and the night before it, so the small hours after a late night count towards the
+date they fall on. `BlockCheck` refuses a block that falls in sleep, past midnight, or on top of
+another, and offers the nearest free time; blocks already there are flagged, never counted.
+`sleep_target_min` only marks short nights. Two columns a day, not one list, so edits to different
+days on different devices merge — and `setSleep` writes only the times that change.
+
+**The profile explains itself.** Each setting says what it is and what one step more would do to an
+average day this week. Those figures come from `SettingEffects`, which reruns the ledger with the
+setting moved rather than doing arithmetic of its own.
+
 **Never let a model compute a number the ledger can compute.** The LLM reads the arithmetic's output
 and talks about it. It does not decide what is feasible.
 
@@ -156,6 +168,26 @@ and talks about it. It does not decide what is feasible.
 
 All-day tasks store a `due_date` (date), **not** a timestamp. A timestamp for an all-day task breaks
 "due today" the moment the server is UTC or you travel. Timed tasks use `due_at timestamptz`.
+
+---
+
+## Reminders
+
+A task's reminder is `tasks.remind_at` (UTC), synced like any field, so every device with the task
+raises it. `ReminderPlan` (pure) picks the next `ReminderPlan.limit` of them; `ReminderService` hands
+the plan to the platform only when it changes, once edits pause, and never throws.
+
+- **Android:** exact alarms through `flutter_local_notifications` (`USE_EXACT_ALARM` on 13 and later),
+  put back after a restart by the plugin's boot receiver. Notification permission is asked the first
+  time a reminder is set, not at launch. The small icon, `res/drawable/ic_notification.xml`, is kept
+  from resource shrinking by `res/raw/keep.xml`.
+- **Linux:** while the app is open it raises reminders itself. For while it is closed it writes a
+  systemd user timer, `dev.mrhyperion.glasswork-reminders.timer` (one `OnCalendar=` per reminder,
+  `Persistent=true`), running a POSIX script that calls `notify-send`. The script stays quiet while
+  the app is open — the app writes its pid to `XDG_RUNTIME_DIR` — and records what it showed, so
+  nothing shows twice. `LinuxReminderFiles` holds every byte written, and its test runs the script.
+- A reminder's buttons (Mark done, Snooze 10 min) open the app, which does the write. Handled in a
+  background isolate instead, they would be a second writer to the database beside the app.
 
 ---
 

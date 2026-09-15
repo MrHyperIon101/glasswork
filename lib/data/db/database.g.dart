@@ -2286,6 +2286,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _remindAtMeta = const VerificationMeta(
+    'remindAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> remindAt = GeneratedColumn<DateTime>(
+    'remind_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2312,6 +2323,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     scheduledFor,
     slipCount,
     lastDeferredAt,
+    remindAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2491,6 +2503,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         ),
       );
     }
+    if (data.containsKey('remind_at')) {
+      context.handle(
+        _remindAtMeta,
+        remindAt.isAcceptableOrUnknown(data['remind_at']!, _remindAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2598,6 +2616,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_deferred_at'],
       ),
+      remindAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}remind_at'],
+      ),
     );
   }
 
@@ -2654,6 +2676,10 @@ class Task extends DataClass implements Insertable<Task> {
   /// Three slips means something is wrong with the task, not with your discipline.
   final int slipCount;
   final DateTime? lastDeferredAt;
+
+  /// When to be reminded, stored UTC. Null for no reminder. Every device with the task
+  /// raises it, so the reminder reaches whichever one is at hand.
+  final DateTime? remindAt;
   const Task({
     required this.id,
     required this.createdAt,
@@ -2679,6 +2705,7 @@ class Task extends DataClass implements Insertable<Task> {
     this.scheduledFor,
     required this.slipCount,
     this.lastDeferredAt,
+    this.remindAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2737,6 +2764,9 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || lastDeferredAt != null) {
       map['last_deferred_at'] = Variable<DateTime>(lastDeferredAt);
     }
+    if (!nullToAbsent || remindAt != null) {
+      map['remind_at'] = Variable<DateTime>(remindAt);
+    }
     return map;
   }
 
@@ -2792,6 +2822,9 @@ class Task extends DataClass implements Insertable<Task> {
       lastDeferredAt: lastDeferredAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastDeferredAt),
+      remindAt: remindAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remindAt),
     );
   }
 
@@ -2827,6 +2860,7 @@ class Task extends DataClass implements Insertable<Task> {
       scheduledFor: serializer.fromJson<String?>(json['scheduledFor']),
       slipCount: serializer.fromJson<int>(json['slipCount']),
       lastDeferredAt: serializer.fromJson<DateTime?>(json['lastDeferredAt']),
+      remindAt: serializer.fromJson<DateTime?>(json['remindAt']),
     );
   }
   @override
@@ -2859,6 +2893,7 @@ class Task extends DataClass implements Insertable<Task> {
       'scheduledFor': serializer.toJson<String?>(scheduledFor),
       'slipCount': serializer.toJson<int>(slipCount),
       'lastDeferredAt': serializer.toJson<DateTime?>(lastDeferredAt),
+      'remindAt': serializer.toJson<DateTime?>(remindAt),
     };
   }
 
@@ -2887,6 +2922,7 @@ class Task extends DataClass implements Insertable<Task> {
     Value<String?> scheduledFor = const Value.absent(),
     int? slipCount,
     Value<DateTime?> lastDeferredAt = const Value.absent(),
+    Value<DateTime?> remindAt = const Value.absent(),
   }) => Task(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -2914,6 +2950,7 @@ class Task extends DataClass implements Insertable<Task> {
     lastDeferredAt: lastDeferredAt.present
         ? lastDeferredAt.value
         : this.lastDeferredAt,
+    remindAt: remindAt.present ? remindAt.value : this.remindAt,
   );
   Task copyWithCompanion(TasksCompanion data) {
     return Task(
@@ -2955,6 +2992,7 @@ class Task extends DataClass implements Insertable<Task> {
       lastDeferredAt: data.lastDeferredAt.present
           ? data.lastDeferredAt.value
           : this.lastDeferredAt,
+      remindAt: data.remindAt.present ? data.remindAt.value : this.remindAt,
     );
   }
 
@@ -2984,7 +3022,8 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('actualMin: $actualMin, ')
           ..write('scheduledFor: $scheduledFor, ')
           ..write('slipCount: $slipCount, ')
-          ..write('lastDeferredAt: $lastDeferredAt')
+          ..write('lastDeferredAt: $lastDeferredAt, ')
+          ..write('remindAt: $remindAt')
           ..write(')'))
         .toString();
   }
@@ -3015,6 +3054,7 @@ class Task extends DataClass implements Insertable<Task> {
     scheduledFor,
     slipCount,
     lastDeferredAt,
+    remindAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3043,7 +3083,8 @@ class Task extends DataClass implements Insertable<Task> {
           other.actualMin == this.actualMin &&
           other.scheduledFor == this.scheduledFor &&
           other.slipCount == this.slipCount &&
-          other.lastDeferredAt == this.lastDeferredAt);
+          other.lastDeferredAt == this.lastDeferredAt &&
+          other.remindAt == this.remindAt);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
@@ -3071,6 +3112,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<String?> scheduledFor;
   final Value<int> slipCount;
   final Value<DateTime?> lastDeferredAt;
+  final Value<DateTime?> remindAt;
   final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
@@ -3097,6 +3139,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.scheduledFor = const Value.absent(),
     this.slipCount = const Value.absent(),
     this.lastDeferredAt = const Value.absent(),
+    this.remindAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
@@ -3124,6 +3167,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.scheduledFor = const Value.absent(),
     this.slipCount = const Value.absent(),
     this.lastDeferredAt = const Value.absent(),
+    this.remindAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        workspaceId = Value(workspaceId),
@@ -3155,6 +3199,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<String>? scheduledFor,
     Expression<int>? slipCount,
     Expression<DateTime>? lastDeferredAt,
+    Expression<DateTime>? remindAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3182,6 +3227,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (scheduledFor != null) 'scheduled_for': scheduledFor,
       if (slipCount != null) 'slip_count': slipCount,
       if (lastDeferredAt != null) 'last_deferred_at': lastDeferredAt,
+      if (remindAt != null) 'remind_at': remindAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3211,6 +3257,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<String?>? scheduledFor,
     Value<int>? slipCount,
     Value<DateTime?>? lastDeferredAt,
+    Value<DateTime?>? remindAt,
     Value<int>? rowid,
   }) {
     return TasksCompanion(
@@ -3238,6 +3285,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       scheduledFor: scheduledFor ?? this.scheduledFor,
       slipCount: slipCount ?? this.slipCount,
       lastDeferredAt: lastDeferredAt ?? this.lastDeferredAt,
+      remindAt: remindAt ?? this.remindAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3319,6 +3367,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (lastDeferredAt.present) {
       map['last_deferred_at'] = Variable<DateTime>(lastDeferredAt.value);
     }
+    if (remindAt.present) {
+      map['remind_at'] = Variable<DateTime>(remindAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3352,6 +3403,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('scheduledFor: $scheduledFor, ')
           ..write('slipCount: $slipCount, ')
           ..write('lastDeferredAt: $lastDeferredAt, ')
+          ..write('remindAt: $remindAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5971,10 +6023,18 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
   final String targetTable;
   final String rowId;
 
-  /// JSON object of changed field name -> new value.
+  /// JSON array of the dirty column names, e.g. `["priority","title"]`.
+  ///
+  /// Names, not values. Values are read from the row at push time together with their
+  /// real per-field clocks in `field_versions`, which is what lets repeated edits to one
+  /// row coalesce into a single entry without misstating when each field was written.
+  /// See `SyncWriter`.
   final String changedFields;
 
-  /// Hybrid logical clock at the time of the edit, as 'wallMs:counter:clientId'.
+  /// The newest clock that touched this entry, as an encoded `Hlc`.
+  ///
+  /// Replaced on every coalesce. A push removes an entry only if this is unchanged since
+  /// it read it, so an edit landing mid-push is never lost.
   final String hlc;
   final DateTime queuedAt;
   const OutboxData({
@@ -6509,6 +6569,174 @@ class $CapacityProfilesTable extends CapacityProfiles
     requiredDuringInsert: false,
     defaultValue: const Constant(23 * 60 + 30),
   );
+  static const VerificationMeta _wakeMonMinMeta = const VerificationMeta(
+    'wakeMonMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeMonMin = GeneratedColumn<int>(
+    'wake_mon_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeMonMinMeta = const VerificationMeta(
+    'bedtimeMonMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeMonMin = GeneratedColumn<int>(
+    'bedtime_mon_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeTueMinMeta = const VerificationMeta(
+    'wakeTueMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeTueMin = GeneratedColumn<int>(
+    'wake_tue_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeTueMinMeta = const VerificationMeta(
+    'bedtimeTueMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeTueMin = GeneratedColumn<int>(
+    'bedtime_tue_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeWedMinMeta = const VerificationMeta(
+    'wakeWedMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeWedMin = GeneratedColumn<int>(
+    'wake_wed_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeWedMinMeta = const VerificationMeta(
+    'bedtimeWedMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeWedMin = GeneratedColumn<int>(
+    'bedtime_wed_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeThuMinMeta = const VerificationMeta(
+    'wakeThuMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeThuMin = GeneratedColumn<int>(
+    'wake_thu_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeThuMinMeta = const VerificationMeta(
+    'bedtimeThuMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeThuMin = GeneratedColumn<int>(
+    'bedtime_thu_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeFriMinMeta = const VerificationMeta(
+    'wakeFriMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeFriMin = GeneratedColumn<int>(
+    'wake_fri_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeFriMinMeta = const VerificationMeta(
+    'bedtimeFriMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeFriMin = GeneratedColumn<int>(
+    'bedtime_fri_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeSatMinMeta = const VerificationMeta(
+    'wakeSatMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeSatMin = GeneratedColumn<int>(
+    'wake_sat_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeSatMinMeta = const VerificationMeta(
+    'bedtimeSatMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeSatMin = GeneratedColumn<int>(
+    'bedtime_sat_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
+  static const VerificationMeta _wakeSunMinMeta = const VerificationMeta(
+    'wakeSunMin',
+  );
+  @override
+  late final GeneratedColumn<int> wakeSunMin = GeneratedColumn<int>(
+    'wake_sun_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(420),
+  );
+  static const VerificationMeta _bedtimeSunMinMeta = const VerificationMeta(
+    'bedtimeSunMin',
+  );
+  @override
+  late final GeneratedColumn<int> bedtimeSunMin = GeneratedColumn<int>(
+    'bedtime_sun_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1410),
+  );
   static const VerificationMeta _mealsMinMeta = const VerificationMeta(
     'mealsMin',
   );
@@ -6568,6 +6796,20 @@ class $CapacityProfilesTable extends CapacityProfiles
     workspaceId,
     sleepTargetMin,
     sleepStartMin,
+    wakeMonMin,
+    bedtimeMonMin,
+    wakeTueMin,
+    bedtimeTueMin,
+    wakeWedMin,
+    bedtimeWedMin,
+    wakeThuMin,
+    bedtimeThuMin,
+    wakeFriMin,
+    bedtimeFriMin,
+    wakeSatMin,
+    bedtimeSatMin,
+    wakeSunMin,
+    bedtimeSunMin,
     mealsMin,
     bufferMin,
     focusFactor,
@@ -6652,6 +6894,132 @@ class $CapacityProfilesTable extends CapacityProfiles
         ),
       );
     }
+    if (data.containsKey('wake_mon_min')) {
+      context.handle(
+        _wakeMonMinMeta,
+        wakeMonMin.isAcceptableOrUnknown(
+          data['wake_mon_min']!,
+          _wakeMonMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_mon_min')) {
+      context.handle(
+        _bedtimeMonMinMeta,
+        bedtimeMonMin.isAcceptableOrUnknown(
+          data['bedtime_mon_min']!,
+          _bedtimeMonMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_tue_min')) {
+      context.handle(
+        _wakeTueMinMeta,
+        wakeTueMin.isAcceptableOrUnknown(
+          data['wake_tue_min']!,
+          _wakeTueMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_tue_min')) {
+      context.handle(
+        _bedtimeTueMinMeta,
+        bedtimeTueMin.isAcceptableOrUnknown(
+          data['bedtime_tue_min']!,
+          _bedtimeTueMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_wed_min')) {
+      context.handle(
+        _wakeWedMinMeta,
+        wakeWedMin.isAcceptableOrUnknown(
+          data['wake_wed_min']!,
+          _wakeWedMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_wed_min')) {
+      context.handle(
+        _bedtimeWedMinMeta,
+        bedtimeWedMin.isAcceptableOrUnknown(
+          data['bedtime_wed_min']!,
+          _bedtimeWedMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_thu_min')) {
+      context.handle(
+        _wakeThuMinMeta,
+        wakeThuMin.isAcceptableOrUnknown(
+          data['wake_thu_min']!,
+          _wakeThuMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_thu_min')) {
+      context.handle(
+        _bedtimeThuMinMeta,
+        bedtimeThuMin.isAcceptableOrUnknown(
+          data['bedtime_thu_min']!,
+          _bedtimeThuMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_fri_min')) {
+      context.handle(
+        _wakeFriMinMeta,
+        wakeFriMin.isAcceptableOrUnknown(
+          data['wake_fri_min']!,
+          _wakeFriMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_fri_min')) {
+      context.handle(
+        _bedtimeFriMinMeta,
+        bedtimeFriMin.isAcceptableOrUnknown(
+          data['bedtime_fri_min']!,
+          _bedtimeFriMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_sat_min')) {
+      context.handle(
+        _wakeSatMinMeta,
+        wakeSatMin.isAcceptableOrUnknown(
+          data['wake_sat_min']!,
+          _wakeSatMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_sat_min')) {
+      context.handle(
+        _bedtimeSatMinMeta,
+        bedtimeSatMin.isAcceptableOrUnknown(
+          data['bedtime_sat_min']!,
+          _bedtimeSatMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_sun_min')) {
+      context.handle(
+        _wakeSunMinMeta,
+        wakeSunMin.isAcceptableOrUnknown(
+          data['wake_sun_min']!,
+          _wakeSunMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bedtime_sun_min')) {
+      context.handle(
+        _bedtimeSunMinMeta,
+        bedtimeSunMin.isAcceptableOrUnknown(
+          data['bedtime_sun_min']!,
+          _bedtimeSunMinMeta,
+        ),
+      );
+    }
     if (data.containsKey('meals_min')) {
       context.handle(
         _mealsMinMeta,
@@ -6724,6 +7092,62 @@ class $CapacityProfilesTable extends CapacityProfiles
         DriftSqlType.int,
         data['${effectivePrefix}sleep_start_min'],
       )!,
+      wakeMonMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_mon_min'],
+      )!,
+      bedtimeMonMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_mon_min'],
+      )!,
+      wakeTueMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_tue_min'],
+      )!,
+      bedtimeTueMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_tue_min'],
+      )!,
+      wakeWedMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_wed_min'],
+      )!,
+      bedtimeWedMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_wed_min'],
+      )!,
+      wakeThuMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_thu_min'],
+      )!,
+      bedtimeThuMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_thu_min'],
+      )!,
+      wakeFriMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_fri_min'],
+      )!,
+      bedtimeFriMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_fri_min'],
+      )!,
+      wakeSatMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_sat_min'],
+      )!,
+      bedtimeSatMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_sat_min'],
+      )!,
+      wakeSunMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wake_sun_min'],
+      )!,
+      bedtimeSunMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bedtime_sun_min'],
+      )!,
       mealsMin: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}meals_min'],
@@ -6765,13 +7189,28 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
   final String fieldVersions;
   final String workspaceId;
 
-  /// Protected floor, not a resource. No code path may schedule into it or offer it as a
-  /// way to make something fit.
+  /// The least sleep wanted in a night. Protected floor, not a resource: no code path may
+  /// schedule into sleep or offer it as a way to make something fit, and nights shorter
+  /// than this are reported.
   final int sleepTargetMin;
 
-  /// When sleep begins, as minutes past midnight. Needed because gaps are computed over
-  /// a real waking window, not just a duration subtracted from 1440.
+  /// When sleep began, before sleep was set per day. Kept so a version of the app from
+  /// before then, still syncing, reads a sensible value; nothing current reads it.
   final int sleepStartMin;
+  final int wakeMonMin;
+  final int bedtimeMonMin;
+  final int wakeTueMin;
+  final int bedtimeTueMin;
+  final int wakeWedMin;
+  final int bedtimeWedMin;
+  final int wakeThuMin;
+  final int bedtimeThuMin;
+  final int wakeFriMin;
+  final int bedtimeFriMin;
+  final int wakeSatMin;
+  final int bedtimeSatMin;
+  final int wakeSunMin;
+  final int bedtimeSunMin;
   final int mealsMin;
 
   /// Transit, admin, life.
@@ -6794,6 +7233,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
     required this.workspaceId,
     required this.sleepTargetMin,
     required this.sleepStartMin,
+    required this.wakeMonMin,
+    required this.bedtimeMonMin,
+    required this.wakeTueMin,
+    required this.bedtimeTueMin,
+    required this.wakeWedMin,
+    required this.bedtimeWedMin,
+    required this.wakeThuMin,
+    required this.bedtimeThuMin,
+    required this.wakeFriMin,
+    required this.bedtimeFriMin,
+    required this.wakeSatMin,
+    required this.bedtimeSatMin,
+    required this.wakeSunMin,
+    required this.bedtimeSunMin,
     required this.mealsMin,
     required this.bufferMin,
     required this.focusFactor,
@@ -6815,6 +7268,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
     map['workspace_id'] = Variable<String>(workspaceId);
     map['sleep_target_min'] = Variable<int>(sleepTargetMin);
     map['sleep_start_min'] = Variable<int>(sleepStartMin);
+    map['wake_mon_min'] = Variable<int>(wakeMonMin);
+    map['bedtime_mon_min'] = Variable<int>(bedtimeMonMin);
+    map['wake_tue_min'] = Variable<int>(wakeTueMin);
+    map['bedtime_tue_min'] = Variable<int>(bedtimeTueMin);
+    map['wake_wed_min'] = Variable<int>(wakeWedMin);
+    map['bedtime_wed_min'] = Variable<int>(bedtimeWedMin);
+    map['wake_thu_min'] = Variable<int>(wakeThuMin);
+    map['bedtime_thu_min'] = Variable<int>(bedtimeThuMin);
+    map['wake_fri_min'] = Variable<int>(wakeFriMin);
+    map['bedtime_fri_min'] = Variable<int>(bedtimeFriMin);
+    map['wake_sat_min'] = Variable<int>(wakeSatMin);
+    map['bedtime_sat_min'] = Variable<int>(bedtimeSatMin);
+    map['wake_sun_min'] = Variable<int>(wakeSunMin);
+    map['bedtime_sun_min'] = Variable<int>(bedtimeSunMin);
     map['meals_min'] = Variable<int>(mealsMin);
     map['buffer_min'] = Variable<int>(bufferMin);
     map['focus_factor'] = Variable<double>(focusFactor);
@@ -6837,6 +7304,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
       workspaceId: Value(workspaceId),
       sleepTargetMin: Value(sleepTargetMin),
       sleepStartMin: Value(sleepStartMin),
+      wakeMonMin: Value(wakeMonMin),
+      bedtimeMonMin: Value(bedtimeMonMin),
+      wakeTueMin: Value(wakeTueMin),
+      bedtimeTueMin: Value(bedtimeTueMin),
+      wakeWedMin: Value(wakeWedMin),
+      bedtimeWedMin: Value(bedtimeWedMin),
+      wakeThuMin: Value(wakeThuMin),
+      bedtimeThuMin: Value(bedtimeThuMin),
+      wakeFriMin: Value(wakeFriMin),
+      bedtimeFriMin: Value(bedtimeFriMin),
+      wakeSatMin: Value(wakeSatMin),
+      bedtimeSatMin: Value(bedtimeSatMin),
+      wakeSunMin: Value(wakeSunMin),
+      bedtimeSunMin: Value(bedtimeSunMin),
       mealsMin: Value(mealsMin),
       bufferMin: Value(bufferMin),
       focusFactor: Value(focusFactor),
@@ -6859,6 +7340,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
       workspaceId: serializer.fromJson<String>(json['workspaceId']),
       sleepTargetMin: serializer.fromJson<int>(json['sleepTargetMin']),
       sleepStartMin: serializer.fromJson<int>(json['sleepStartMin']),
+      wakeMonMin: serializer.fromJson<int>(json['wakeMonMin']),
+      bedtimeMonMin: serializer.fromJson<int>(json['bedtimeMonMin']),
+      wakeTueMin: serializer.fromJson<int>(json['wakeTueMin']),
+      bedtimeTueMin: serializer.fromJson<int>(json['bedtimeTueMin']),
+      wakeWedMin: serializer.fromJson<int>(json['wakeWedMin']),
+      bedtimeWedMin: serializer.fromJson<int>(json['bedtimeWedMin']),
+      wakeThuMin: serializer.fromJson<int>(json['wakeThuMin']),
+      bedtimeThuMin: serializer.fromJson<int>(json['bedtimeThuMin']),
+      wakeFriMin: serializer.fromJson<int>(json['wakeFriMin']),
+      bedtimeFriMin: serializer.fromJson<int>(json['bedtimeFriMin']),
+      wakeSatMin: serializer.fromJson<int>(json['wakeSatMin']),
+      bedtimeSatMin: serializer.fromJson<int>(json['bedtimeSatMin']),
+      wakeSunMin: serializer.fromJson<int>(json['wakeSunMin']),
+      bedtimeSunMin: serializer.fromJson<int>(json['bedtimeSunMin']),
       mealsMin: serializer.fromJson<int>(json['mealsMin']),
       bufferMin: serializer.fromJson<int>(json['bufferMin']),
       focusFactor: serializer.fromJson<double>(json['focusFactor']),
@@ -6878,6 +7373,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
       'workspaceId': serializer.toJson<String>(workspaceId),
       'sleepTargetMin': serializer.toJson<int>(sleepTargetMin),
       'sleepStartMin': serializer.toJson<int>(sleepStartMin),
+      'wakeMonMin': serializer.toJson<int>(wakeMonMin),
+      'bedtimeMonMin': serializer.toJson<int>(bedtimeMonMin),
+      'wakeTueMin': serializer.toJson<int>(wakeTueMin),
+      'bedtimeTueMin': serializer.toJson<int>(bedtimeTueMin),
+      'wakeWedMin': serializer.toJson<int>(wakeWedMin),
+      'bedtimeWedMin': serializer.toJson<int>(bedtimeWedMin),
+      'wakeThuMin': serializer.toJson<int>(wakeThuMin),
+      'bedtimeThuMin': serializer.toJson<int>(bedtimeThuMin),
+      'wakeFriMin': serializer.toJson<int>(wakeFriMin),
+      'bedtimeFriMin': serializer.toJson<int>(bedtimeFriMin),
+      'wakeSatMin': serializer.toJson<int>(wakeSatMin),
+      'bedtimeSatMin': serializer.toJson<int>(bedtimeSatMin),
+      'wakeSunMin': serializer.toJson<int>(wakeSunMin),
+      'bedtimeSunMin': serializer.toJson<int>(bedtimeSunMin),
       'mealsMin': serializer.toJson<int>(mealsMin),
       'bufferMin': serializer.toJson<int>(bufferMin),
       'focusFactor': serializer.toJson<double>(focusFactor),
@@ -6895,6 +7404,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
     String? workspaceId,
     int? sleepTargetMin,
     int? sleepStartMin,
+    int? wakeMonMin,
+    int? bedtimeMonMin,
+    int? wakeTueMin,
+    int? bedtimeTueMin,
+    int? wakeWedMin,
+    int? bedtimeWedMin,
+    int? wakeThuMin,
+    int? bedtimeThuMin,
+    int? wakeFriMin,
+    int? bedtimeFriMin,
+    int? wakeSatMin,
+    int? bedtimeSatMin,
+    int? wakeSunMin,
+    int? bedtimeSunMin,
     int? mealsMin,
     int? bufferMin,
     double? focusFactor,
@@ -6909,6 +7432,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
     workspaceId: workspaceId ?? this.workspaceId,
     sleepTargetMin: sleepTargetMin ?? this.sleepTargetMin,
     sleepStartMin: sleepStartMin ?? this.sleepStartMin,
+    wakeMonMin: wakeMonMin ?? this.wakeMonMin,
+    bedtimeMonMin: bedtimeMonMin ?? this.bedtimeMonMin,
+    wakeTueMin: wakeTueMin ?? this.wakeTueMin,
+    bedtimeTueMin: bedtimeTueMin ?? this.bedtimeTueMin,
+    wakeWedMin: wakeWedMin ?? this.wakeWedMin,
+    bedtimeWedMin: bedtimeWedMin ?? this.bedtimeWedMin,
+    wakeThuMin: wakeThuMin ?? this.wakeThuMin,
+    bedtimeThuMin: bedtimeThuMin ?? this.bedtimeThuMin,
+    wakeFriMin: wakeFriMin ?? this.wakeFriMin,
+    bedtimeFriMin: bedtimeFriMin ?? this.bedtimeFriMin,
+    wakeSatMin: wakeSatMin ?? this.wakeSatMin,
+    bedtimeSatMin: bedtimeSatMin ?? this.bedtimeSatMin,
+    wakeSunMin: wakeSunMin ?? this.wakeSunMin,
+    bedtimeSunMin: bedtimeSunMin ?? this.bedtimeSunMin,
     mealsMin: mealsMin ?? this.mealsMin,
     bufferMin: bufferMin ?? this.bufferMin,
     focusFactor: focusFactor ?? this.focusFactor,
@@ -6933,6 +7470,48 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
       sleepStartMin: data.sleepStartMin.present
           ? data.sleepStartMin.value
           : this.sleepStartMin,
+      wakeMonMin: data.wakeMonMin.present
+          ? data.wakeMonMin.value
+          : this.wakeMonMin,
+      bedtimeMonMin: data.bedtimeMonMin.present
+          ? data.bedtimeMonMin.value
+          : this.bedtimeMonMin,
+      wakeTueMin: data.wakeTueMin.present
+          ? data.wakeTueMin.value
+          : this.wakeTueMin,
+      bedtimeTueMin: data.bedtimeTueMin.present
+          ? data.bedtimeTueMin.value
+          : this.bedtimeTueMin,
+      wakeWedMin: data.wakeWedMin.present
+          ? data.wakeWedMin.value
+          : this.wakeWedMin,
+      bedtimeWedMin: data.bedtimeWedMin.present
+          ? data.bedtimeWedMin.value
+          : this.bedtimeWedMin,
+      wakeThuMin: data.wakeThuMin.present
+          ? data.wakeThuMin.value
+          : this.wakeThuMin,
+      bedtimeThuMin: data.bedtimeThuMin.present
+          ? data.bedtimeThuMin.value
+          : this.bedtimeThuMin,
+      wakeFriMin: data.wakeFriMin.present
+          ? data.wakeFriMin.value
+          : this.wakeFriMin,
+      bedtimeFriMin: data.bedtimeFriMin.present
+          ? data.bedtimeFriMin.value
+          : this.bedtimeFriMin,
+      wakeSatMin: data.wakeSatMin.present
+          ? data.wakeSatMin.value
+          : this.wakeSatMin,
+      bedtimeSatMin: data.bedtimeSatMin.present
+          ? data.bedtimeSatMin.value
+          : this.bedtimeSatMin,
+      wakeSunMin: data.wakeSunMin.present
+          ? data.wakeSunMin.value
+          : this.wakeSunMin,
+      bedtimeSunMin: data.bedtimeSunMin.present
+          ? data.bedtimeSunMin.value
+          : this.bedtimeSunMin,
       mealsMin: data.mealsMin.present ? data.mealsMin.value : this.mealsMin,
       bufferMin: data.bufferMin.present ? data.bufferMin.value : this.bufferMin,
       focusFactor: data.focusFactor.present
@@ -6954,6 +7533,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
           ..write('workspaceId: $workspaceId, ')
           ..write('sleepTargetMin: $sleepTargetMin, ')
           ..write('sleepStartMin: $sleepStartMin, ')
+          ..write('wakeMonMin: $wakeMonMin, ')
+          ..write('bedtimeMonMin: $bedtimeMonMin, ')
+          ..write('wakeTueMin: $wakeTueMin, ')
+          ..write('bedtimeTueMin: $bedtimeTueMin, ')
+          ..write('wakeWedMin: $wakeWedMin, ')
+          ..write('bedtimeWedMin: $bedtimeWedMin, ')
+          ..write('wakeThuMin: $wakeThuMin, ')
+          ..write('bedtimeThuMin: $bedtimeThuMin, ')
+          ..write('wakeFriMin: $wakeFriMin, ')
+          ..write('bedtimeFriMin: $bedtimeFriMin, ')
+          ..write('wakeSatMin: $wakeSatMin, ')
+          ..write('bedtimeSatMin: $bedtimeSatMin, ')
+          ..write('wakeSunMin: $wakeSunMin, ')
+          ..write('bedtimeSunMin: $bedtimeSunMin, ')
           ..write('mealsMin: $mealsMin, ')
           ..write('bufferMin: $bufferMin, ')
           ..write('focusFactor: $focusFactor, ')
@@ -6963,7 +7556,7 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     createdAt,
     updatedAt,
@@ -6973,11 +7566,25 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
     workspaceId,
     sleepTargetMin,
     sleepStartMin,
+    wakeMonMin,
+    bedtimeMonMin,
+    wakeTueMin,
+    bedtimeTueMin,
+    wakeWedMin,
+    bedtimeWedMin,
+    wakeThuMin,
+    bedtimeThuMin,
+    wakeFriMin,
+    bedtimeFriMin,
+    wakeSatMin,
+    bedtimeSatMin,
+    wakeSunMin,
+    bedtimeSunMin,
     mealsMin,
     bufferMin,
     focusFactor,
     minGapMin,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6991,6 +7598,20 @@ class CapacityProfile extends DataClass implements Insertable<CapacityProfile> {
           other.workspaceId == this.workspaceId &&
           other.sleepTargetMin == this.sleepTargetMin &&
           other.sleepStartMin == this.sleepStartMin &&
+          other.wakeMonMin == this.wakeMonMin &&
+          other.bedtimeMonMin == this.bedtimeMonMin &&
+          other.wakeTueMin == this.wakeTueMin &&
+          other.bedtimeTueMin == this.bedtimeTueMin &&
+          other.wakeWedMin == this.wakeWedMin &&
+          other.bedtimeWedMin == this.bedtimeWedMin &&
+          other.wakeThuMin == this.wakeThuMin &&
+          other.bedtimeThuMin == this.bedtimeThuMin &&
+          other.wakeFriMin == this.wakeFriMin &&
+          other.bedtimeFriMin == this.bedtimeFriMin &&
+          other.wakeSatMin == this.wakeSatMin &&
+          other.bedtimeSatMin == this.bedtimeSatMin &&
+          other.wakeSunMin == this.wakeSunMin &&
+          other.bedtimeSunMin == this.bedtimeSunMin &&
           other.mealsMin == this.mealsMin &&
           other.bufferMin == this.bufferMin &&
           other.focusFactor == this.focusFactor &&
@@ -7007,6 +7628,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
   final Value<String> workspaceId;
   final Value<int> sleepTargetMin;
   final Value<int> sleepStartMin;
+  final Value<int> wakeMonMin;
+  final Value<int> bedtimeMonMin;
+  final Value<int> wakeTueMin;
+  final Value<int> bedtimeTueMin;
+  final Value<int> wakeWedMin;
+  final Value<int> bedtimeWedMin;
+  final Value<int> wakeThuMin;
+  final Value<int> bedtimeThuMin;
+  final Value<int> wakeFriMin;
+  final Value<int> bedtimeFriMin;
+  final Value<int> wakeSatMin;
+  final Value<int> bedtimeSatMin;
+  final Value<int> wakeSunMin;
+  final Value<int> bedtimeSunMin;
   final Value<int> mealsMin;
   final Value<int> bufferMin;
   final Value<double> focusFactor;
@@ -7022,6 +7657,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
     this.workspaceId = const Value.absent(),
     this.sleepTargetMin = const Value.absent(),
     this.sleepStartMin = const Value.absent(),
+    this.wakeMonMin = const Value.absent(),
+    this.bedtimeMonMin = const Value.absent(),
+    this.wakeTueMin = const Value.absent(),
+    this.bedtimeTueMin = const Value.absent(),
+    this.wakeWedMin = const Value.absent(),
+    this.bedtimeWedMin = const Value.absent(),
+    this.wakeThuMin = const Value.absent(),
+    this.bedtimeThuMin = const Value.absent(),
+    this.wakeFriMin = const Value.absent(),
+    this.bedtimeFriMin = const Value.absent(),
+    this.wakeSatMin = const Value.absent(),
+    this.bedtimeSatMin = const Value.absent(),
+    this.wakeSunMin = const Value.absent(),
+    this.bedtimeSunMin = const Value.absent(),
     this.mealsMin = const Value.absent(),
     this.bufferMin = const Value.absent(),
     this.focusFactor = const Value.absent(),
@@ -7038,6 +7687,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
     required String workspaceId,
     this.sleepTargetMin = const Value.absent(),
     this.sleepStartMin = const Value.absent(),
+    this.wakeMonMin = const Value.absent(),
+    this.bedtimeMonMin = const Value.absent(),
+    this.wakeTueMin = const Value.absent(),
+    this.bedtimeTueMin = const Value.absent(),
+    this.wakeWedMin = const Value.absent(),
+    this.bedtimeWedMin = const Value.absent(),
+    this.wakeThuMin = const Value.absent(),
+    this.bedtimeThuMin = const Value.absent(),
+    this.wakeFriMin = const Value.absent(),
+    this.bedtimeFriMin = const Value.absent(),
+    this.wakeSatMin = const Value.absent(),
+    this.bedtimeSatMin = const Value.absent(),
+    this.wakeSunMin = const Value.absent(),
+    this.bedtimeSunMin = const Value.absent(),
     this.mealsMin = const Value.absent(),
     this.bufferMin = const Value.absent(),
     this.focusFactor = const Value.absent(),
@@ -7055,6 +7718,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
     Expression<String>? workspaceId,
     Expression<int>? sleepTargetMin,
     Expression<int>? sleepStartMin,
+    Expression<int>? wakeMonMin,
+    Expression<int>? bedtimeMonMin,
+    Expression<int>? wakeTueMin,
+    Expression<int>? bedtimeTueMin,
+    Expression<int>? wakeWedMin,
+    Expression<int>? bedtimeWedMin,
+    Expression<int>? wakeThuMin,
+    Expression<int>? bedtimeThuMin,
+    Expression<int>? wakeFriMin,
+    Expression<int>? bedtimeFriMin,
+    Expression<int>? wakeSatMin,
+    Expression<int>? bedtimeSatMin,
+    Expression<int>? wakeSunMin,
+    Expression<int>? bedtimeSunMin,
     Expression<int>? mealsMin,
     Expression<int>? bufferMin,
     Expression<double>? focusFactor,
@@ -7071,6 +7748,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
       if (workspaceId != null) 'workspace_id': workspaceId,
       if (sleepTargetMin != null) 'sleep_target_min': sleepTargetMin,
       if (sleepStartMin != null) 'sleep_start_min': sleepStartMin,
+      if (wakeMonMin != null) 'wake_mon_min': wakeMonMin,
+      if (bedtimeMonMin != null) 'bedtime_mon_min': bedtimeMonMin,
+      if (wakeTueMin != null) 'wake_tue_min': wakeTueMin,
+      if (bedtimeTueMin != null) 'bedtime_tue_min': bedtimeTueMin,
+      if (wakeWedMin != null) 'wake_wed_min': wakeWedMin,
+      if (bedtimeWedMin != null) 'bedtime_wed_min': bedtimeWedMin,
+      if (wakeThuMin != null) 'wake_thu_min': wakeThuMin,
+      if (bedtimeThuMin != null) 'bedtime_thu_min': bedtimeThuMin,
+      if (wakeFriMin != null) 'wake_fri_min': wakeFriMin,
+      if (bedtimeFriMin != null) 'bedtime_fri_min': bedtimeFriMin,
+      if (wakeSatMin != null) 'wake_sat_min': wakeSatMin,
+      if (bedtimeSatMin != null) 'bedtime_sat_min': bedtimeSatMin,
+      if (wakeSunMin != null) 'wake_sun_min': wakeSunMin,
+      if (bedtimeSunMin != null) 'bedtime_sun_min': bedtimeSunMin,
       if (mealsMin != null) 'meals_min': mealsMin,
       if (bufferMin != null) 'buffer_min': bufferMin,
       if (focusFactor != null) 'focus_factor': focusFactor,
@@ -7089,6 +7780,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
     Value<String>? workspaceId,
     Value<int>? sleepTargetMin,
     Value<int>? sleepStartMin,
+    Value<int>? wakeMonMin,
+    Value<int>? bedtimeMonMin,
+    Value<int>? wakeTueMin,
+    Value<int>? bedtimeTueMin,
+    Value<int>? wakeWedMin,
+    Value<int>? bedtimeWedMin,
+    Value<int>? wakeThuMin,
+    Value<int>? bedtimeThuMin,
+    Value<int>? wakeFriMin,
+    Value<int>? bedtimeFriMin,
+    Value<int>? wakeSatMin,
+    Value<int>? bedtimeSatMin,
+    Value<int>? wakeSunMin,
+    Value<int>? bedtimeSunMin,
     Value<int>? mealsMin,
     Value<int>? bufferMin,
     Value<double>? focusFactor,
@@ -7105,6 +7810,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
       workspaceId: workspaceId ?? this.workspaceId,
       sleepTargetMin: sleepTargetMin ?? this.sleepTargetMin,
       sleepStartMin: sleepStartMin ?? this.sleepStartMin,
+      wakeMonMin: wakeMonMin ?? this.wakeMonMin,
+      bedtimeMonMin: bedtimeMonMin ?? this.bedtimeMonMin,
+      wakeTueMin: wakeTueMin ?? this.wakeTueMin,
+      bedtimeTueMin: bedtimeTueMin ?? this.bedtimeTueMin,
+      wakeWedMin: wakeWedMin ?? this.wakeWedMin,
+      bedtimeWedMin: bedtimeWedMin ?? this.bedtimeWedMin,
+      wakeThuMin: wakeThuMin ?? this.wakeThuMin,
+      bedtimeThuMin: bedtimeThuMin ?? this.bedtimeThuMin,
+      wakeFriMin: wakeFriMin ?? this.wakeFriMin,
+      bedtimeFriMin: bedtimeFriMin ?? this.bedtimeFriMin,
+      wakeSatMin: wakeSatMin ?? this.wakeSatMin,
+      bedtimeSatMin: bedtimeSatMin ?? this.bedtimeSatMin,
+      wakeSunMin: wakeSunMin ?? this.wakeSunMin,
+      bedtimeSunMin: bedtimeSunMin ?? this.bedtimeSunMin,
       mealsMin: mealsMin ?? this.mealsMin,
       bufferMin: bufferMin ?? this.bufferMin,
       focusFactor: focusFactor ?? this.focusFactor,
@@ -7143,6 +7862,48 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
     if (sleepStartMin.present) {
       map['sleep_start_min'] = Variable<int>(sleepStartMin.value);
     }
+    if (wakeMonMin.present) {
+      map['wake_mon_min'] = Variable<int>(wakeMonMin.value);
+    }
+    if (bedtimeMonMin.present) {
+      map['bedtime_mon_min'] = Variable<int>(bedtimeMonMin.value);
+    }
+    if (wakeTueMin.present) {
+      map['wake_tue_min'] = Variable<int>(wakeTueMin.value);
+    }
+    if (bedtimeTueMin.present) {
+      map['bedtime_tue_min'] = Variable<int>(bedtimeTueMin.value);
+    }
+    if (wakeWedMin.present) {
+      map['wake_wed_min'] = Variable<int>(wakeWedMin.value);
+    }
+    if (bedtimeWedMin.present) {
+      map['bedtime_wed_min'] = Variable<int>(bedtimeWedMin.value);
+    }
+    if (wakeThuMin.present) {
+      map['wake_thu_min'] = Variable<int>(wakeThuMin.value);
+    }
+    if (bedtimeThuMin.present) {
+      map['bedtime_thu_min'] = Variable<int>(bedtimeThuMin.value);
+    }
+    if (wakeFriMin.present) {
+      map['wake_fri_min'] = Variable<int>(wakeFriMin.value);
+    }
+    if (bedtimeFriMin.present) {
+      map['bedtime_fri_min'] = Variable<int>(bedtimeFriMin.value);
+    }
+    if (wakeSatMin.present) {
+      map['wake_sat_min'] = Variable<int>(wakeSatMin.value);
+    }
+    if (bedtimeSatMin.present) {
+      map['bedtime_sat_min'] = Variable<int>(bedtimeSatMin.value);
+    }
+    if (wakeSunMin.present) {
+      map['wake_sun_min'] = Variable<int>(wakeSunMin.value);
+    }
+    if (bedtimeSunMin.present) {
+      map['bedtime_sun_min'] = Variable<int>(bedtimeSunMin.value);
+    }
     if (mealsMin.present) {
       map['meals_min'] = Variable<int>(mealsMin.value);
     }
@@ -7173,6 +7934,20 @@ class CapacityProfilesCompanion extends UpdateCompanion<CapacityProfile> {
           ..write('workspaceId: $workspaceId, ')
           ..write('sleepTargetMin: $sleepTargetMin, ')
           ..write('sleepStartMin: $sleepStartMin, ')
+          ..write('wakeMonMin: $wakeMonMin, ')
+          ..write('bedtimeMonMin: $bedtimeMonMin, ')
+          ..write('wakeTueMin: $wakeTueMin, ')
+          ..write('bedtimeTueMin: $bedtimeTueMin, ')
+          ..write('wakeWedMin: $wakeWedMin, ')
+          ..write('bedtimeWedMin: $bedtimeWedMin, ')
+          ..write('wakeThuMin: $wakeThuMin, ')
+          ..write('bedtimeThuMin: $bedtimeThuMin, ')
+          ..write('wakeFriMin: $wakeFriMin, ')
+          ..write('bedtimeFriMin: $bedtimeFriMin, ')
+          ..write('wakeSatMin: $wakeSatMin, ')
+          ..write('bedtimeSatMin: $bedtimeSatMin, ')
+          ..write('wakeSunMin: $wakeSunMin, ')
+          ..write('bedtimeSunMin: $bedtimeSunMin, ')
           ..write('mealsMin: $mealsMin, ')
           ..write('bufferMin: $bufferMin, ')
           ..write('focusFactor: $focusFactor, ')
@@ -12505,6 +13280,7 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<String?> scheduledFor,
   Value<int> slipCount,
   Value<DateTime?> lastDeferredAt,
+  Value<DateTime?> remindAt,
   Value<int> rowid,
 });
 typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
@@ -12532,6 +13308,7 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<String?> scheduledFor,
   Value<int> slipCount,
   Value<DateTime?> lastDeferredAt,
+  Value<DateTime?> remindAt,
   Value<int> rowid,
 });
 
@@ -12733,6 +13510,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get lastDeferredAt => $composableBuilder(
     column: $table.lastDeferredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get remindAt => $composableBuilder(
+    column: $table.remindAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12959,6 +13741,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get remindAt => $composableBuilder(
+    column: $table.remindAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ListsTableOrderingComposer get listId {
     final $$ListsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13074,6 +13861,9 @@ class $$TasksTableAnnotationComposer
     column: $table.lastDeferredAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get remindAt =>
+      $composableBuilder(column: $table.remindAt, builder: (column) => column);
 
   $$ListsTableAnnotationComposer get listId {
     final $$ListsTableAnnotationComposer composer = $composerBuilder(
@@ -13231,6 +14021,7 @@ class $$TasksTableTableManager
                 Value<String?> scheduledFor = const Value.absent(),
                 Value<int> slipCount = const Value.absent(),
                 Value<DateTime?> lastDeferredAt = const Value.absent(),
+                Value<DateTime?> remindAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
@@ -13257,6 +14048,7 @@ class $$TasksTableTableManager
                 scheduledFor: scheduledFor,
                 slipCount: slipCount,
                 lastDeferredAt: lastDeferredAt,
+                remindAt: remindAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13285,6 +14077,7 @@ class $$TasksTableTableManager
                 Value<String?> scheduledFor = const Value.absent(),
                 Value<int> slipCount = const Value.absent(),
                 Value<DateTime?> lastDeferredAt = const Value.absent(),
+                Value<DateTime?> remindAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
@@ -13311,6 +14104,7 @@ class $$TasksTableTableManager
                 scheduledFor: scheduledFor,
                 slipCount: slipCount,
                 lastDeferredAt: lastDeferredAt,
+                remindAt: remindAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -15404,6 +16198,20 @@ typedef $$CapacityProfilesTableCreateCompanionBuilder =
       required String workspaceId,
       Value<int> sleepTargetMin,
       Value<int> sleepStartMin,
+      Value<int> wakeMonMin,
+      Value<int> bedtimeMonMin,
+      Value<int> wakeTueMin,
+      Value<int> bedtimeTueMin,
+      Value<int> wakeWedMin,
+      Value<int> bedtimeWedMin,
+      Value<int> wakeThuMin,
+      Value<int> bedtimeThuMin,
+      Value<int> wakeFriMin,
+      Value<int> bedtimeFriMin,
+      Value<int> wakeSatMin,
+      Value<int> bedtimeSatMin,
+      Value<int> wakeSunMin,
+      Value<int> bedtimeSunMin,
       Value<int> mealsMin,
       Value<int> bufferMin,
       Value<double> focusFactor,
@@ -15421,6 +16229,20 @@ typedef $$CapacityProfilesTableUpdateCompanionBuilder =
       Value<String> workspaceId,
       Value<int> sleepTargetMin,
       Value<int> sleepStartMin,
+      Value<int> wakeMonMin,
+      Value<int> bedtimeMonMin,
+      Value<int> wakeTueMin,
+      Value<int> bedtimeTueMin,
+      Value<int> wakeWedMin,
+      Value<int> bedtimeWedMin,
+      Value<int> wakeThuMin,
+      Value<int> bedtimeThuMin,
+      Value<int> wakeFriMin,
+      Value<int> bedtimeFriMin,
+      Value<int> wakeSatMin,
+      Value<int> bedtimeSatMin,
+      Value<int> wakeSunMin,
+      Value<int> bedtimeSunMin,
       Value<int> mealsMin,
       Value<int> bufferMin,
       Value<double> focusFactor,
@@ -15479,6 +16301,76 @@ class $$CapacityProfilesTableFilterComposer
 
   ColumnFilters<int> get sleepStartMin => $composableBuilder(
     column: $table.sleepStartMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeMonMin => $composableBuilder(
+    column: $table.wakeMonMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeMonMin => $composableBuilder(
+    column: $table.bedtimeMonMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeTueMin => $composableBuilder(
+    column: $table.wakeTueMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeTueMin => $composableBuilder(
+    column: $table.bedtimeTueMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeWedMin => $composableBuilder(
+    column: $table.wakeWedMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeWedMin => $composableBuilder(
+    column: $table.bedtimeWedMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeThuMin => $composableBuilder(
+    column: $table.wakeThuMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeThuMin => $composableBuilder(
+    column: $table.bedtimeThuMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeFriMin => $composableBuilder(
+    column: $table.wakeFriMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeFriMin => $composableBuilder(
+    column: $table.bedtimeFriMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeSatMin => $composableBuilder(
+    column: $table.wakeSatMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeSatMin => $composableBuilder(
+    column: $table.bedtimeSatMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wakeSunMin => $composableBuilder(
+    column: $table.wakeSunMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bedtimeSunMin => $composableBuilder(
+    column: $table.bedtimeSunMin,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15557,6 +16449,76 @@ class $$CapacityProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get wakeMonMin => $composableBuilder(
+    column: $table.wakeMonMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeMonMin => $composableBuilder(
+    column: $table.bedtimeMonMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeTueMin => $composableBuilder(
+    column: $table.wakeTueMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeTueMin => $composableBuilder(
+    column: $table.bedtimeTueMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeWedMin => $composableBuilder(
+    column: $table.wakeWedMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeWedMin => $composableBuilder(
+    column: $table.bedtimeWedMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeThuMin => $composableBuilder(
+    column: $table.wakeThuMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeThuMin => $composableBuilder(
+    column: $table.bedtimeThuMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeFriMin => $composableBuilder(
+    column: $table.wakeFriMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeFriMin => $composableBuilder(
+    column: $table.bedtimeFriMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeSatMin => $composableBuilder(
+    column: $table.wakeSatMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeSatMin => $composableBuilder(
+    column: $table.bedtimeSatMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wakeSunMin => $composableBuilder(
+    column: $table.wakeSunMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bedtimeSunMin => $composableBuilder(
+    column: $table.bedtimeSunMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get mealsMin => $composableBuilder(
     column: $table.mealsMin,
     builder: (column) => ColumnOrderings(column),
@@ -15622,6 +16584,76 @@ class $$CapacityProfilesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get wakeMonMin => $composableBuilder(
+    column: $table.wakeMonMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeMonMin => $composableBuilder(
+    column: $table.bedtimeMonMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeTueMin => $composableBuilder(
+    column: $table.wakeTueMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeTueMin => $composableBuilder(
+    column: $table.bedtimeTueMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeWedMin => $composableBuilder(
+    column: $table.wakeWedMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeWedMin => $composableBuilder(
+    column: $table.bedtimeWedMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeThuMin => $composableBuilder(
+    column: $table.wakeThuMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeThuMin => $composableBuilder(
+    column: $table.bedtimeThuMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeFriMin => $composableBuilder(
+    column: $table.wakeFriMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeFriMin => $composableBuilder(
+    column: $table.bedtimeFriMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeSatMin => $composableBuilder(
+    column: $table.wakeSatMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeSatMin => $composableBuilder(
+    column: $table.bedtimeSatMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wakeSunMin => $composableBuilder(
+    column: $table.wakeSunMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bedtimeSunMin => $composableBuilder(
+    column: $table.bedtimeSunMin,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get mealsMin =>
       $composableBuilder(column: $table.mealsMin, builder: (column) => column);
 
@@ -15683,6 +16715,20 @@ class $$CapacityProfilesTableTableManager
                 Value<String> workspaceId = const Value.absent(),
                 Value<int> sleepTargetMin = const Value.absent(),
                 Value<int> sleepStartMin = const Value.absent(),
+                Value<int> wakeMonMin = const Value.absent(),
+                Value<int> bedtimeMonMin = const Value.absent(),
+                Value<int> wakeTueMin = const Value.absent(),
+                Value<int> bedtimeTueMin = const Value.absent(),
+                Value<int> wakeWedMin = const Value.absent(),
+                Value<int> bedtimeWedMin = const Value.absent(),
+                Value<int> wakeThuMin = const Value.absent(),
+                Value<int> bedtimeThuMin = const Value.absent(),
+                Value<int> wakeFriMin = const Value.absent(),
+                Value<int> bedtimeFriMin = const Value.absent(),
+                Value<int> wakeSatMin = const Value.absent(),
+                Value<int> bedtimeSatMin = const Value.absent(),
+                Value<int> wakeSunMin = const Value.absent(),
+                Value<int> bedtimeSunMin = const Value.absent(),
                 Value<int> mealsMin = const Value.absent(),
                 Value<int> bufferMin = const Value.absent(),
                 Value<double> focusFactor = const Value.absent(),
@@ -15698,6 +16744,20 @@ class $$CapacityProfilesTableTableManager
                 workspaceId: workspaceId,
                 sleepTargetMin: sleepTargetMin,
                 sleepStartMin: sleepStartMin,
+                wakeMonMin: wakeMonMin,
+                bedtimeMonMin: bedtimeMonMin,
+                wakeTueMin: wakeTueMin,
+                bedtimeTueMin: bedtimeTueMin,
+                wakeWedMin: wakeWedMin,
+                bedtimeWedMin: bedtimeWedMin,
+                wakeThuMin: wakeThuMin,
+                bedtimeThuMin: bedtimeThuMin,
+                wakeFriMin: wakeFriMin,
+                bedtimeFriMin: bedtimeFriMin,
+                wakeSatMin: wakeSatMin,
+                bedtimeSatMin: bedtimeSatMin,
+                wakeSunMin: wakeSunMin,
+                bedtimeSunMin: bedtimeSunMin,
                 mealsMin: mealsMin,
                 bufferMin: bufferMin,
                 focusFactor: focusFactor,
@@ -15715,6 +16775,20 @@ class $$CapacityProfilesTableTableManager
                 required String workspaceId,
                 Value<int> sleepTargetMin = const Value.absent(),
                 Value<int> sleepStartMin = const Value.absent(),
+                Value<int> wakeMonMin = const Value.absent(),
+                Value<int> bedtimeMonMin = const Value.absent(),
+                Value<int> wakeTueMin = const Value.absent(),
+                Value<int> bedtimeTueMin = const Value.absent(),
+                Value<int> wakeWedMin = const Value.absent(),
+                Value<int> bedtimeWedMin = const Value.absent(),
+                Value<int> wakeThuMin = const Value.absent(),
+                Value<int> bedtimeThuMin = const Value.absent(),
+                Value<int> wakeFriMin = const Value.absent(),
+                Value<int> bedtimeFriMin = const Value.absent(),
+                Value<int> wakeSatMin = const Value.absent(),
+                Value<int> bedtimeSatMin = const Value.absent(),
+                Value<int> wakeSunMin = const Value.absent(),
+                Value<int> bedtimeSunMin = const Value.absent(),
                 Value<int> mealsMin = const Value.absent(),
                 Value<int> bufferMin = const Value.absent(),
                 Value<double> focusFactor = const Value.absent(),
@@ -15730,6 +16804,20 @@ class $$CapacityProfilesTableTableManager
                 workspaceId: workspaceId,
                 sleepTargetMin: sleepTargetMin,
                 sleepStartMin: sleepStartMin,
+                wakeMonMin: wakeMonMin,
+                bedtimeMonMin: bedtimeMonMin,
+                wakeTueMin: wakeTueMin,
+                bedtimeTueMin: bedtimeTueMin,
+                wakeWedMin: wakeWedMin,
+                bedtimeWedMin: bedtimeWedMin,
+                wakeThuMin: wakeThuMin,
+                bedtimeThuMin: bedtimeThuMin,
+                wakeFriMin: wakeFriMin,
+                bedtimeFriMin: bedtimeFriMin,
+                wakeSatMin: wakeSatMin,
+                bedtimeSatMin: bedtimeSatMin,
+                wakeSunMin: wakeSunMin,
+                bedtimeSunMin: bedtimeSunMin,
                 mealsMin: mealsMin,
                 bufferMin: bufferMin,
                 focusFactor: focusFactor,

@@ -43,6 +43,15 @@ void main() {
         if (RegExp(r'^\s+([a-z_]+)\s').firstMatch(line)?.group(1) case final name?
             when !notColumns.contains(name))
           name,
+      // And every column a later migration adds.
+      for (final statement in RegExp(
+        'alter table public\\.$table\\s(.*?);',
+        dotAll: true,
+      ).allMatches(sql))
+        for (final added in RegExp(
+          r'add column (?:if not exists )?([a-z_]+)',
+        ).allMatches(statement.group(1)!))
+          added.group(1)!,
     };
   }
 

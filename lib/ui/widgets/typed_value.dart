@@ -15,8 +15,13 @@ class TypedValue extends StatefulWidget {
     this.onEdit,
     this.keyboardType = TextInputType.text,
     this.error = false,
+    this.fill = false,
     super.key,
   });
+
+  /// Takes the width it is given rather than [width], for a column in a table whose share
+  /// of the space depends on how much there is.
+  final bool fill;
 
   /// The value as it reads when nobody is typing into it.
   final String text;
@@ -125,7 +130,7 @@ class _TypedValueState extends State<TypedValue> {
 
     return AnimatedContainer(
       duration: AppMotion.quick,
-      width: TypedValue.width,
+      width: widget.fill ? double.infinity : TypedValue.width,
       height: AppLayout.touch ? AppSize.touch - AppSpace.sm : AppSize.chip,
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),

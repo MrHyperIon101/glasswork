@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification icon is named only from Dart, where resource shrinking cannot see it,
+     so a release build would otherwise strip it and every reminder would fail to show. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification" />
