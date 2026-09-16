@@ -40,8 +40,14 @@ class ModalSheet extends StatefulWidget {
   State<ModalSheet> createState() => _ModalSheetState();
 }
 
-class _ModalSheetState extends State<ModalSheet> {
+class _ModalSheetState extends State<ModalSheet> with SingleTickerProviderStateMixin {
   final _scope = FocusScopeNode(debugLabel: 'ModalSheet');
+
+  /// Its own arrival, for a sheet shown without a [SheetPresence] to animate it.
+  late final AnimationController _arrival = AnimationController(
+    vsync: this,
+    duration: AppMotion.slow,
+  );
 
   @override
   void initState() {
@@ -54,7 +60,23 @@ class _ModalSheetState extends State<ModalSheet> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final presence = SheetAnimation.maybeOf(context);
+    if (presence == null && _arrival.isDismissed) {
+      _arrival
+        ..duration = AppMotion.of(context, AppMotion.slow)
+        ..forward();
+    }
+    // On its way out, the keys go back to what had them before it opened.
+    if (presence != null && presence.closing && _scope.hasFocus) {
+      _scope.unfocus(disposition: UnfocusDisposition.previouslyFocusedChild);
+    }
+  }
+
+  @override
   void dispose() {
+    _arrival.dispose();
     _scope.dispose();
     super.dispose();
   }
@@ -62,24 +84,24 @@ class _ModalSheetState extends State<ModalSheet> {
   @override
   Widget build(BuildContext context) {
     final compact = AppLayout.compact(context);
-    final onClose = widget.onClose;
-    final scrim = widget.scrim;
+    final animation =
+        SheetAnimation.maybeOf(context)?.animation ??
+        CurvedAnimation(parent: _arrival, curve: AppMotion.enter);
     final child = FocusScope(node: _scope, child: widget.child);
 
     return Stack(
       children: [
-        // Fades in on its own, so the sheet's spring is not muddied by it.
         Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: AppMotion.quick,
-            builder: (context, t, _) => GestureDetector(
-              onTap: onClose,
-              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, scrim * t)),
+          child: FadeTransition(
+            opacity: animation,
+            child: GestureDetector(
+              onTap: widget.onClose,
+              child: ColoredBox(color: Color.fromRGBO(0, 0, 0, widget.scrim)),
             ),
           ),
         ),
         if (compact)
+          // Rises from the bottom edge, and sinks back into it.
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -89,9 +111,11 @@ class _ModalSheetState extends State<ModalSheet> {
                 AppSpace.sm,
                 AppSpace.sm,
               ),
-              child: SpringIn(
-                from: 1,
-                slide: AppSpace.huge,
+              child: SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, 1.1),
+                  end: Offset.zero,
+                ).animate(animation),
                 child: VibrancyMaterial.sheet(
                   child: SizedBox(width: double.infinity, child: child),
                 ),
@@ -99,17 +123,28 @@ class _ModalSheetState extends State<ModalSheet> {
             ),
           )
         else
+          // Grows a little into place as it fades in, and back as it goes.
           Align(
             alignment: widget.alignment,
             child: Padding(
               padding: const EdgeInsets.all(AppSpace.xxl),
-              child: SpringIn(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: widget.maxWidth,
-                    maxHeight: widget.maxHeight,
+              child: FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween(begin: 0.95, end: 1.0).animate(animation),
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: const Offset(0, 0.03),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: widget.maxWidth,
+                        maxHeight: widget.maxHeight,
+                      ),
+                      child: VibrancyMaterial.sheet(child: child),
+                    ),
                   ),
-                  child: VibrancyMaterial.sheet(child: child),
                 ),
               ),
             ),

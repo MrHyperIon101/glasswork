@@ -288,7 +288,7 @@ class _BlockDialogState extends State<BlockDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(
-                      Icons.info_outline,
+                      Icons.info_outline_rounded,
                       size: 14,
                       color: AppColour.labelTertiary,
                     ),

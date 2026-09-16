@@ -34,6 +34,7 @@ void main() {
     await preferences.setEvening(19 * 60 + 30);
     await preferences.setSnooze(30);
     await preferences.setCaptureProject('project-b');
+    await preferences.setKeepInTray(true);
     await pumpEventQueue();
 
     const chosen = Preferences(
@@ -41,6 +42,7 @@ void main() {
       eveningMin: 19 * 60 + 30,
       snoozeMin: 30,
       captureProjectId: 'project-b',
+      keepInTray: true,
     );
     expect(await preferences.read(), chosen);
     expect(seen.last, chosen);

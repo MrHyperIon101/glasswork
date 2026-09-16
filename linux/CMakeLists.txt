@@ -126,6 +126,11 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/256x256/apps/${APPLIC
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" RENAME "app_icon.png"
   COMPONENT Runtime)
 
+# The tray icon, which AppIndicator finds by name in this folder.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/64x64/apps/${APPLICATION_ID}.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/tray" RENAME "glasswork-tray.png"
+  COMPONENT Runtime)
+
 # Install the AOT library on non-Debug builds only.
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/ledger.dart';
 import '../../theme/tokens.dart';
+import '../block_style.dart';
 import '../format.dart';
+import '../layout.dart';
 
 /// A day drawn as a bar, so where the time goes is visible rather than inferred.
 ///
@@ -97,25 +100,120 @@ class DayTimeline extends StatelessWidget {
                       child: const _Hatched(),
                     ),
 
-                  // Commitments.
+                  // Commitments, each in its own colour.
                   for (final block in day.blocks)
                     Positioned(
                       left: x(block.startMin),
                       width: (x(block.endMin) - x(block.startMin)).clamp(2.0, width),
                       top: 0,
                       bottom: 0,
-                      child: _Block(title: block.title),
+                      child: _Block(block: block),
                     ),
                 ],
               ),
             );
           },
         ),
+        // A phone's bar is too narrow for names, so the blocks are named beneath it, each
+        // with the colour and short name it wears in the bar.
+        if (AppLayout.compact(context) && day.blocks.isNotEmpty) ...[
+          const SizedBox(height: AppSpace.sm),
+          _BlockKey(blocks: day.blocks, dense: dense),
+        ],
         const SizedBox(height: AppSpace.sm),
         _Legend(day: day, allocatedMin: allocatedMin, dense: dense),
       ],
     );
   }
+}
+
+/// The day's blocks by name: colour, short name, full name and when.
+class _BlockKey extends ConsumerWidget {
+  const _BlockKey({required this.blocks, required this.dense});
+
+  final List<BlockSpan> blocks;
+
+  /// A row in a week: short names and times only, which is enough to match the bar.
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colours = ref.watch(blockColoursProvider);
+    // The same block can reach two waking stretches; it is named once.
+    final seen = <String>{};
+    final unique = [
+      for (final block in blocks)
+        if (seen.add('${block.title}|${block.startMin}')) block,
+    ];
+
+    if (dense) {
+      return Wrap(
+        spacing: AppSpace.xs,
+        runSpacing: AppSpace.xs,
+        children: [
+          for (final block in unique)
+            _Tag(
+              colour: BlockStyle.colourIn(colours, block.title),
+              text: '${BlockStyle.abbreviate(block.title)} ${Format.clock(block.startMin)}',
+            ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final block in unique)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+            child: Row(
+              children: [
+                _Tag(
+                  colour: BlockStyle.colourIn(colours, block.title),
+                  text: BlockStyle.abbreviate(block.title),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Text(
+                    block.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.callout.copyWith(color: AppColour.label),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Text(
+                  Format.clockRange(block.startMin, block.endMin),
+                  style: AppText.numeric,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A short name on its block's colour.
+class _Tag extends StatelessWidget {
+  const _Tag({required this.colour, required this.text});
+
+  final Color colour;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
+    decoration: BoxDecoration(
+      color: colour.withValues(alpha: 0.24),
+      borderRadius: AppRadius.smallAll,
+      border: Border.all(color: colour.withValues(alpha: 0.55), width: 0.5),
+    ),
+    child: Text(
+      text,
+      style: AppText.numeric.copyWith(color: AppColour.label, fontSize: 11),
+    ),
+  );
 }
 
 class _HourRuler extends StatelessWidget {
@@ -193,43 +291,60 @@ class _Asleep extends StatelessWidget {
   );
 }
 
-class _Block extends StatelessWidget {
-  const _Block({required this.title});
+class _Block extends ConsumerWidget {
+  const _Block({required this.block});
 
-  final String title;
+  final BlockSpan block;
 
-  /// Narrower than this, a label shows a letter or two, which reads as a glitch rather
-  /// than a name. Such a block goes unlabelled, and its name is in the tooltip.
-  static const _labelledFrom = 56.0;
+  /// Wide enough for its whole name, and for its short name. Narrower than that, a block
+  /// is only its colour, and the key beneath the bar or the tooltip names it.
+  static const _namedFrom = 64.0;
+  static const _shortNamedFrom = 26.0;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: title,
-    child: LayoutBuilder(
-      builder: (context, constraints) => Container(
-        margin: const EdgeInsets.all(1),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-        alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          color: AppColour.purple.withValues(alpha: 0.38),
-          borderRadius: AppRadius.smallAll,
-          border: Border.all(color: AppColour.purple.withValues(alpha: 0.5)),
-        ),
-        child: constraints.maxWidth < _labelledFrom
-            ? null
-            : Text(
-                title,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.numeric.copyWith(
-                  color: AppColour.label,
-                  fontSize: 10,
-                ),
-              ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colour = BlockStyle.colourIn(ref.watch(blockColoursProvider), block.title);
+    return Tooltip(
+      message: '${block.title} · ${Format.clockRange(block.startMin, block.endMin)}',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final label = width >= _namedFrom
+              ? block.title
+              : width >= _shortNamedFrom
+              ? BlockStyle.abbreviate(block.title)
+              : null;
+
+          return Container(
+            margin: const EdgeInsets.all(1),
+            padding: EdgeInsets.symmetric(horizontal: width >= _namedFrom ? AppSpace.sm : 2),
+            alignment: width >= _namedFrom ? Alignment.centerLeft : Alignment.center,
+            decoration: BoxDecoration(
+              color: colour.withValues(alpha: 0.4),
+              borderRadius: AppRadius.smallAll,
+              border: Border.all(color: colour.withValues(alpha: 0.65)),
+            ),
+            child: label == null
+                ? null
+                // A short name gives a little rather than losing its last letters.
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: AppText.numeric.copyWith(
+                        color: AppColour.label,
+                        fontSize: 10,
+                        fontVariations: const [FontVariation('wght', 600)],
+                      ),
+                    ),
+                  ),
+          );
+        },
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Diagonal hatching for time that exists but cannot be used.
@@ -286,7 +401,7 @@ class _Legend extends StatelessWidget {
       children: [
         if (!dense)
           _Swatch(
-            colour: AppColour.purple.withValues(alpha: 0.38),
+            colour: AppColour.labelSecondary,
             label: 'Classes and fixed blocks',
             value: Format.estimate(day.committedMin),
           ),

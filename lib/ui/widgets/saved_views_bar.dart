@@ -9,6 +9,7 @@ import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
 import 'field_controls.dart';
+import '../motion.dart';
 
 /// Named ways of looking at a project.
 ///
@@ -104,7 +105,7 @@ class SavedViewsBar extends ConsumerWidget {
 
   static Future<String?> _askName(BuildContext context) async {
     final controller = TextEditingController();
-    final name = await showDialog<String>(
+    final name = await showAppDialog<String>(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: AppColour.elevated,
@@ -195,9 +196,9 @@ class _ViewChipState extends State<_ViewChip> {
 
   static const _icons = {
     ViewKind.board: Icons.view_kanban_outlined,
-    ViewKind.list: Icons.format_list_bulleted,
+    ViewKind.list: Icons.format_list_bulleted_rounded,
     ViewKind.calendar: Icons.calendar_month_outlined,
-    ViewKind.timeline: Icons.timeline,
+    ViewKind.timeline: Icons.timeline_rounded,
   };
 
   @override
@@ -237,7 +238,7 @@ class _ViewChipState extends State<_ViewChip> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                _icons[widget.view.kind] ?? Icons.filter_list,
+                _icons[widget.view.kind] ?? Icons.filter_list_rounded,
                 size: 13,
                 color: selected ? AppColour.accent : AppColour.labelTertiary,
               ),
@@ -262,7 +263,7 @@ class _ViewChipState extends State<_ViewChip> {
                             right: AppLayout.touch ? AppSpace.xs : 0,
                           ),
                           child: const Icon(
-                            Icons.close,
+                            Icons.close_rounded,
                             size: 12,
                             color: AppColour.labelTertiary,
                           ),

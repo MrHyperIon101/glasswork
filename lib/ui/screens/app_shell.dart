@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app_config.dart';
+import '../../desktop/desktop_shell.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../reminders/reminders.dart';
@@ -14,6 +16,7 @@ import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/new_project_sheet.dart';
+import '../widgets/note_editor_sheet.dart';
 import '../widgets/project_settings_sheet.dart';
 import '../widgets/sync_sheet.dart';
 import '../widgets/sync_status.dart';
@@ -22,6 +25,7 @@ import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
 import 'capacity_screen.dart';
 import 'list_screen.dart';
+import 'notes_screen.dart';
 import 'project_screen.dart';
 import 'settings_screen.dart';
 import 'today_screen.dart';
@@ -39,12 +43,12 @@ class AppShell extends ConsumerWidget {
       // Not an empty box. A blank window is indistinguishable from a crash, and that is
       // exactly how a missing migration hid itself once already.
       loading: () => const _Status(
-        icon: Icons.hourglass_empty,
+        icon: Icons.hourglass_empty_rounded,
         title: 'Opening your data',
         detail: 'This should take a moment.',
       ),
       error: (e, stack) => _Status(
-        icon: Icons.error_outline,
+        icon: Icons.error_outline_rounded,
         tint: AppColour.red,
         title: "The local database didn't open",
         detail: '$e',
@@ -129,12 +133,25 @@ class _ShellState extends ConsumerState<_Shell> {
         ref.read(reminderServiceProvider).update(tasks);
       }
     }, fireImmediately: true);
-    // Snooze waits as long as Settings says, and each reminder's button says how long.
-    ref.listenManual(preferencesProvider, (_, next) {
-      if (next.value case final preferences?) {
-        ref.read(reminderServiceProvider).snooze = preferences.snooze;
+    // Snooze waits as long as Settings says, and each reminder's button says how long. On a
+    // desktop, the tray icon comes and goes with its setting.
+    ref.listenManual(preferencesProvider, (previous, next) {
+      final preferences = next.value;
+      if (preferences == null) return;
+      ref.read(reminderServiceProvider).snooze = preferences.snooze;
+      if (defaultTargetPlatform == TargetPlatform.linux &&
+          preferences.keepInTray != previous?.value?.keepInTray) {
+        ref.read(desktopShellProvider).setKeepInTray(preferences.keepInTray);
       }
     }, fireImmediately: true);
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      ref
+          .read(desktopShellProvider)
+          .listen(
+            onNewTask: () => ref.read(composerOpenProvider.notifier).open(),
+            onNewNote: () => ref.read(openNoteProvider.notifier).create(),
+          );
+    }
     _startReminders();
   }
 
@@ -181,6 +198,10 @@ class _ShellState extends ConsumerState<_Shell> {
                 ref.read(composerOpenProvider.notifier).open(),
             const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
                 ref.read(composerOpenProvider.notifier).open(),
+            const SingleActivator(LogicalKeyboardKey.keyN, control: true, shift: true):
+                () => ref.read(openNoteProvider.notifier).create(),
+            const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true): () =>
+                ref.read(openNoteProvider.notifier).create(),
             const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
                 ref.read(destinationProvider.notifier).go(const SettingsDestination()),
             const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
@@ -214,27 +235,45 @@ class _ShellState extends ConsumerState<_Shell> {
                 ),
 
                 // Narrow layout: the sidebar slides over the content rather than
-                // squeezing it into uselessness.
-                if (!wide && _drawerOpen) ...[
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _drawerOpen = false),
-                      child: const ColoredBox(color: Color(0x99000000)),
+                // squeezing it into uselessness, and slides away again.
+                Positioned.fill(
+                  child: Presence(
+                    visible: !wide && _drawerOpen,
+                    duration: AppMotion.medium,
+                    builder: (context, animation) => Stack(
+                      children: [
+                        Positioned.fill(
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _drawerOpen = false),
+                              child: const ColoredBox(color: Color(0x99000000)),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: AppSpace.md,
+                          top: AppSpace.md,
+                          bottom: AppSpace.md,
+                          width: _sidebarWidth,
+                          child: SlideTransition(
+                            position: Tween(
+                              begin: const Offset(-1.1, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: _Sidebar(
+                              onNavigate: () => setState(() => _drawerOpen = false),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Positioned(
-                    left: AppSpace.md,
-                    top: AppSpace.md,
-                    bottom: AppSpace.md,
-                    width: _sidebarWidth,
-                    child: _Sidebar(
-                      onNavigate: () => setState(() => _drawerOpen = false),
-                    ),
-                  ),
-                ],
+                ),
 
                 const Positioned.fill(child: TaskDetailSheet()),
                 const Positioned.fill(child: TaskComposer()),
+                const Positioned.fill(child: NoteEditorSheet()),
                 const Positioned.fill(child: NewProjectSheet()),
                 const Positioned.fill(child: ProjectSettingsSheet()),
                 const Positioned.fill(child: SyncSheet()),
@@ -289,6 +328,8 @@ class _BackCloses extends ConsumerWidget {
         ref.read(projectSettingsOpenProvider.notifier).close,
       if (ref.watch(newProjectOpenProvider))
         ref.read(newProjectOpenProvider.notifier).close,
+      if (ref.watch(openNoteProvider) != null)
+        ref.read(openNoteProvider.notifier).close,
       if (ref.watch(composerOpenProvider))
         ref.read(composerOpenProvider.notifier).close,
       if (ref.watch(openTaskProvider) != null)
@@ -383,11 +424,19 @@ class _Sidebar extends ConsumerWidget {
                   onTap: () => go(const AllDestination()),
                 ),
                 _SidebarRow(
-                  icon: Icons.check_circle_outline,
+                  icon: Icons.check_circle_outline_rounded,
                   label: 'Completed',
                   tint: AppColour.green,
                   selected: current is DoneDestination,
                   onTap: () => go(const DoneDestination()),
+                ),
+                _SidebarRow(
+                  icon: Icons.sticky_note_2_outlined,
+                  label: 'Notes',
+                  tint: AppColour.yellow,
+                  badge: ref.watch(notesProvider).value?.length,
+                  selected: current is NotesDestination,
+                  onTap: () => go(const NotesDestination()),
                 ),
 
                 const _SectionLabel('Projects'),
@@ -407,7 +456,7 @@ class _Sidebar extends ConsumerWidget {
                   ),
 
                 _SidebarRow(
-                  icon: Icons.add,
+                  icon: Icons.add_rounded,
                   label: 'New project',
                   tint: AppColour.labelTertiary,
                   muted: true,
@@ -594,6 +643,8 @@ class _Content extends ConsumerWidget {
       screen = CapacityScreen(onMenu: onMenu);
     } else if (destination is SettingsDestination) {
       screen = SettingsScreen(onMenu: onMenu);
+    } else if (destination is NotesDestination) {
+      screen = NotesScreen(onMenu: onMenu);
     } else if (destination is ProjectDestination) {
       screen = ProjectScreen(projectId: destination.projectId, onMenu: onMenu);
       key = destination.projectId;

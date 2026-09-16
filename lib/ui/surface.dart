@@ -34,7 +34,12 @@ class AppSurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: colour,
         borderRadius: BorderRadius.all(Radius.circular(radius)),
-        border: border ? Border.all(color: AppColour.separator, width: 0.5) : null,
+        // Always a faint edge, which lifts a card off the ground the way light catches the
+        // rim of a panel; a clear one where two surfaces of similar lightness meet.
+        border: Border.all(
+          color: border ? AppColour.separator : AppColour.separator.withValues(alpha: 0.4),
+          width: 0.5,
+        ),
       ),
       child: Padding(padding: padding, child: child),
     );

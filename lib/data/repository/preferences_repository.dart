@@ -25,6 +25,8 @@ class PreferencesRepository {
   Future<void> setSnooze(int minutes) =>
       _put(Preferences.snoozeKey, Preferences.clampSnooze(minutes));
 
+  Future<void> setKeepInTray(bool keep) => _put(Preferences.keepInTrayKey, keep);
+
   /// Null goes back to the first project.
   Future<void> setCaptureProject(String? projectId) async {
     if (projectId == null) {

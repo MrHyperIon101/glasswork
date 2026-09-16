@@ -9,6 +9,7 @@ import '../../state/reminders_controller.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
@@ -24,18 +25,13 @@ class TaskDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final task = ref.watch(openTaskDetailProvider).value;
+    final task = ref.watch(openTaskProvider) == null
+        ? null
+        : ref.watch(openTaskDetailProvider).value;
 
-    return AnimatedSwitcher(
-      duration: AppMotion.medium,
-      switchInCurve: AppMotion.standard,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: child,
-      ),
-      child: task == null
-          ? const SizedBox.shrink(key: ValueKey('closed'))
-          : _Sheet(key: ValueKey(task.id), task: task),
+    return SheetPresence(
+      open: task != null,
+      builder: (context) => _Sheet(key: ValueKey(task!.id), task: task),
     );
   }
 }
@@ -138,7 +134,7 @@ class _BodyState extends ConsumerState<_Body> {
                   },
                 ),
               ),
-              _SmallIcon(icon: Icons.close, onTap: widget.onClose),
+              _SmallIcon(icon: Icons.close_rounded, onTap: widget.onClose),
             ],
           ),
         ),
@@ -466,7 +462,7 @@ class _Subtasks extends ConsumerWidget {
                   ),
                 ),
                 _SmallIcon(
-                  icon: Icons.close,
+                  icon: Icons.close_rounded,
                   size: 13,
                   onTap: () => scope?.subtasks.softDelete(step.id),
                 ),
@@ -477,7 +473,7 @@ class _Subtasks extends ConsumerWidget {
           padding: const EdgeInsets.only(top: AppSpace.xs),
           child: Row(
             children: [
-              const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),
+              const Icon(Icons.add_rounded, size: 15, color: AppColour.labelTertiary),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: TextField(
@@ -539,7 +535,7 @@ class _Check extends StatelessWidget {
             ),
             child: done
                 ? Icon(
-                    Icons.check,
+                    Icons.check_rounded,
                     size: small ? 10 : 12,
                     color: AppColour.base,
                   )

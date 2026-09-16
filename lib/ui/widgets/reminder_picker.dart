@@ -10,6 +10,7 @@ import '../layout.dart';
 import '../reminder_choice.dart';
 import 'field_controls.dart';
 import 'reminder_dialog.dart';
+import '../motion.dart';
 
 /// When to be reminded about a task, used wherever a task is made or edited.
 ///
@@ -51,7 +52,7 @@ class ReminderPicker extends ConsumerWidget {
     final summary = at == null ? null : ReminderChoice.describe(at, now);
 
     Future<void> choose() async {
-      final chosen = await showDialog<DateTime>(
+      final chosen = await showAppDialog<DateTime>(
         context: context,
         builder: (_) =>
             ReminderDialog(initial: at, morningMin: preferences.morningMin),
@@ -175,7 +176,7 @@ class _SetReminder extends StatelessWidget {
                     AppLayout.touch ? AppSpace.md : AppSpace.sm,
                   ),
                   child: const Icon(
-                    Icons.close,
+                    Icons.close_rounded,
                     size: 15,
                     color: AppColour.labelSecondary,
                   ),

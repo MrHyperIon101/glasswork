@@ -79,6 +79,29 @@ abstract final class SettingsText {
     ),
   };
 
+  /// What keeping Glasswork in the tray means here, and what it is doing now.
+  static ({String explanation, String? effect}) tray({
+    required bool available,
+    required bool on,
+  }) {
+    if (!available) {
+      return (
+        explanation:
+            'This desktop has no tray to keep Glasswork in. On GNOME, the AppIndicator '
+            'extension adds one.',
+        effect: null,
+      );
+    }
+    return (
+      explanation:
+          "Closing the window leaves Glasswork running as an icon in the top bar, so it opens "
+          "at once and its reminders come straight from it. Quit it from the icon's menu.",
+      effect: on
+          ? 'On: closing the window keeps Glasswork in the tray.'
+          : 'Off: closing the window quits Glasswork. Reminders still come while it is closed.',
+    );
+  }
+
   /// What became of a sample reminder.
   static String sampleResult({required bool shown}) => shown
       ? 'Sent. It should be on screen now.'

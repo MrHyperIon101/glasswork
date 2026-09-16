@@ -65,7 +65,7 @@ class TimelineView extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
-                  Icons.timeline,
+                  Icons.timeline_rounded,
                   size: 26,
                   color: AppColour.labelQuaternary,
                 ),

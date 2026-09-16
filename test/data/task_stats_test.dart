@@ -15,6 +15,7 @@ Task task({
   DateTime? completedAt,
   DateTime? deletedAt,
   int? estimateMin,
+  DateTime? remindAt,
 }) {
   return Task(
     id: id,
@@ -33,6 +34,7 @@ Task task({
     completedAt: completedAt,
     deletedAt: deletedAt,
     estimateMin: estimateMin,
+    remindAt: remindAt,
   );
 }
 
@@ -114,6 +116,35 @@ void main() {
 
     expect(stats.completedToday, 1);
     expect(stats.completedThisWeek, 2);
+  });
+
+  test('completions are counted for each of the last seven days, today last', () {
+    final stats = TaskStats.from([
+      task(id: 'today', status: TaskStatus.done, completedAt: now),
+      task(id: 'today2', status: TaskStatus.done, completedAt: now.subtract(const Duration(hours: 5))),
+      task(id: 'yesterday', status: TaskStatus.done, completedAt: DateTime(2026, 9, 15, 23, 59)),
+      task(id: 'six ago', status: TaskStatus.done, completedAt: DateTime(2026, 9, 10, 8)),
+      task(id: 'seven ago', status: TaskStatus.done, completedAt: DateTime(2026, 9, 9, 8)),
+      task(id: 'open'),
+    ], now);
+
+    expect(stats.doneByDay, [1, 0, 0, 0, 0, 1, 2]);
+  });
+
+  test('the next reminder is the soonest still to come on an open task', () {
+    final stats = TaskStats.from([
+      task(id: 'passed', remindAt: now.subtract(const Duration(minutes: 5))),
+      task(id: 'later', remindAt: now.add(const Duration(hours: 3))),
+      task(id: 'soon', remindAt: now.add(const Duration(minutes: 20))),
+      task(
+        id: 'done',
+        status: TaskStatus.done,
+        completedAt: now,
+        remindAt: now.add(const Duration(minutes: 1)),
+      ),
+    ], now);
+
+    expect(stats.nextReminder?.id, 'soon');
   });
 
   test('next up is the soonest future task, never an overdue one', () {

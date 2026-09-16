@@ -98,8 +98,8 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
               ),
             ),
             const SizedBox(width: AppSpace.md),
-            _Arrow(icon: Icons.chevron_left, onTap: () => _shift(-1)),
-            _Arrow(icon: Icons.chevron_right, onTap: () => _shift(1)),
+            _Arrow(icon: Icons.chevron_left_rounded, onTap: () => _shift(-1)),
+            _Arrow(icon: Icons.chevron_right_rounded, onTap: () => _shift(1)),
             const SizedBox(width: AppSpace.sm),
             _TextAction(label: 'Today', onTap: _goToToday),
             if (!compact && undated > 0) ...[

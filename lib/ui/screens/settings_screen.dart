@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app_config.dart';
+import '../../desktop/desktop_shell.dart';
 import '../../data/db/database.dart';
 import '../../data/preferences.dart';
 import '../../data/repository/capacity_repository.dart';
@@ -18,6 +19,7 @@ import '../../sync/sync_auth.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
+import '../motion.dart';
 import '../settings_text.dart';
 import '../surface.dart';
 import '../time_entry.dart';
@@ -31,28 +33,30 @@ import '../widgets/value_stepper.dart';
 /// Sleep, meals and focus stay on Time budget, beside the figures they change; this screen
 /// sums them up and leads there, rather than keeping a second copy of them apart from what
 /// they explain.
+///
+/// On a wide window the groups sit side by side in columns, rather than one narrow column
+/// with the rest of the window empty beside it.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({this.onMenu, super.key});
 
   final VoidCallback? onMenu;
 
-  /// A readable measure on a wide window.
-  static const _maxWidth = 680.0;
+  /// Room for two columns of groups, and for three.
+  static const _twoColumnsFrom = 900.0;
+  static const _threeColumnsFrom = 1400.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final compact = AppLayout.compact(context);
     final gutter = AppLayout.gutter(context);
+    // A window and its keys: neither on a phone.
+    final desktop = !AppLayout.touch;
 
-    final groups = [
-      const _Account(),
-      const _Reminders(),
-      const _NewTasks(),
-      const _TimeBudget(),
-      // Keys a phone does not have.
-      if (!AppLayout.touch) const _Shortcuts(),
-      const _About(),
-    ];
+    const account = _Account();
+    const reminders = _Reminders();
+    const newTasks = _NewTasks();
+    const timeBudget = _TimeBudget();
+    const about = _About();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -72,21 +76,60 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SizedBox(height: compact ? AppSpace.lg : AppSpace.xl),
           Expanded(
-            child: ListView(
-              // On a phone the list runs to the bottom edge, so its end needs room to clear it.
-              padding: EdgeInsets.only(bottom: compact ? AppSpace.xxl : 0),
-              children: [
-                for (final (i, group) in groups.indexed) ...[
-                  if (i > 0) const SizedBox(height: AppSpace.lg),
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: _maxWidth),
-                      child: group,
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                // Groups placed so the columns come out about as tall as each other.
+                final columns = width >= _threeColumnsFrom
+                    ? [
+                        [account, newTasks, if (desktop) const _Desktop()],
+                        [reminders],
+                        [timeBudget, if (desktop) const _Shortcuts(), about],
+                      ]
+                    : width >= _twoColumnsFrom
+                    ? [
+                        [account, reminders, if (desktop) const _Desktop()],
+                        [newTasks, timeBudget, if (desktop) const _Shortcuts(), about],
+                      ]
+                    : [
+                        [
+                          account,
+                          reminders,
+                          newTasks,
+                          timeBudget,
+                          if (desktop) ...[const _Desktop(), const _Shortcuts()],
+                          about,
+                        ],
+                      ];
+
+                return SingleChildScrollView(
+                  // On a phone the page runs to the bottom edge, so its end needs room to
+                  // clear it.
+                  padding: EdgeInsets.only(bottom: compact ? AppSpace.xxl : AppSpace.lg),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final (c, groups) in columns.indexed) ...[
+                        if (c > 0) const SizedBox(width: AppSpace.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final (i, group) in groups.indexed) ...[
+                                if (i > 0) const SizedBox(height: AppSpace.lg),
+                                FadeSlideIn(
+                                  delay: Duration(milliseconds: 40 * (c + i)),
+                                  child: group,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
+                );
+              },
             ),
           ),
         ],
@@ -127,6 +170,7 @@ class _Setting extends StatelessWidget {
     required this.label,
     this.value,
     this.valueColour,
+    this.trailing,
     this.control,
     this.explanation,
     this.effect,
@@ -136,6 +180,9 @@ class _Setting extends StatelessWidget {
   final String label;
   final String? value;
   final Color? valueColour;
+
+  /// A control beside the label, such as a switch.
+  final Widget? trailing;
   final Widget? control;
   final String? explanation;
   final String? effect;
@@ -155,6 +202,10 @@ class _Setting extends StatelessWidget {
               text,
               style: AppText.body.copyWith(color: valueColour ?? AppColour.labelSecondary),
             ),
+          ],
+          if (trailing case final widget?) ...[
+            const SizedBox(width: AppSpace.md),
+            widget,
           ],
         ],
       ),
@@ -484,6 +535,38 @@ class _TimeBudget extends ConsumerWidget {
   }
 }
 
+// --- desktop --------------------------------------------------------------------------
+
+class _Desktop extends ConsumerWidget {
+  const _Desktop();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(preferencesProvider).value ?? const Preferences();
+    final repo = ref.watch(appScopeProvider).value?.preferences;
+    final available = ref.watch(trayAvailableProvider).value ?? false;
+    final on = available && preferences.keepInTray;
+    final tray = SettingsText.tray(available: available, on: on);
+
+    return _Group(
+      title: 'Desktop',
+      about: 'How Glasswork behaves as a window on this computer.',
+      children: [
+        _Setting(
+          label: 'Keep in the tray',
+          trailing: AppSwitch(
+            key: const ValueKey('keep-in-tray'),
+            value: on,
+            onChanged: available ? (keep) => repo?.setKeepInTray(keep) : null,
+          ),
+          explanation: tray.explanation,
+          effect: tray.effect,
+        ),
+      ],
+    );
+  }
+}
+
 // --- keyboard -------------------------------------------------------------------------
 
 class _Shortcuts extends StatelessWidget {
@@ -491,10 +574,11 @@ class _Shortcuts extends StatelessWidget {
 
   static const _shortcuts = [
     ('Ctrl+N', 'New task'),
+    ('Ctrl+Shift+N', 'New note'),
     ('Ctrl+,', 'Settings'),
     ('Return', 'Add the task you are writing'),
     ('Ctrl+Return', 'Add a list of tasks, or create a project'),
-    ('Esc', 'Close the sheet that is open'),
+    ('Esc', 'Close the sheet or note that is open'),
   ];
 
   @override

@@ -31,6 +31,7 @@ class ListScreen extends ConsumerWidget {
       DoneDestination() => 'Completed',
       CapacityDestination() => 'Time budget',
       SettingsDestination() => 'Settings',
+      NotesDestination() => 'Notes',
       ProjectDestination() => 'Project',
     };
 
@@ -210,7 +211,7 @@ class _AddFirstButtonState extends ConsumerState<_AddFirstButton> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.add,
+                Icons.add_rounded,
                 size: 15,
                 color: _hovered ? Colors.white : AppColour.accent,
               ),
@@ -247,7 +248,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              searching ? Icons.search_off : Icons.inbox_outlined,
+              searching ? Icons.search_off_rounded : Icons.inbox_outlined,
               size: 28,
               color: AppColour.labelQuaternary,
             ),

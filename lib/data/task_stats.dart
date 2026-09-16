@@ -16,6 +16,8 @@ class TaskStats {
     required this.estimatedMinutesToday,
     required this.untimedToday,
     required this.nextUp,
+    this.doneByDay = const [0, 0, 0, 0, 0, 0, 0],
+    this.nextReminder,
   });
 
   final int open;
@@ -34,6 +36,12 @@ class TaskStats {
   /// Soonest upcoming task that isn't already overdue.
   final Task? nextUp;
 
+  /// Tasks completed on each of the last seven days, six days ago first and today last.
+  final List<int> doneByDay;
+
+  /// The open task whose reminder comes soonest, among those still to come.
+  final Task? nextReminder;
+
   int get todayTotal => dueToday.length + overdue.length;
 
   /// Share of today's work already done, 0..1. Null when there is nothing due.
@@ -49,6 +57,8 @@ class TaskStats {
 
     final overdue = <Task>[];
     final dueToday = <Task>[];
+    final doneByDay = List.filled(7, 0);
+    Task? nextReminder;
     var open = 0;
     var completedToday = 0;
     var completedThisWeek = 0;
@@ -62,14 +72,26 @@ class TaskStats {
       if (task.status == TaskStatus.done) {
         final at = task.completedAt;
         if (at != null) {
-          final day = DateTime(at.year, at.month, at.day);
+          final local = at.toLocal();
+          final day = DateTime(local.year, local.month, local.day);
           if (!day.isBefore(weekStart)) completedThisWeek++;
           if (day == today) completedToday++;
+          // Whole dates back from today, which a change of clocks cannot throw off.
+          final ago = DateTime.utc(today.year, today.month, today.day)
+              .difference(DateTime.utc(day.year, day.month, day.day))
+              .inDays;
+          if (ago >= 0 && ago < 7) doneByDay[6 - ago]++;
         }
         continue;
       }
 
       open++;
+
+      if (task.remindAt case final remind? when remind.isAfter(now)) {
+        if (nextReminder == null || remind.isBefore(nextReminder.remindAt!)) {
+          nextReminder = task;
+        }
+      }
 
       final due = dueDayOf(task);
       if (due == null) continue;
@@ -107,6 +129,8 @@ class TaskStats {
       estimatedMinutesToday: estimate,
       untimedToday: untimed,
       nextUp: nextUp,
+      doneByDay: doneByDay,
+      nextReminder: nextReminder,
     );
   }
 

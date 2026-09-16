@@ -13,6 +13,7 @@ import 'package:glasswork/data/db/tables.dart';
 import 'package:glasswork/data/project_filter.dart';
 import 'package:glasswork/data/repository/capacity_repository.dart';
 import 'package:glasswork/data/repository/label_repository.dart';
+import 'package:glasswork/data/repository/note_repository.dart';
 import 'package:glasswork/data/repository/project_repository.dart';
 import 'package:glasswork/data/repository/subtask_repository.dart';
 import 'package:glasswork/data/repository/task_repository.dart';
@@ -26,6 +27,7 @@ import 'package:glasswork/theme/tokens.dart';
 import 'package:glasswork/ui/screens/app_shell.dart';
 import 'package:glasswork/ui/screens/capacity_screen.dart';
 import 'package:glasswork/ui/screens/list_screen.dart';
+import 'package:glasswork/ui/screens/notes_screen.dart';
 import 'package:glasswork/ui/screens/settings_screen.dart';
 import 'package:glasswork/ui/screens/today_screen.dart';
 import 'package:glasswork/ui/widgets/block_dialog.dart';
@@ -176,7 +178,22 @@ final _states = <_State>[
     app.read(projectViewModeProvider.notifier).set(data.courseworkId, BoardView.list);
     app.read(projectFilterProvider.notifier).togglePriority(3);
     await _settle(tester);
-    await tester.tap(find.byIcon(Icons.filter_list).first);
+    await tester.tap(find.byIcon(Icons.filter_list_rounded).first);
+  }),
+  _State('notes', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const NotesDestination());
+  }),
+  _State('notes, scrolled to the end', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const NotesDestination());
+    await _settle(tester);
+    await _scrollToEnd(tester, find.byType(NotesScreen));
+  }),
+  _State('writing a note', (tester, app, data) async {
+    final note = app.read(notesProvider).value!.firstWhere((n) => n.id == data.noteId);
+    app.read(openNoteProvider.notifier).edit(note);
+  }),
+  _State('a new note', (tester, app, data) async {
+    app.read(openNoteProvider.notifier).create();
   }),
   _State('settings', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(const SettingsDestination());
@@ -351,7 +368,7 @@ final _states = <_State>[
   }),
   _State(
     'sidebar',
-    (tester, app, data) async => tester.tap(find.byIcon(Icons.menu).first),
+    (tester, app, data) async => tester.tap(find.byIcon(Icons.menu_rounded).first),
     drawerOnly: true,
   ),
 ];
@@ -527,11 +544,13 @@ class _Seeded {
     required this.courseworkId,
     required this.longTaskId,
     required this.semesterId,
+    required this.noteId,
   });
 
   final String courseworkId;
   final String longTaskId;
   final String semesterId;
+  final String noteId;
 }
 
 /// A student's week: a timetable in force, two projects, tasks overdue, due today, due
@@ -681,9 +700,30 @@ Future<_Seeded> _seed(AppDatabase db) async {
     filter: ProjectFilter.empty.copyWith(hideCompleted: true),
   );
 
+  // Notes: one pinned, one long, a few short.
+  final notes = NoteRepository(writer);
+  final pinned = await notes.capture(
+    workspaceId: ws,
+    text: 'Exam week plan\nDBMS Monday, OS Wednesday, CN Friday. Revise normalisation first.',
+  );
+  await notes.setPinned(pinned.id, pinned: true);
+  await notes.capture(
+    workspaceId: ws,
+    text:
+        'Ideas for the portfolio\nA case study for the library system, written up properly, '
+        'with the ER diagram, the queries that were slow and how the indexes fixed them, and '
+        'a short video walking through the app. Maybe a dark theme toggle for the site too.',
+  );
+  await notes.capture(workspaceId: ws, text: 'Groceries\nmilk, eggs, bread');
+  final lecture = await notes.capture(
+    workspaceId: ws,
+    text: 'Ask the TA about the lab 6 marking scheme',
+  );
+
   return _Seeded(
     courseworkId: coursework.id,
     longTaskId: report.id,
     semesterId: semester.id,
+    noteId: lecture.id,
   );
 }

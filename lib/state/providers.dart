@@ -9,6 +9,7 @@ import '../capacity/timetable.dart' as tt;
 import '../data/repository/capacity_repository.dart';
 import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
+import '../data/repository/note_repository.dart';
 import '../data/repository/preferences_repository.dart';
 import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
@@ -32,6 +33,7 @@ class AppScope {
     required this.capacity,
     required this.projects,
     required this.labels,
+    required this.notes,
     required this.preferences,
     required this.workspace,
   });
@@ -48,6 +50,7 @@ class AppScope {
   final CapacityRepository capacity;
   final ProjectRepository projects;
   final LabelRepository labels;
+  final NoteRepository notes;
   final PreferencesRepository preferences;
   final Workspace workspace;
 }
@@ -84,6 +87,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     capacity: capacity,
     projects: ProjectRepository(writer),
     labels: LabelRepository(writer),
+    notes: NoteRepository(writer),
     preferences: PreferencesRepository(db),
     workspace: workspace,
   );
@@ -128,6 +132,11 @@ class CapacityDestination extends Destination {
 
 class SettingsDestination extends Destination {
   const SettingsDestination();
+}
+
+/// Quick notes.
+class NotesDestination extends Destination {
+  const NotesDestination();
 }
 
 /// A project. Sections live inside it rather than being navigated to directly — a
@@ -283,6 +292,7 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
   return switch (ref.watch(destinationProvider)) {
     TodayDestination() ||
     CapacityDestination() ||
+    NotesDestination() ||
     SettingsDestination() => const <Task>[],
     DoneDestination() =>
       all.where((t) => t.status == TaskStatus.done).toList(),
@@ -516,6 +526,40 @@ class NewProjectOpen extends Notifier<bool> {
 final newProjectOpenProvider = NotifierProvider<NewProjectOpen, bool>(
   NewProjectOpen.new,
 );
+
+// --- notes ------------------------------------------------------------------
+
+/// Every live note, pinned first, then the most recently written.
+final notesProvider = StreamProvider<List<Note>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.notes.watchAll(scope.workspace.id);
+});
+
+/// The note open in the editor: one already written, or a new one that has no row until
+/// something is typed into it.
+class NoteEditing {
+  const NoteEditing(this.serial, {this.note});
+
+  /// Tells one opening from the next, so a new note asked for while one is open starts
+  /// afresh.
+  final int serial;
+
+  /// The note as it was when opened. Null for a new one.
+  final Note? note;
+}
+
+class OpenNote extends Notifier<NoteEditing?> {
+  int _serial = 0;
+
+  @override
+  NoteEditing? build() => null;
+
+  void edit(Note note) => state = NoteEditing(++_serial, note: note);
+  void create() => state = NoteEditing(++_serial);
+  void close() => state = null;
+}
+
+final openNoteProvider = NotifierProvider<OpenNote, NoteEditing?>(OpenNote.new);
 
 // --- labels -----------------------------------------------------------------
 

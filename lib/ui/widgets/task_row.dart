@@ -101,7 +101,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        Icons.notifications_none,
+                        Icons.notifications_none_rounded,
                         size: 12,
                         color: AppColour.labelTertiary,
                       ),
@@ -127,17 +127,21 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            task.title,
+                          AnimatedDefaultTextStyle(
+                            duration: AppMotion.of(context, AppMotion.medium),
+                            curve: AppMotion.standard,
                             style: AppText.body.copyWith(
                               color: done
                                   ? AppColour.labelTertiary
                                   : AppColour.label,
                               decoration: done
                                   ? TextDecoration.lineThrough
-                                  : null,
-                              decorationColor: AppColour.labelTertiary,
+                                  : TextDecoration.none,
+                              decorationColor: done
+                                  ? AppColour.labelTertiary
+                                  : AppColour.label.withValues(alpha: 0),
                             ),
+                            child: Text(task.title),
                           ),
                           if (!done && meta.isNotEmpty) ...[
                             const SizedBox(height: 3),
@@ -165,7 +169,7 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                       duration: AppMotion.quick,
                       opacity: _hovered ? 1 : 0,
                       child: _RowButton(
-                        icon: Icons.close,
+                        icon: Icons.close_rounded,
                         onTap: _hovered ? widget.onDelete : null,
                       ),
                     ),
@@ -199,26 +203,10 @@ class _CheckboxState extends State<_Checkbox> {
 
     final circle = CheckPop(
       done: widget.done,
-      child: AnimatedContainer(
-        duration: AppMotion.quick,
-        curve: AppMotion.standard,
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.done ? AppColour.green : null,
-          border: Border.all(
-            color: widget.done
-                ? AppColour.green
-                : _hovered
-                ? AppColour.labelSecondary
-                : AppColour.labelQuaternary,
-            width: 1.5,
-          ),
-        ),
-        child: widget.done
-            ? Icon(Icons.check, size: size * 0.63, color: AppColour.base)
-            : null,
+      child: AnimatedCheck(
+        done: widget.done,
+        size: size,
+        ring: _hovered ? AppColour.labelSecondary : AppColour.labelQuaternary,
       ),
     );
 

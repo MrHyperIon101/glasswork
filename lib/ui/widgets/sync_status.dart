@@ -21,13 +21,13 @@ IconData syncIcon(SyncState state) => switch (state) {
   SyncStarting() => Icons.cloud_outlined,
   SyncSignedOut() => Icons.cloud_off_outlined,
   SyncLinking() => Icons.cloud_sync_outlined,
-  SyncChoosing() => Icons.call_split,
-  SyncLinkedElsewhere() => Icons.error_outline,
-  SyncOn(syncing: true) => Icons.sync,
+  SyncChoosing() => Icons.call_split_rounded,
+  SyncLinkedElsewhere() => Icons.error_outline_rounded,
+  SyncOn(syncing: true) => Icons.sync_rounded,
   SyncOn(problem: SyncProblem.offline) => Icons.cloud_off_outlined,
   SyncOn(problem: SyncProblem.deviceClock || SyncProblem.otherDeviceClock) =>
-    Icons.schedule,
-  SyncOn(problem: SyncProblem.failed) => Icons.error_outline,
+    Icons.schedule_rounded,
+  SyncOn(problem: SyncProblem.failed) => Icons.error_outline_rounded,
   SyncOn() => Icons.cloud_done_outlined,
 };
 

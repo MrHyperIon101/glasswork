@@ -12,6 +12,7 @@ class Preferences {
     this.eveningMin = defaultEveningMin,
     this.snoozeMin = defaultSnoozeMin,
     this.captureProjectId,
+    this.keepInTray = false,
   });
 
   /// When a "morning" reminder is: "Tomorrow morning", "The morning it is due", and a
@@ -27,6 +28,9 @@ class Preferences {
   /// The project a task added from outside any project goes to. Null for the first
   /// project, and ignored once that project is gone.
   final String? captureProjectId;
+
+  /// On a desktop, whether closing the window leaves Glasswork running in the tray.
+  final bool keepInTray;
 
   static const defaultMorningMin = 9 * 60;
   static const defaultEveningMin = 18 * 60;
@@ -82,6 +86,7 @@ class Preferences {
       eveningMin: read(eveningKey, defaultEveningMin, clampEvening),
       snoozeMin: read(snoozeKey, defaultSnoozeMin, clampSnooze),
       captureProjectId: project == null || project.isEmpty ? null : project,
+      keepInTray: stored[keepInTrayKey] == 'true',
     );
   }
 
@@ -89,8 +94,15 @@ class Preferences {
   static const eveningKey = 'pref.evening_min';
   static const snoozeKey = 'pref.snooze_min';
   static const captureProjectKey = 'pref.capture_project_id';
+  static const keepInTrayKey = 'pref.keep_in_tray';
 
-  static const keys = {morningKey, eveningKey, snoozeKey, captureProjectKey};
+  static const keys = {
+    morningKey,
+    eveningKey,
+    snoozeKey,
+    captureProjectKey,
+    keepInTrayKey,
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -98,14 +110,15 @@ class Preferences {
       other.morningMin == morningMin &&
       other.eveningMin == eveningMin &&
       other.snoozeMin == snoozeMin &&
-      other.captureProjectId == captureProjectId;
+      other.captureProjectId == captureProjectId &&
+      other.keepInTray == keepInTray;
 
   @override
   int get hashCode =>
-      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId);
+      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId, keepInTray);
 
   @override
   String toString() =>
       'Preferences(morning: $morningMin, evening: $eveningMin, snooze: $snoozeMin, '
-      'project: $captureProjectId)';
+      'project: $captureProjectId, tray: $keepInTray)';
 }

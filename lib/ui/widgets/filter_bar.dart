@@ -235,7 +235,7 @@ class _FilterToggleState extends State<_FilterToggle> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.filter_list, size: 15, color: colour),
+                Icon(Icons.filter_list_rounded, size: 15, color: colour),
                 if (!widget.iconOnly) ...[
                   const SizedBox(width: AppSpace.xs),
                   Text(

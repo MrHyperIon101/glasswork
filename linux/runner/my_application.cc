@@ -5,11 +5,14 @@
 #include <gdk/gdkx.h>
 #endif
 
+#include "desktop_shell.h"
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  GtkWindow* window;
+  DesktopShell* shell;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -22,6 +25,14 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  // Launched again while already running, perhaps waiting in the tray: the one window
+  // comes forward, rather than a second copy of the app starting.
+  if (self->window != nullptr) {
+    desktop_shell_present(self->shell);
+    return;
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
@@ -86,6 +97,9 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  self->window = window;
+  self->shell = desktop_shell_new(GTK_APPLICATION(application), window, view);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -132,6 +146,7 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_pointer(&self->shell, desktop_shell_free);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
@@ -153,7 +168,9 @@ MyApplication* my_application_new() {
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
+  // One copy running at a time, so a second launch can bring back a window closed to the
+  // tray instead of starting another app beside it.
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     G_APPLICATION_DEFAULT_FLAGS, nullptr));
 }
