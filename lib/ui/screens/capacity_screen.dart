@@ -12,6 +12,7 @@ import '../../data/repository/capacity_repository.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
+import '../block_style.dart';
 import '../format.dart';
 import '../layout.dart';
 import '../surface.dart';
@@ -23,6 +24,7 @@ import '../widgets/field_controls.dart';
 import '../widgets/typed_value.dart';
 import '../widgets/value_stepper.dart';
 import '../widgets/weekday_picker.dart';
+import '../motion.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
 ///
@@ -161,7 +163,7 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
               child: Row(
                 children: [
                   Icon(
-                    _showWorking ? Icons.expand_less : Icons.expand_more,
+                    _showWorking ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                     size: 16,
                     color: AppColour.labelTertiary,
                   ),
@@ -612,7 +614,7 @@ class _SleepWeek extends ConsumerWidget {
     CapacitySettings settings,
     void Function(Map<int, DaySleep> days) save,
   ) async {
-    final result = await showDialog<(Set<int>, DaySleep)>(
+    final result = await showAppDialog<(Set<int>, DaySleep)>(
       context: context,
       builder: (context) =>
           _SleepDialog(initial: settings.sleepOn(DateTime.monday)),
@@ -692,7 +694,7 @@ class _SleepDayRow extends StatelessWidget {
               const SizedBox(
                 width: _SleepWeek.arrowWidth,
                 child: Icon(
-                  Icons.arrow_forward,
+                  Icons.arrow_forward_rounded,
                   size: 13,
                   color: AppColour.labelTertiary,
                 ),
@@ -1008,7 +1010,7 @@ Future<void> _editBlock(
           durationMin: existing.durationMin,
         );
 
-  final draft = await showDialog<BlockDraft>(
+  final draft = await showAppDialog<BlockDraft>(
     context: context,
     builder: (context) => BlockDialog(
       settings: CapacityMapping.settings(
@@ -1203,6 +1205,39 @@ class _BlockRowState extends State<_BlockRow> {
           ),
           child: Row(
             children: [
+              // The colour and short name the block wears on every timeline.
+              Consumer(
+                builder: (context, ref, _) {
+                  final colour = BlockStyle.colourIn(
+                    ref.watch(blockColoursProvider),
+                    c.title,
+                  );
+                  return Container(
+                width: AppSize.touch - AppSpace.sm,
+                height: AppSize.touch - AppSpace.sm,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colour.withValues(alpha: 0.22),
+                  borderRadius: AppRadius.mediumAll,
+                  border: Border.all(color: colour.withValues(alpha: 0.5), width: 0.5),
+                ),
+                padding: const EdgeInsets.all(AppSpace.xs),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    BlockStyle.abbreviate(c.title),
+                    maxLines: 1,
+                    style: AppText.numeric.copyWith(
+                      color: AppColour.label,
+                      fontSize: 10,
+                      fontVariations: const [FontVariation('wght', 650)],
+                    ),
+                  ),
+                ),
+              );
+                },
+              ),
+              const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,7 +1270,7 @@ class _BlockRowState extends State<_BlockRow> {
                         AppLayout.touch ? AppSpace.md : AppSpace.xs,
                       ),
                       child: const Icon(
-                        Icons.close,
+                        Icons.close_rounded,
                         size: 15,
                         color: AppColour.labelTertiary,
                       ),
@@ -1358,7 +1393,7 @@ class _ScheduleSets extends ConsumerWidget {
     final scope = ref.read(appScopeProvider).value;
     if (scope == null) return;
 
-    final result = await showDialog<_ScheduleDraft>(
+    final result = await showAppDialog<_ScheduleDraft>(
       context: context,
       builder: (context) => _ScheduleDialog(existing: existing),
     );
@@ -1392,7 +1427,7 @@ class _ScheduleSets extends ConsumerWidget {
     final scope = ref.read(appScopeProvider).value;
     if (scope == null) return;
 
-    final result = await showDialog<_ScheduleDraft>(
+    final result = await showAppDialog<_ScheduleDraft>(
       context: context,
       builder: (context) => _ScheduleDialog(
         existing: null,
@@ -1867,7 +1902,7 @@ class _DateButton extends StatelessWidget {
               GestureDetector(
                 onTap: () => onPick(null),
                 child: const Icon(
-                  Icons.close,
+                  Icons.close_rounded,
                   size: 14,
                   color: AppColour.labelTertiary,
                 ),

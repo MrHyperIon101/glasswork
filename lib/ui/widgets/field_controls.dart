@@ -9,6 +9,7 @@ import '../../data/repository/project_repository.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../motion.dart';
 
 /// Controls shared by the composer and the detail sheet.
 ///
@@ -115,9 +116,8 @@ class _ComposerChipState extends State<ComposerChip> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
+      child: Pressable(
         onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
@@ -615,9 +615,8 @@ class _GhostButtonState extends State<GhostButton> {
     cursor: SystemMouseCursors.click,
     onEnter: (_) => setState(() => _hovered = true),
     onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
+    child: Pressable(
       onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: AppMotion.quick,
         padding: const EdgeInsets.symmetric(
@@ -663,9 +662,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         : SystemMouseCursors.basic,
     onEnter: (_) => setState(() => _hovered = true),
     onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
+    child: Pressable(
       onTap: widget.enabled ? widget.onTap : null,
-      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: AppMotion.quick,
         curve: AppMotion.standard,
@@ -690,4 +688,64 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       ),
     ),
   );
+}
+
+/// An on-off switch, drawn the way iOS draws one: green when on, the knob sliding across.
+class AppSwitch extends StatelessWidget {
+  const AppSwitch({required this.value, required this.onChanged, super.key});
+
+  final bool value;
+
+  /// Null for a switch that cannot be changed here.
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    final duration = AppMotion.of(context, AppMotion.medium);
+    final inset = (AppSize.switchHeight - AppSize.switchKnob) / 2;
+
+    return Semantics(
+      toggled: value,
+      enabled: enabled,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Pressable(
+          pressedScale: 0.94,
+          onTap: enabled ? () => onChanged!(!value) : null,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: AppMotion.standard,
+            width: AppSize.switchWidth,
+            height: AppSize.switchHeight,
+            padding: EdgeInsets.all(inset),
+            decoration: BoxDecoration(
+              color: !enabled
+                  ? AppColour.fill
+                  : value
+                  ? AppColour.green
+                  : AppColour.fillStrong,
+              borderRadius: AppRadius.roundAll,
+            ),
+            child: AnimatedAlign(
+              duration: duration,
+              curve: AppMotion.enter,
+              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                width: AppSize.switchKnob,
+                height: AppSize.switchKnob,
+                decoration: BoxDecoration(
+                  color: enabled ? AppColour.label : AppColour.grey,
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 1)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

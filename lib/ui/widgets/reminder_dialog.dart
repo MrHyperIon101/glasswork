@@ -191,7 +191,7 @@ class _ReminderDialogState extends State<ReminderDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    canSet ? Icons.notifications_active_outlined : Icons.error_outline,
+                    canSet ? Icons.notifications_active_outlined : Icons.error_outline_rounded,
                     size: 16,
                     color: canSet ? AppColour.accent : AppColour.red,
                   ),

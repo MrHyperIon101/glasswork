@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/tokens.dart';
 import 'field_controls.dart';
+import '../motion.dart';
 
 /// Confirmation for a destructive action that undo cannot fully cover.
 ///
@@ -18,7 +19,7 @@ Future<bool> confirm(
   required String detail,
   required String confirmLabel,
 }) async {
-  final result = await showDialog<bool>(
+  final result = await showAppDialog<bool>(
     context: context,
     builder: (context) => Dialog(
       backgroundColor: AppColour.elevated,

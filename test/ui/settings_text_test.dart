@@ -65,6 +65,22 @@ void main() {
     );
   });
 
+  test('the tray says what closing the window will do, or why there is no tray', () {
+    expect(SettingsText.tray(available: false, on: false).effect, isNull);
+    expect(
+      SettingsText.tray(available: false, on: false).explanation,
+      contains('AppIndicator'),
+    );
+    expect(
+      SettingsText.tray(available: true, on: true).effect,
+      'On: closing the window keeps Glasswork in the tray.',
+    );
+    expect(
+      SettingsText.tray(available: true, on: false).effect,
+      startsWith('Off: closing the window quits Glasswork.'),
+    );
+  });
+
   test('a week of sleep reads as its pattern', () {
     expect(
       SettingsText.sleepSummary(List.filled(7, up7bed2330)),

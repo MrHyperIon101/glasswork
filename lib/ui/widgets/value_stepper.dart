@@ -64,7 +64,7 @@ class ValueStepper extends StatelessWidget {
                 ],
               ),
             ),
-            _Step(icon: Icons.remove, onTap: () => onStep(-1)),
+            _Step(icon: Icons.remove_rounded, onTap: () => onStep(-1)),
             const SizedBox(width: AppSpace.xs),
             TypedValue(
               text: text,
@@ -74,7 +74,7 @@ class ValueStepper extends StatelessWidget {
               keyboardType: keyboardType,
             ),
             const SizedBox(width: AppSpace.xs),
-            _Step(icon: Icons.add, onTap: () => onStep(1)),
+            _Step(icon: Icons.add_rounded, onTap: () => onStep(1)),
           ],
         ),
         if (explanation case final text?)

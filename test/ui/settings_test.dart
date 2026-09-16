@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
+import 'package:glasswork/desktop/desktop_shell.dart';
 import 'package:glasswork/main.dart';
 import 'package:glasswork/state/providers.dart';
 import 'package:glasswork/state/reminders_controller.dart';
@@ -137,7 +138,7 @@ void main() {
         200,
         scrollable: _page(),
       );
-      await tester.tap(find.descendant(of: stepper, matching: find.byIcon(Icons.add)));
+      await tester.tap(find.descendant(of: stepper, matching: find.byIcon(Icons.add_rounded)));
       await _settle(tester);
 
       expect(find.descendant(of: stepper, matching: find.text('15m')), findsOneWidget);
@@ -256,6 +257,51 @@ void main() {
         isTrue,
         reason: 'a closed sheet hands the keys back to the app behind it',
       );
+      await press(LogicalKeyboardKey.escape);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await _settle(tester);
+      expect(app.read(openNoteProvider), isNotNull, reason: 'Ctrl+Shift+N, a new note');
+      expect(app.read(composerOpenProvider), isFalse);
+    } finally {
+      await finish(tester);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('keeping it in the tray turns the tray on, where there is one', (tester) async {
+    const channel = MethodChannel(DesktopShell.name);
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add('${call.method}(${call.arguments})');
+      return switch (call.method) {
+        'trayAvailable' => true,
+        'setKeepInTray' => call.arguments,
+        _ => null,
+      };
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null),
+    );
+
+    await start(tester);
+    try {
+      await openSettings(tester);
+      final toggle = find.byKey(const ValueKey('keep-in-tray'));
+      await tester.scrollUntilVisible(toggle, 200, scrollable: _page());
+      await tester.ensureVisible(toggle);
+      await _settle(tester);
+      expect(find.textContaining('Off: closing the window quits Glasswork'), findsOneWidget);
+
+      await tester.tap(toggle);
+      await _settle(tester);
+
+      expect(app.read(preferencesProvider).value?.keepInTray, isTrue);
+      expect(calls, contains('setKeepInTray(true)'));
+      expect(find.text('On: closing the window keeps Glasswork in the tray.'), findsOneWidget);
     } finally {
       await finish(tester);
     }

@@ -428,7 +428,7 @@ class _SettingsButtonState extends ConsumerState<_SettingsButton> {
               borderRadius: AppRadius.mediumAll,
             ),
             child: const Icon(
-              Icons.tune,
+              Icons.tune_rounded,
               size: 17,
               color: AppColour.labelSecondary,
             ),
@@ -455,9 +455,9 @@ class _ViewSwitcher extends ConsumerWidget {
 
   static const _options = [
     (BoardView.board, Icons.view_kanban_outlined, 'Board'),
-    (BoardView.list, Icons.format_list_bulleted, 'List'),
+    (BoardView.list, Icons.format_list_bulleted_rounded, 'List'),
     (BoardView.calendar, Icons.calendar_month_outlined, 'Calendar'),
-    (BoardView.timeline, Icons.timeline, 'Timeline'),
+    (BoardView.timeline, Icons.timeline_rounded, 'Timeline'),
   ];
 
   @override
@@ -775,7 +775,7 @@ class _AddSectionRow extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpace.md),
             child: Row(
               children: [
-                const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),
+                const Icon(Icons.add_rounded, size: 15, color: AppColour.labelTertiary),
                 const SizedBox(width: AppSpace.sm),
                 Text('Add section', style: AppText.footnote),
               ],

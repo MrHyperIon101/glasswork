@@ -7,6 +7,7 @@ import '../../state/sync_summary.dart';
 import '../../sync/account_link.dart';
 import '../../sync/sync_auth.dart';
 import '../../theme/tokens.dart';
+import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
@@ -21,17 +22,18 @@ class SyncSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(syncSheetOpenProvider)) return const SizedBox.shrink();
-
     void close() => ref.read(syncSheetOpenProvider.notifier).close();
 
-    return ModalSheet(
-      onClose: close,
-      maxWidth: 480,
-      alignment: const Alignment(0, -0.2),
-      child: CallbackShortcuts(
-        bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
-        child: _Body(onClose: close),
+    return SheetPresence(
+      open: ref.watch(syncSheetOpenProvider),
+      builder: (context) => ModalSheet(
+        onClose: close,
+        maxWidth: 480,
+        alignment: const Alignment(0, -0.2),
+        child: CallbackShortcuts(
+          bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
+          child: _Body(onClose: close),
+        ),
       ),
     );
   }
@@ -496,8 +498,8 @@ class _OptionRowState extends State<_OptionRow> {
             children: [
               Icon(
                 widget.selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
                 size: 17,
                 color: widget.selected
                     ? AppColour.accent

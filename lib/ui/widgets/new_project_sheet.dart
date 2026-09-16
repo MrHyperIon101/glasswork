@@ -6,6 +6,7 @@ import '../../data/project_templates.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
+import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 
@@ -19,16 +20,17 @@ class NewProjectSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(newProjectOpenProvider)) return const SizedBox.shrink();
-
     void close() => ref.read(newProjectOpenProvider.notifier).close();
 
-    return ModalSheet(
-      onClose: close,
-      maxWidth: 660,
-      maxHeight: 660,
-      alignment: const Alignment(0, -0.2),
-      child: _Body(onClose: close),
+    return SheetPresence(
+      open: ref.watch(newProjectOpenProvider),
+      builder: (context) => ModalSheet(
+        onClose: close,
+        maxWidth: 660,
+        maxHeight: 660,
+        alignment: const Alignment(0, -0.2),
+        child: _Body(onClose: close),
+      ),
     );
   }
 }
@@ -289,7 +291,7 @@ class _TemplateRowState extends State<_TemplateRow> {
                 ),
               ),
               if (widget.selected)
-                Icon(Icons.check_circle, size: 17, color: tint),
+                Icon(Icons.check_circle_rounded, size: 17, color: tint),
             ],
           ),
         ),

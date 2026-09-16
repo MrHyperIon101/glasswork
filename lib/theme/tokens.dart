@@ -44,6 +44,12 @@ abstract final class AppColour {
   static const green = Color(0xFF30D158);
   static const purple = Color(0xFFBF5AF2);
   static const grey = Color(0xFF8E8E93);
+  static const indigo = Color(0xFF5E5CE6);
+  static const pink = Color(0xFFFF375F);
+  static const teal = Color(0xFF40C8E0);
+  static const mint = Color(0xFF63E6E2);
+  static const cyan = Color(0xFF64D2FF);
+  static const brown = Color(0xFFAC8E68);
 
   // Semantic aliases. Screens use these, never the raw colour, so "overdue" can change
   // hue in exactly one place.
@@ -103,6 +109,11 @@ abstract final class AppSize {
   /// A day in a phone's month grid: seven of them across a 360-point screen, each still
   /// big enough to tap.
   static const dayCell = 36.0;
+
+  /// An on-off switch, and the knob that slides across it.
+  static const switchWidth = 46.0;
+  static const switchHeight = 28.0;
+  static const switchKnob = 24.0;
 }
 
 /// Widths at which the layout changes shape.
@@ -257,17 +268,38 @@ abstract final class AppText {
 
 /// Motion.
 ///
-/// Apple's interface springs are quick and settle rather than bounce. Anything that
-/// visibly oscillates reads as a toy.
+/// Apple's interface motion is quick and settles rather than bounces: things arrive fast
+/// and land softly, and leave faster than they came. Anything that visibly oscillates reads
+/// as a toy, and anything slow reads as the app being slow.
 abstract final class AppMotion {
   static const spring = SpringDescription(mass: 1, stiffness: 220, damping: 30);
 
-  static const quick = Duration(milliseconds: 160);
-  static const medium = Duration(milliseconds: 260);
+  /// Press feedback: felt more than seen.
+  static const instant = Duration(milliseconds: 110);
 
+  /// Hover, selection, small changes of state.
+  static const quick = Duration(milliseconds: 180);
+
+  /// Content changing in place: a screen, a size, a count.
+  static const medium = Duration(milliseconds: 280);
+
+  /// Surfaces arriving from off screen: sheets, the drawer.
+  static const slow = Duration(milliseconds: 420);
+
+  /// Most motion: a brisk start and a gentle settle.
   static const standard = Cubic(0.2, 0, 0, 1);
 
+  /// Arriving: fast off the mark, then a long soft landing.
+  static const enter = Cubic(0.05, 0.7, 0.1, 1);
+
+  /// Leaving: eases away, then goes.
+  static const exit = Cubic(0.3, 0, 0.8, 0.15);
+
   static const undoWindow = Duration(seconds: 5);
+
+  /// [duration], or none at all where the system has been asked for less motion.
+  static Duration of(BuildContext context, Duration duration) =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false ? Duration.zero : duration;
 }
 
 /// Vibrancy — the one place translucency is used.

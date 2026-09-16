@@ -75,7 +75,7 @@ void main() {
         await _back(tester);
         expect(app.read(composerOpenProvider), isFalse);
 
-        await tester.tap(find.byIcon(Icons.menu).first);
+        await tester.tap(find.byIcon(Icons.menu_rounded).first);
         await _settle(tester);
         expect(find.text(AppConfig.name), findsOneWidget);
         await _back(tester);

@@ -77,6 +77,21 @@ Every sheet is a `ModalSheet`, which gives it its own focus scope and moves keyb
 as it opens. Without that, the screen behind kept focus: a field's `autofocus` was refused, and Esc
 went to the screen rather than the sheet.
 
+### Motion
+
+Everything that moves goes through `lib/ui/motion.dart` and the `AppMotion` tokens, and every
+duration passes through `AppMotion.of(context, …)`, which is zero when the system asks for less
+motion. Things arrive fast and land softly (`AppMotion.enter`) and leave faster than they came
+(`AppMotion.exit`); nothing bounces.
+
+- A sheet is shown with `SheetPresence`, never `if (open)`: it animates out as well as in, still
+  showing what it showed while it leaves. The drawer does the same with `Presence`.
+- Dialogs open with `showAppDialog`, not `showDialog`, so they move the way sheets do.
+- Screens fade through (`ScreenSwitcher`): the old one is gone before the new one is legible.
+- Anything pressable gives under a press (`Pressable`); counts count (`AnimatedCount`); short lists
+  animate what arrives and leaves (`AnimatedItems`); a task's circle fills and draws its tick
+  (`AnimatedCheck`).
+
 ### What replaced the glass shader
 
 An earlier version used a procedural mesh gradient with a refraction shader. It was retired
@@ -213,6 +228,33 @@ list, one task a line, each line read the way a single title is.
   nothing shows twice. `LinuxReminderFiles` holds every byte written, and its test runs the script.
 - A reminder's buttons (Mark done, Snooze) open the app, which does the write. Handled in a
   background isolate instead, they would be a second writer to the database beside the app.
+
+---
+
+## Home, notes and the timetable's colours
+
+- **Today** is a dashboard of cards. Its figures come from `TaskStats` (including the last week's
+  completions and the next reminder), `DayNow` (where the day stands against the ledger's blocks)
+  and the schedule; its sentences come from `HomeText`. All three are pure and tested.
+- **Notes** are the synced `notes` table: a title and a body, pinned or not. `NoteText` says how one
+  reads — its heading, a preview, when it was last written (the newest field clock, since the row
+  keeps no edit time). A new note in the editor has no row until something is typed, so opening
+  one and closing it leaves nothing behind. Deleting is a tombstone with undo, like tasks.
+- **A timetable block wears the same colour and short name everywhere** — the time budget's bars,
+  its list of blocks, the home screen's strip. `BlockStyle.assign` gives every title in the
+  timetables its own colour while there are colours enough, the same on every device; a phone's
+  bar, too narrow for names, is named in a key beneath it.
+
+---
+
+## Desktop: the tray
+
+The Linux runner is a single-instance GTK application, so launching Glasswork again brings its one
+window forward instead of starting a second copy beside it. `linux/runner/desktop_shell.cc` holds
+the tray: with "Keep in the tray" on (a `Preferences` value), closing the window hides it, and an
+AppIndicator icon offers Open, New task, New note and Quit. AppIndicator is loaded with `dlopen`,
+not linked, so the app still starts on a desktop without it; Settings then says there is no tray.
+Dart talks to it over the `dev.mrhyperion.glasswork/desktop` channel (`DesktopShell`).
 
 ---
 

@@ -11,6 +11,7 @@ import '../../state/reminders_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
+import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
@@ -32,14 +33,15 @@ class TaskComposer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(composerOpenProvider)) return const SizedBox.shrink();
-
     void close() => ref.read(composerOpenProvider.notifier).close();
 
-    return ModalSheet(
-      onClose: close,
-      maxHeight: 700,
-      child: _Form(onClose: close),
+    return SheetPresence(
+      open: ref.watch(composerOpenProvider),
+      builder: (context) => ModalSheet(
+        onClose: close,
+        maxHeight: 700,
+        child: _Form(onClose: close),
+      ),
     );
   }
 }
@@ -698,7 +700,7 @@ class _ListPreview extends StatelessWidget {
                     const Padding(
                       padding: EdgeInsets.only(top: AppSpace.xs),
                       child: Icon(
-                        Icons.radio_button_unchecked,
+                        Icons.radio_button_unchecked_rounded,
                         size: 13,
                         color: AppColour.labelTertiary,
                       ),

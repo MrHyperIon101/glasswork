@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
+import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'confirm_dialog.dart';
@@ -25,14 +26,16 @@ class ProjectSettingsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectId = ref.watch(projectSettingsOpenProvider);
-    if (projectId == null) return const SizedBox.shrink();
 
     void close() => ref.read(projectSettingsOpenProvider.notifier).close();
 
-    return ModalSheet(
-      onClose: close,
-      alignment: const Alignment(0, -0.05),
-      child: _Body(projectId: projectId, onClose: close),
+    return SheetPresence(
+      open: projectId != null,
+      builder: (context) => ModalSheet(
+        onClose: close,
+        alignment: const Alignment(0, -0.05),
+        child: _Body(projectId: projectId!, onClose: close),
+      ),
     );
   }
 }
@@ -103,7 +106,7 @@ class _BodyState extends ConsumerState<_Body> {
                 Expanded(
                   child: Text('Project settings', style: AppText.title),
                 ),
-                _IconAction(icon: Icons.close, onTap: widget.onClose),
+                _IconAction(icon: Icons.close_rounded, onTap: widget.onClose),
               ],
             ),
           ),
@@ -391,7 +394,7 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Future<void> _addField(Board project) async {
-    final result = await showDialog<_NewField>(
+    final result = await showAppDialog<_NewField>(
       context: context,
       builder: (context) => const _AddFieldDialog(),
     );
@@ -506,7 +509,7 @@ class _SectionRowState extends ConsumerState<_SectionRow> {
           const SizedBox(width: AppSpace.sm),
           if (widget.canDelete)
             _IconAction(
-              icon: Icons.delete_outline,
+              icon: Icons.delete_outline_rounded,
               tint: AppColour.red,
               onTap: widget.onDelete,
             )
@@ -515,7 +518,7 @@ class _SectionRowState extends ConsumerState<_SectionRow> {
             Tooltip(
               message: 'A project needs at least one section',
               child: Icon(
-                Icons.delete_outline,
+                Icons.delete_outline_rounded,
                 size: 16,
                 color: AppColour.labelQuaternary,
               ),
@@ -541,7 +544,7 @@ class _FieldDefRow extends StatelessWidget {
         Text(field.type.name, style: AppText.numeric),
         const SizedBox(width: AppSpace.md),
         _IconAction(
-          icon: Icons.delete_outline,
+          icon: Icons.delete_outline_rounded,
           tint: AppColour.red,
           onTap: onDelete,
         ),
@@ -608,7 +611,7 @@ class _DeletableLabelState extends State<_DeletableLabel> {
                                 )
                               : const EdgeInsets.only(left: AppSpace.sm),
                           child: const Icon(
-                            Icons.close,
+                            Icons.close_rounded,
                             size: 13,
                             color: AppColour.red,
                           ),
@@ -633,7 +636,7 @@ class _Stepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      _IconAction(icon: Icons.remove, onTap: () => onChange(-1)),
+      _IconAction(icon: Icons.remove_rounded, onTap: () => onChange(-1)),
       SizedBox(
         width: 26,
         child: Text(
@@ -642,7 +645,7 @@ class _Stepper extends StatelessWidget {
           style: AppText.numeric.copyWith(color: AppColour.label),
         ),
       ),
-      _IconAction(icon: Icons.add, onTap: () => onChange(1)),
+      _IconAction(icon: Icons.add_rounded, onTap: () => onChange(1)),
     ],
   );
 }

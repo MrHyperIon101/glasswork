@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
+import '../motion.dart';
 
 /// Title, subtitle, search and the primary action, shared by every content screen.
 ///
@@ -22,6 +23,7 @@ class ContentHeader extends ConsumerStatefulWidget {
     this.accessory,
     this.actions = const [],
     this.showNewTask = true,
+    this.primaryAction,
     this.dense = false,
     super.key,
   });
@@ -40,6 +42,10 @@ class ContentHeader extends ConsumerStatefulWidget {
 
   /// False on screens with nothing to add — Completed and Time budget.
   final bool showNewTask;
+
+  /// The filled button in the corner, in place of New task, for a screen that adds
+  /// something else.
+  final Widget? primaryAction;
 
   /// A smaller title on a phone, for names that run long and screens that need the height
   /// for their content.
@@ -132,20 +138,20 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
                 children: [
                   if (widget.onMenu case final onMenu?)
                     _IconButton(
-                      icon: Icons.menu,
+                      icon: Icons.menu_rounded,
                       tooltip: 'Show the sidebar',
                       onTap: onMenu,
                     ),
                   const Spacer(),
                   ...widget.actions,
                   _IconButton(
-                    icon: Icons.search,
+                    icon: Icons.search_rounded,
                     tooltip: 'Search',
                     onTap: () => setState(() => _searchOpen = true),
                   ),
-                  if (widget.showNewTask) ...[
+                  if (_primary() case final primary?) ...[
                     const SizedBox(width: AppSpace.xs),
-                    const NewTaskButton(),
+                    primary,
                   ],
                 ],
               ),
@@ -161,7 +167,7 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
 
   List<Widget> _menu() => [
     if (widget.onMenu case final onMenu?) ...[
-      _IconButton(icon: Icons.menu, tooltip: 'Show the sidebar', onTap: onMenu),
+      _IconButton(icon: Icons.menu_rounded, tooltip: 'Show the sidebar', onTap: onMenu),
       const SizedBox(width: AppSpace.md),
     ],
   ];
@@ -172,11 +178,14 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
       const SizedBox(width: AppSpace.sm),
     ],
     const SizedBox(width: 220, height: AppSize.control, child: SearchField()),
-    if (widget.showNewTask) ...[
+    if (_primary() case final primary?) ...[
       const SizedBox(width: AppSpace.md),
-      const NewTaskButton(),
+      primary,
     ],
   ];
+
+  Widget? _primary() =>
+      widget.primaryAction ?? (widget.showNewTask ? const NewTaskButton() : null);
 
   Widget _titles({required int lines, bool dense = false}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +253,7 @@ class _SearchFieldState extends ConsumerState<SearchField> {
         child: Row(
           children: [
             const Icon(
-              Icons.search,
+              Icons.search_rounded,
               size: 15,
               color: AppColour.labelTertiary,
             ),
@@ -364,14 +373,35 @@ class _TextAction extends StatelessWidget {
 /// panel is easy to read as a status bar rather than an input, so the obvious affordance
 /// lives up here and the composer below is where the typing happens — the button just
 /// puts the cursor there.
-class NewTaskButton extends ConsumerStatefulWidget {
+class NewTaskButton extends ConsumerWidget {
   const NewTaskButton({super.key});
 
   @override
-  ConsumerState<NewTaskButton> createState() => _NewTaskButtonState();
+  Widget build(BuildContext context, WidgetRef ref) => AccentButton(
+    icon: Icons.add_rounded,
+    label: 'New task',
+    onTap: () => ref.read(composerOpenProvider.notifier).open(),
+  );
 }
 
-class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
+/// A filled accent button for a screen's main action, sized to sit among toolbar controls.
+class AccentButton extends StatefulWidget {
+  const AccentButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<AccentButton> createState() => _AccentButtonState();
+}
+
+class _AccentButtonState extends State<AccentButton> {
   bool _hovered = false;
 
   @override
@@ -380,9 +410,8 @@ class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: () => ref.read(composerOpenProvider.notifier).open(),
-        behavior: HitTestBehavior.opaque,
+      child: Pressable(
+        onTap: widget.onTap,
         child: Padding(
           // Taller to a finger than to the eye, so it still lines up with the controls
           // beside it.
@@ -403,10 +432,10 @@ class _NewTaskButtonState extends ConsumerState<NewTaskButton> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.add, size: 16, color: Colors.white),
+                Icon(widget.icon, size: 16, color: Colors.white),
                 const SizedBox(width: AppSpace.xs),
                 Text(
-                  'New task',
+                  widget.label,
                   style: AppText.headline.copyWith(color: Colors.white),
                 ),
               ],

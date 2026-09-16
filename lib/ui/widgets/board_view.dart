@@ -428,7 +428,7 @@ class _CardBodyState extends ConsumerState<_CardBody> {
                       _Pill(label: Format.estimate(m)),
                     if (remindsLater)
                       _Pill(
-                        icon: Icons.notifications_none,
+                        icon: Icons.notifications_none_rounded,
                         label: Format.reminderTime(reminder, now),
                       ),
                     if (steps.isNotEmpty)
@@ -502,7 +502,7 @@ class _AddCardButton extends ConsumerWidget {
           padding: EdgeInsets.all(AppLayout.touch ? AppSpace.md : AppSpace.sm),
           child: Row(
             children: [
-              const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),
+              const Icon(Icons.add_rounded, size: 15, color: AppColour.labelTertiary),
               const SizedBox(width: AppSpace.xs),
               Text('Add a card', style: AppText.footnote),
             ],
@@ -543,7 +543,7 @@ class _AddSectionColumn extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add, size: 15, color: AppColour.labelTertiary),
+                const Icon(Icons.add_rounded, size: 15, color: AppColour.labelTertiary),
                 const SizedBox(width: AppSpace.xs),
                 Text('Add section', style: AppText.footnote),
               ],
