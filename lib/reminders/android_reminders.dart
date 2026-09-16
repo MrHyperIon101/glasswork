@@ -16,7 +16,8 @@ class AndroidReminders implements ReminderGateway {
   AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-  static const _details = NotificationDetails(
+  /// How a reminder shows: with buttons for its task, or, for the sample, with none.
+  static NotificationDetails _details({Duration? snooze}) => NotificationDetails(
     android: AndroidNotificationDetails(
       'reminders',
       'Reminders',
@@ -26,10 +27,12 @@ class AndroidReminders implements ReminderGateway {
       category: AndroidNotificationCategory.reminder,
       color: AppColour.accent,
       actions: [
-        // Both open the app, which does the work. Handled in the background instead, a
-        // button would write to the database from a second engine, beside the app's own.
-        AndroidNotificationAction('done', 'Mark done', showsUserInterface: true),
-        AndroidNotificationAction('snooze', 'Snooze 10 min', showsUserInterface: true),
+        if (snooze != null) ...[
+          // Both open the app, which does the work. Handled in the background instead, a
+          // button would write to the database from a second engine, beside the app's own.
+          const AndroidNotificationAction('done', 'Mark done', showsUserInterface: true),
+          AndroidNotificationAction('snooze', snoozeLabel(snooze), showsUserInterface: true),
+        ],
       ],
     ),
   );
@@ -70,7 +73,20 @@ class AndroidReminders implements ReminderGateway {
   }
 
   @override
-  Future<void> schedule(List<PlannedReminder> reminders) async {
+  Future<bool> showSample() async {
+    if (!await permitted()) return false;
+    await _plugin.show(
+      id: ReminderPlan.sampleId,
+      title: SampleReminder.title,
+      body: SampleReminder.body,
+      notificationDetails: _details(),
+    );
+    return true;
+  }
+
+  @override
+  Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {
+    final details = _details(snooze: snooze);
     final wanted = {for (final reminder in reminders) reminder.id};
     for (final pending in await _plugin.pendingNotificationRequests()) {
       if (!wanted.contains(pending.id)) await _plugin.cancel(id: pending.id);
@@ -86,7 +102,7 @@ class AndroidReminders implements ReminderGateway {
           title: reminder.title,
           body: reminder.body.isEmpty ? null : reminder.body,
           scheduledDate: tz.TZDateTime.from(reminder.at, tz.UTC),
-          notificationDetails: _details,
+          notificationDetails: details,
           androidScheduleMode: exact
               ? AndroidScheduleMode.exactAllowWhileIdle
               : AndroidScheduleMode.inexactAllowWhileIdle,

@@ -9,7 +9,12 @@ import 'surface.dart';
 ///
 /// Centred with a width cap on a desktop. On a phone it rises from the bottom and spans the
 /// width: the thumb is down there, and the keyboard pushes it up from there anyway.
-class ModalSheet extends StatelessWidget {
+///
+/// Keyboard focus moves into the sheet as it opens, and back to what had it once the sheet
+/// closes. Without its own focus scope, a field asking for focus in a sheet was refused while
+/// the screen behind held it: the new task sheet opened with nothing to type into, and Esc,
+/// sent to the screen behind, closed nothing.
+class ModalSheet extends StatefulWidget {
   const ModalSheet({
     required this.onClose,
     required this.child,
@@ -32,8 +37,34 @@ class ModalSheet extends StatelessWidget {
   final double scrim;
 
   @override
+  State<ModalSheet> createState() => _ModalSheetState();
+}
+
+class _ModalSheetState extends State<ModalSheet> {
+  final _scope = FocusScopeNode(debugLabel: 'ModalSheet');
+
+  @override
+  void initState() {
+    super.initState();
+    // A field in the sheet that asks for focus has it by now. Otherwise the sheet itself
+    // takes it, so its keys, Esc among them, reach it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_scope.hasFocus) _scope.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scope.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final compact = AppLayout.compact(context);
+    final onClose = widget.onClose;
+    final scrim = widget.scrim;
+    final child = FocusScope(node: _scope, child: widget.child);
 
     return Stack(
       children: [
@@ -69,14 +100,14 @@ class ModalSheet extends StatelessWidget {
           )
         else
           Align(
-            alignment: alignment,
+            alignment: widget.alignment,
             child: Padding(
               padding: const EdgeInsets.all(AppSpace.xxl),
               child: SpringIn(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight,
+                    maxWidth: widget.maxWidth,
+                    maxHeight: widget.maxHeight,
                   ),
                   child: VibrancyMaterial.sheet(child: child),
                 ),

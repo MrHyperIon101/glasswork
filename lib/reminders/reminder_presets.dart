@@ -22,17 +22,25 @@ class ReminderPreset {
 abstract final class ReminderPresets {
   /// Choices for a task due at [dueAt], or on [dueDate], as of [now]: only times far
   /// enough ahead to be worth setting, earliest first, never two at the same moment.
+  ///
+  /// A morning is [morningMin] and an evening [eveningMin], minutes past midnight, as
+  /// chosen in Settings.
   static List<ReminderPreset> of(
     DateTime now, {
     DateTime? dueAt,
     DateTime? dueDate,
+    int morningMin = 9 * 60,
+    int eveningMin = 18 * 60,
   }) {
+    DateTime on(int year, int month, int day, int minutes) =>
+        DateTime(year, month, day, minutes ~/ 60, minutes % 60);
+
     final candidates = [
       ReminderPreset('In an hour', _toFiveMinutes(now.add(const Duration(hours: 1)))),
-      ReminderPreset('This evening', DateTime(now.year, now.month, now.day, 18)),
+      ReminderPreset('This evening', on(now.year, now.month, now.day, eveningMin)),
       ReminderPreset(
         'Tomorrow morning',
-        DateTime(now.year, now.month, now.day + 1, 9),
+        on(now.year, now.month, now.day + 1, morningMin),
       ),
       if (dueAt?.toLocal() case final due?) ...[
         ReminderPreset('An hour before it is due', due.subtract(const Duration(hours: 1))),
@@ -40,11 +48,11 @@ abstract final class ReminderPresets {
       ] else if (dueDate case final day?) ...[
         ReminderPreset(
           'The evening before',
-          DateTime(day.year, day.month, day.day - 1, 18),
+          on(day.year, day.month, day.day - 1, eveningMin),
         ),
         ReminderPreset(
           'The morning it is due',
-          DateTime(day.year, day.month, day.day, 9),
+          on(day.year, day.month, day.day, morningMin),
         ),
       ],
     ];

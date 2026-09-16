@@ -26,6 +26,7 @@ import 'package:glasswork/theme/tokens.dart';
 import 'package:glasswork/ui/screens/app_shell.dart';
 import 'package:glasswork/ui/screens/capacity_screen.dart';
 import 'package:glasswork/ui/screens/list_screen.dart';
+import 'package:glasswork/ui/screens/settings_screen.dart';
 import 'package:glasswork/ui/screens/today_screen.dart';
 import 'package:glasswork/ui/widgets/block_dialog.dart';
 import 'package:glasswork/ui/widgets/content_header.dart';
@@ -176,6 +177,30 @@ final _states = <_State>[
     app.read(projectFilterProvider.notifier).togglePriority(3);
     await _settle(tester);
     await tester.tap(find.byIcon(Icons.filter_list).first);
+  }),
+  _State('settings', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const SettingsDestination());
+  }),
+  _State('settings, scrolled to the end', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const SettingsDestination());
+    await _settle(tester);
+    await _scrollToEnd(tester, find.byType(SettingsScreen));
+  }),
+  _State('settings, reminders', (tester, app, data) async {
+    // Times either side of when the seeded week gets up and goes to bed.
+    final scope = app.read(appScopeProvider).value!;
+    // One write at a time, with a pump between: the first wakes the preferences query, which
+    // only runs once the test's clock moves, and until it has the second would wait on it.
+    await tester.runAsync(() => scope.preferences.setMorning(6 * 60 + 30));
+    await _settle(tester);
+    await tester.runAsync(() => scope.preferences.setSnooze(90));
+    app.read(destinationProvider.notifier).go(const SettingsDestination());
+    await _settle(tester);
+    await tester.scrollUntilVisible(
+      find.text('Snooze'),
+      300,
+      scrollable: _pageScrollable(find.byType(SettingsScreen)),
+    );
   }),
   _State('time budget', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(const CapacityDestination());

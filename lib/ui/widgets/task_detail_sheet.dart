@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
@@ -48,12 +49,15 @@ class _Sheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     void close() => ref.read(openTaskProvider.notifier).close();
 
-    return ModalSheet(
-      onClose: close,
-      maxWidth: 560,
-      alignment: Alignment.center,
-      scrim: 0.65,
-      child: _Body(task: task, onClose: close),
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
+      child: ModalSheet(
+        onClose: close,
+        maxWidth: 560,
+        alignment: Alignment.center,
+        scrim: 0.65,
+        child: _Body(task: task, onClose: close),
+      ),
     );
   }
 }

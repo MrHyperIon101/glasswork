@@ -29,6 +29,14 @@ void main() {
     r'set\(APPLICATION_ID "([^"]+)"\)',
   ).firstMatch(read('linux/CMakeLists.txt'))!.group(1)!;
 
+  test('Settings shows the version pubspec.yaml builds', () {
+    final built = RegExp(
+      r'^version:\s*(\S+)',
+      multiLine: true,
+    ).firstMatch(read('pubspec.yaml'))!.group(1);
+    expect(AppConfig.version, built);
+  });
+
   group('Android', () {
     const res = 'android/app/src/main/res';
 

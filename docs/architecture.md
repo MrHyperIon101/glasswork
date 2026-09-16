@@ -17,8 +17,8 @@ it unpacks beside the installed app and swaps the two with renames, so a failed 
 old app working. It closes a running app first and opens it again after. The app's data is never
 touched, and a copy of the program kept as `uninstall` removes the app from the entry's menu.
 `linux/packaging/install.sh` runs the same installer without a window. **Bump the version in
-`pubspec.yaml` for every release:** it is what tells an update from a reinstall, and Android refuses
-a build whose number went down.
+`pubspec.yaml` and `AppConfig.version` for every release** (a test holds the two together): it is
+what tells an update from a reinstall, and Android refuses a build whose number went down.
 
 ---
 
@@ -72,6 +72,10 @@ Two primitives, and reach for the first one:
   card in a grid is not one of those.
 
 Rows are never vibrancy. A list has dozens of them; hover fill gives the depth instead.
+
+Every sheet is a `ModalSheet`, which gives it its own focus scope and moves keyboard focus into it
+as it opens. Without that, the screen behind kept focus: a field's `autofocus` was refused, and Esc
+went to the screen rather than the sheet.
 
 ### What replaced the glass shader
 
@@ -202,8 +206,27 @@ list, one task a line, each line read the way a single title is.
   `Persistent=true`), running a POSIX script that calls `notify-send`. The script stays quiet while
   the app is open — the app writes its pid to `XDG_RUNTIME_DIR` — and records what it showed, so
   nothing shows twice. `LinuxReminderFiles` holds every byte written, and its test runs the script.
-- A reminder's buttons (Mark done, Snooze 10 min) open the app, which does the write. Handled in a
+- A reminder's buttons (Mark done, Snooze) open the app, which does the write. Handled in a
   background isolate instead, they would be a second writer to the database beside the app.
+
+---
+
+## Settings
+
+`SettingsScreen` (the foot of the sidebar, or Ctrl+,) holds everything that can be set. As on the
+profile, each setting says what it is and what it does in the person's own figures ("Tomorrow you
+get up at 07:00, so a morning reminder comes 2h after that"), and those sentences come from
+`SettingsText`, which is pure and tested.
+
+- **Choices about the app on this device** — when a morning and an evening reminder are, how long
+  Snooze waits, which project a task added outside one goes to — are `Preferences`, kept in
+  `LocalSettings` by `PreferencesRepository` and never synced.
+- **Settings that shape the work** — sleep, meals, buffer, focus — sync in the capacity profile and
+  are changed on Time budget, beside the figures they change. Settings sums them up and links there;
+  it does not keep a second copy.
+- A setting goes in only once everything it names follows it. The morning reaches the presets, the
+  reminder dialog and a typed `remind fri`; Snooze reaches the snooze and the words on its button,
+  on both platforms.
 
 ---
 

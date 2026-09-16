@@ -45,12 +45,18 @@ class LinuxReminders implements ReminderGateway {
   /// reloaded, when the reminders have not changed.
   String? _written;
 
-  static const _details = NotificationDetails(
+  /// How long the Snooze buttons of the reminders last scheduled wait.
+  Duration _snooze = const Duration(minutes: 10);
+
+  /// How a reminder shows: with buttons for its task, or, for the sample, with none.
+  static NotificationDetails _details({Duration? snooze}) => NotificationDetails(
     linux: LinuxNotificationDetails(
       defaultActionName: 'Open',
       actions: [
-        LinuxNotificationAction(key: 'done', label: 'Mark done'),
-        LinuxNotificationAction(key: 'snooze', label: 'Snooze 10 min'),
+        if (snooze != null) ...[
+          const LinuxNotificationAction(key: 'done', label: 'Mark done'),
+          LinuxNotificationAction(key: 'snooze', label: snoozeLabel(snooze)),
+        ],
       ],
     ),
   );
@@ -93,7 +99,19 @@ class LinuxReminders implements ReminderGateway {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> schedule(List<PlannedReminder> reminders) async {
+  Future<bool> showSample() async {
+    await _plugin.show(
+      id: ReminderPlan.sampleId,
+      title: SampleReminder.title,
+      body: SampleReminder.body,
+      notificationDetails: _details(),
+    );
+    return true;
+  }
+
+  @override
+  Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {
+    _snooze = snooze;
     _plan = reminders;
     _armNext();
     await _writeTimer(reminders);
@@ -116,7 +134,7 @@ class LinuxReminders implements ReminderGateway {
         id: reminder.id,
         title: reminder.title,
         body: reminder.body.isEmpty ? null : reminder.body,
-        notificationDetails: _details,
+        notificationDetails: _details(snooze: _snooze),
         payload: reminder.taskId,
       );
     } on Object catch (error) {

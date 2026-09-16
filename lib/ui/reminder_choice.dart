@@ -60,9 +60,13 @@ abstract final class ReminderChoice {
   ];
 
   /// Where a picker starts: [existing] while it is still ahead, or else the first whole
-  /// hour at least half an hour away — or 09:00 tomorrow, when that hour is already
-  /// tomorrow's.
-  static DateTime initial(DateTime now, {DateTime? existing}) {
+  /// hour at least half an hour away — or tomorrow morning, at [morningMin], when that
+  /// hour is already tomorrow's.
+  static DateTime initial(
+    DateTime now, {
+    DateTime? existing,
+    int morningMin = 9 * 60,
+  }) {
     final kept = existing?.toLocal();
     if (kept != null && kept.difference(now) >= soonest) return kept;
 
@@ -72,7 +76,7 @@ abstract final class ReminderChoice {
         ? DateTime(hour.year, hour.month, hour.day, hour.hour + 1)
         : hour;
     if (_daysBetween(now, next) > 0) {
-      return DateTime(now.year, now.month, now.day + 1, 9);
+      return at(DateTime(now.year, now.month, now.day + 1), morningMin);
     }
     return next;
   }

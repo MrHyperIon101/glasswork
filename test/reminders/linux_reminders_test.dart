@@ -5,10 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/reminders/linux_reminder_files.dart';
 import 'package:glasswork/reminders/linux_reminders.dart';
 import 'package:glasswork/reminders/reminder_plan.dart';
+import 'package:glasswork/reminders/reminders.dart';
 
 /// Stands in for the desktop's notifications, writing down what it was asked to show.
 class _Notifications implements FlutterLocalNotificationsPlugin {
   final shown = <(int, String?)>[];
+
+  /// The buttons on each notification shown.
+  final buttons = <List<String>>[];
 
   @override
   Future<void> show({
@@ -17,7 +21,12 @@ class _Notifications implements FlutterLocalNotificationsPlugin {
     String? body,
     NotificationDetails? notificationDetails,
     String? payload,
-  }) async => shown.add((id, title));
+  }) async {
+    shown.add((id, title));
+    buttons.add([
+      for (final action in notificationDetails?.linux?.actions ?? const []) action.label,
+    ]);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -57,6 +66,8 @@ void main() {
     title: 'Task $taskId',
   );
 
+  const tenMinutes = Duration(minutes: 10);
+
   File unit(String kind) =>
       File('${root.path}/config/systemd/user/${LinuxReminderFiles.unit}.$kind');
   File data(String name) => File('${root.path}/data/$name');
@@ -64,7 +75,7 @@ void main() {
 
   test('writes the timer, its service, the schedule and the script, then starts it', () async {
     final due = reminder('a', const Duration(hours: 1));
-    await reminders().schedule([due]);
+    await reminders().schedule([due], snooze: tenMinutes);
 
     expect(
       unit('timer').readAsStringSync(),
@@ -85,19 +96,19 @@ void main() {
 
   test('the same reminders again touch nothing', () async {
     final gateway = reminders();
-    await gateway.schedule([reminder('a', const Duration(hours: 1))]);
+    await gateway.schedule([reminder('a', const Duration(hours: 1))], snooze: tenMinutes);
     commands.clear();
 
-    await gateway.schedule([reminder('a', const Duration(hours: 1))]);
+    await gateway.schedule([reminder('a', const Duration(hours: 1))], snooze: tenMinutes);
     expect(commands, isEmpty);
   });
 
   test('with no reminders left, the timer is taken away', () async {
     final gateway = reminders();
-    await gateway.schedule([reminder('a', const Duration(hours: 1))]);
+    await gateway.schedule([reminder('a', const Duration(hours: 1))], snooze: tenMinutes);
     commands.clear();
 
-    await gateway.schedule(const []);
+    await gateway.schedule(const [], snooze: tenMinutes);
     expect(unit('timer').existsSync(), isFalse);
     expect(commands, [
       ['systemctl', '--user', 'disable', '--now', timer],
@@ -107,10 +118,11 @@ void main() {
 
   test('while open, raises a reminder itself when it comes due, and records it', () async {
     final due = reminder('a', const Duration(milliseconds: 50));
-    await reminders().schedule([due]);
+    await reminders().schedule([due], snooze: tenMinutes);
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
     expect(notifications.shown, [(due.id, 'Task a')]);
+    expect(notifications.buttons.single, ['Mark done', 'Snooze 10 min']);
     expect(
       data(LinuxReminderFiles.firedFile).readAsStringSync(),
       LinuxReminderFiles.fired(due),
@@ -119,9 +131,25 @@ void main() {
   });
 
   test('without systemd, reminders still come while the app is open', () async {
-    await reminders(systemd: false).schedule([reminder('a', const Duration(milliseconds: 50))]);
+    await reminders(systemd: false).schedule([reminder('a', const Duration(milliseconds: 50))], snooze: tenMinutes);
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
     expect(notifications.shown, hasLength(1));
+  });
+
+  test('a Snooze button says the length it was scheduled with', () async {
+    await reminders().schedule(
+      [reminder('a', const Duration(milliseconds: 50))],
+      snooze: const Duration(minutes: 30),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+
+    expect(notifications.buttons.single, ['Mark done', 'Snooze 30 min']);
+  });
+
+  test('a sample shows at once, with no buttons to act on a task', () async {
+    expect(await reminders().showSample(), isTrue);
+    expect(notifications.shown, [(ReminderPlan.sampleId, SampleReminder.title)]);
+    expect(notifications.buttons.single, isEmpty);
   });
 }
