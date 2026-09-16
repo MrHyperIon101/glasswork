@@ -183,16 +183,18 @@ class SyncEngine {
 
   /// Fetches and applies remote changes. Returns how many rows changed locally.
   Future<int> pull() async {
-    // 1. The network, holding no lock.
-    final fetched = <String, List<RemoteRow>>{};
-    final startedAt = <String, DateTime?>{};
-
-    for (final table in _tables) {
-      final name = table.actualTableName;
-      final cursor = await _readCursor(name);
-      startedAt[name] = cursor;
-      fetched[name] = await _fetchAll(name, cursor?.subtract(overlap));
-    }
+    // 1. The network, holding no lock, and every table at once. They are independent reads,
+    //    and one after another each waited out the round trip before it.
+    final names = [for (final table in _tables) table.actualTableName];
+    final startedAt = <String, DateTime?>{
+      for (final name in names) name: await _readCursor(name),
+    };
+    final pages = await Future.wait([
+      for (final name in names) _fetchAll(name, startedAt[name]?.subtract(overlap)),
+    ]);
+    final fetched = <String, List<RemoteRow>>{
+      for (final (i, name) in names.indexed) name: pages[i],
+    };
 
     // 2. Apply locally, atomically, parents first.
     var changed = 0;

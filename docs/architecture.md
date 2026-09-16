@@ -111,6 +111,11 @@ Consequences:
 - Delta pull reads from `cursor - 60s`, because `now()` is transaction-*start* time and a long
   transaction can commit with a timestamp behind a cursor you've already passed. The HLC merge is
   idempotent, so the overlap is free.
+- **Changes arrive as they happen.** Every synced table is in the `supabase_realtime` publication,
+  and a signed-in device listens (`ChangeFeed`). Word of another device's change only prompts a
+  pull; rows still come through `pull_rows`, so a lost message costs a round trip, never data.
+  While listening, the interval pull is a five-minute safety net; without it, every 30 seconds.
+  A pull asks for every table at once, and an edit goes out 0.8 seconds after typing pauses.
 
 **Synced rows are written only through `SyncWriter`**, which stamps the clocks and queues the
 outbox in the same transaction as the write. A repository that writes a synced table directly

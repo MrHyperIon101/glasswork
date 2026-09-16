@@ -4,6 +4,7 @@ import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/sync/hlc.dart';
 import 'package:glasswork/sync/sync_transport.dart';
 import 'package:glasswork/sync/sync_writer.dart';
+import 'package:glasswork/sync/synced_tables.dart';
 
 import 'device.dart';
 import 'fake_server.dart';
@@ -116,6 +117,27 @@ void main() {
 
       expect(report.pulled, 4);
       expect((await phone.task('t'))!.title, 'Lab report');
+    });
+
+    test('asks for every table at once, rather than each after the last', () async {
+      await seed(laptop);
+      await laptop.sync();
+
+      final slow = _SlowPulls(server, const Duration(milliseconds: 40));
+      final tablet = Device('tablet', slow, now: () => nowMs);
+      addTearDown(tablet.close);
+
+      final started = DateTime.now();
+      final report = await tablet.sync();
+      final took = DateTime.now().difference(started);
+
+      expect(report.pulled, 4);
+      expect(slow.mostAtOnce, tablet.db.syncedTables.length);
+      expect(
+        took,
+        lessThan(const Duration(milliseconds: 40) * (tablet.db.syncedTables.length ~/ 2)),
+        reason: 'one after another, fourteen tables would take fourteen round trips',
+      );
     });
 
     test('pulling back what this device just pushed changes nothing', () async {
@@ -349,4 +371,34 @@ void main() {
 
     expect((await phone.task('t'))!.title, 'From before sync');
   });
+}
+
+/// The server, with every pull taking a round trip's time, counting how many overlap.
+class _SlowPulls implements SyncTransport {
+  _SlowPulls(this._server, this._roundTrip);
+
+  final SyncTransport _server;
+  final Duration _roundTrip;
+  int _inFlight = 0;
+  int mostAtOnce = 0;
+
+  @override
+  Future<void> push(List<RowChange> changes) => _server.push(changes);
+
+  @override
+  Future<PullPage> pull(
+    String table, {
+    DateTime? since,
+    PullCursor? after,
+    required int limit,
+  }) async {
+    _inFlight++;
+    if (_inFlight > mostAtOnce) mostAtOnce = _inFlight;
+    try {
+      await Future<void>.delayed(_roundTrip);
+      return await _server.pull(table, since: since, after: after, limit: limit);
+    } finally {
+      _inFlight--;
+    }
+  }
 }

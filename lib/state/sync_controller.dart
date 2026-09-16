@@ -9,6 +9,7 @@ import 'package:supabase/supabase.dart';
 
 import '../sync/account_link.dart';
 import '../sync/backend_config.dart';
+import '../sync/change_feed.dart';
 import '../sync/supabase_transport.dart';
 import '../sync/sync_auth.dart';
 import '../sync/sync_engine.dart';
@@ -142,6 +143,13 @@ final syncAuthProvider = Provider<SyncAuth>((ref) {
   return auth;
 });
 
+/// Word of other devices' changes, so they arrive at once. Silent under test, where there is
+/// no server to listen to.
+final changeFeedProvider = Provider<ChangeFeed>((ref) {
+  if (Platform.environment.containsKey('FLUTTER_TEST')) return const NoChangeFeed();
+  return SupabaseChangeFeed(ref.watch(supabaseClientProvider));
+});
+
 final syncProvider = NotifierProvider<SyncController, SyncState>(
   SyncController.new,
 );
@@ -168,12 +176,14 @@ final syncSheetOpenProvider = NotifierProvider<SyncSheetOpen, bool>(
 /// did.
 class SyncController extends Notifier<SyncState> {
   late SyncAuth _auth;
+  late ChangeFeed _feed;
   AppScope? _scope;
   SyncEngine? _engine;
   AccountLink? _link;
 
   Timer? _every;
   Timer? _afterEdit;
+  Timer? _afterRemote;
   Timer? _retry;
   StreamSubscription<int>? _pending;
   AppLifecycleListener? _lifecycle;
@@ -182,11 +192,20 @@ class SyncController extends Notifier<SyncState> {
   bool _runAgain = false;
   int _failures = 0;
 
-  /// How long after an edit it is sent. Long enough that typing a title is one push.
-  static const editDelay = Duration(seconds: 2);
+  /// How long after an edit it is sent: once typing pauses, so a title typed is one push.
+  static const editDelay = Duration(milliseconds: 800);
 
-  /// How often other devices' changes are fetched while the app is open.
-  static const interval = Duration(minutes: 2);
+  /// How long after word of another device's change this one pulls. One push of many rows
+  /// is many messages, and this makes them one pull.
+  static const remoteDelay = Duration(milliseconds: 250);
+
+  /// How often other devices' changes are fetched while nothing is telling this device
+  /// about them.
+  static const interval = Duration(seconds: 30);
+
+  /// The same, while the change feed is connected and changes arrive as they happen. Only a
+  /// safety net for a message that went missing.
+  static const liveInterval = Duration(minutes: 5);
 
   /// How long checking the sign-in may take before it counts as offline.
   ///
@@ -206,6 +225,7 @@ class SyncController extends Notifier<SyncState> {
   SyncState build() {
     ref.onDispose(_stop);
     _auth = ref.watch(syncAuthProvider);
+    _feed = ref.watch(changeFeedProvider);
 
     final scope = ref.watch(appScopeProvider).value;
     if (scope == null) return const SyncStarting();
@@ -445,8 +465,33 @@ class SyncController extends Notifier<SyncState> {
         .listen(_onPending);
     _every ??= Timer.periodic(interval, (_) => unawaited(syncNow()));
     _lifecycle ??= AppLifecycleListener(onResume: () => unawaited(syncNow()));
+    _feed.start(
+      clientId: _scope!.writer.clientId,
+      onChange: _onRemoteChange,
+      onLive: _onLive,
+    );
 
     unawaited(syncNow());
+  }
+
+  /// Another device changed something: pull it in, once the burst of messages is over.
+  void _onRemoteChange() {
+    if (state is! SyncOn) return;
+    _afterRemote?.cancel();
+    _afterRemote = Timer(remoteDelay, () => unawaited(syncNow()));
+  }
+
+  /// The change feed connected or dropped. Connected, changes arrive as they happen and the
+  /// interval is only a safety net; dropped, the interval is how they arrive.
+  void _onLive(bool live) {
+    if (state is! SyncOn) return;
+    _every?.cancel();
+    _every = Timer.periodic(
+      live ? liveInterval : interval,
+      (_) => unawaited(syncNow()),
+    );
+    // Whatever changed while it was disconnected was never announced.
+    if (live) unawaited(syncNow());
   }
 
   void _onPending(int pending) {
@@ -481,6 +526,9 @@ class SyncController extends Notifier<SyncState> {
     _every = null;
     _afterEdit?.cancel();
     _afterEdit = null;
+    _afterRemote?.cancel();
+    _afterRemote = null;
+    unawaited(_feed.stop());
     _retry?.cancel();
     _retry = null;
     unawaited(_pending?.cancel());
