@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 import '../../reminders/reminder_presets.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../layout.dart';
+import '../reminder_choice.dart';
 import 'field_controls.dart';
+import 'reminder_dialog.dart';
 
-/// When to be reminded about a task: a quick choice, any date and time, or not at all.
+/// When to be reminded about a task, used wherever a task is made or edited.
+///
+/// What is set, said in words with how long until it; quick choices that suit the task;
+/// and any other moment, chosen in [ReminderDialog].
 class ReminderPicker extends StatelessWidget {
   const ReminderPicker({
     required this.remindAt,
@@ -31,23 +37,14 @@ class ReminderPicker extends StatelessWidget {
     final now = DateTime.now();
     final at = remindAt?.toLocal();
     final presets = ReminderPresets.of(now, dueAt: dueAt, dueDate: dueDate);
+    final summary = at == null ? null : ReminderChoice.describe(at, now);
 
-    Future<void> pick() async {
-      final suggested = at ?? presets.firstOrNull?.at ?? now.add(const Duration(hours: 1));
-      final initial = suggested.isBefore(now) ? now : suggested;
-      final date = await showDatePicker(
+    Future<void> choose() async {
+      final chosen = await showDialog<DateTime>(
         context: context,
-        initialDate: initial,
-        firstDate: DateTime(now.year, now.month, now.day),
-        lastDate: DateTime(now.year + 5),
+        builder: (_) => ReminderDialog(initial: at),
       );
-      if (date == null || !context.mounted) return;
-      final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(initial),
-      );
-      if (time == null) return;
-      onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+      if (chosen != null) onChanged(chosen);
     }
 
     String when(DateTime moment) {
@@ -63,6 +60,15 @@ class ReminderPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (at != null) ...[
+          _SetReminder(
+            text: summary ?? '${Format.reminderTime(at, now)}, which has passed',
+            passed: summary == null,
+            onChange: choose,
+            onRemove: () => onChanged(null),
+          ),
+          const SizedBox(height: AppSpace.sm),
+        ],
         Wrap(
           spacing: AppSpace.sm,
           runSpacing: AppSpace.sm,
@@ -73,31 +79,16 @@ class ReminderPicker extends StatelessWidget {
                 selected: at == preset.at,
                 onTap: () => onChanged(preset.at),
               ),
-            if (at != null && !presets.any((p) => p.at == at))
-              ComposerChip(
-                label: Format.reminderTime(at, now),
-                selected: true,
-                onTap: pick,
-              ),
             ComposerChip(
-              label: 'Pick a time',
+              key: const ValueKey('reminder-choose'),
+              label: at == null ? 'Choose a time…' : 'Another time…',
               selected: false,
               tint: AppColour.labelTertiary,
-              onTap: pick,
+              onTap: choose,
             ),
-            if (at != null)
-              ComposerChip(
-                label: 'No reminder',
-                selected: false,
-                tint: AppColour.labelTertiary,
-                onTap: () => onChanged(null),
-              ),
           ],
         ),
-        if (at != null && !at.isAfter(now)) ...[
-          const SizedBox(height: AppSpace.sm),
-          Text('That time has passed.', style: AppText.footnote),
-        ] else if (at != null && !permitted) ...[
+        if (at != null && summary != null && !permitted) ...[
           const SizedBox(height: AppSpace.sm),
           Text(
             'Notifications are off for Glasswork on this device, so this reminder will '
@@ -106,6 +97,82 @@ class ReminderPicker extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The reminder that is set: when, how long until, and ways to change or remove it.
+class _SetReminder extends StatelessWidget {
+  const _SetReminder({
+    required this.text,
+    required this.passed,
+    required this.onChange,
+    required this.onRemove,
+  });
+
+  final String text;
+  final bool passed;
+  final VoidCallback onChange;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = passed ? AppColour.red : AppColour.accent;
+
+    return Container(
+      padding: const EdgeInsets.only(left: AppSpace.md),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.14),
+        borderRadius: AppRadius.mediumAll,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            passed
+                ? Icons.notifications_off_outlined
+                : Icons.notifications_active_outlined,
+            size: 16,
+            color: tint,
+          ),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onChange,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+                  child: Text(
+                    text,
+                    style: AppText.callout.copyWith(color: AppColour.label),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Tooltip(
+            message: 'No reminder',
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onRemove,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: EdgeInsets.all(
+                    AppLayout.touch ? AppSpace.md : AppSpace.sm,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 15,
+                    color: AppColour.labelSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

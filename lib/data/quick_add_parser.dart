@@ -1,5 +1,5 @@
 /// Parses a quick-add line like
-/// `submit dbms lab tmrw 5pm !high #uni ~4h`
+/// `submit dbms lab tmrw 5pm !high #uni ~4h remind tmrw 9am`
 /// into structured fields.
 ///
 /// The grammar is deliberately small and explicit. Date parsing is a swamp, and a parser
@@ -25,7 +25,7 @@ class ParseSpan {
   final String label;
 }
 
-enum ParseKind { due, priority, label, estimate }
+enum ParseKind { due, priority, label, estimate, reminder }
 
 class ParsedQuickAdd {
   const ParsedQuickAdd({
@@ -36,6 +36,7 @@ class ParsedQuickAdd {
     this.priority = 0,
     this.labels = const [],
     this.estimateMin,
+    this.remindAt,
   });
 
   /// The input with every recognised fragment removed.
@@ -52,6 +53,9 @@ class ParsedQuickAdd {
   final int priority;
   final List<String> labels;
   final int? estimateMin;
+
+  /// When to be reminded, in local time: "remind tomorrow 9am", "remind in 2h".
+  final DateTime? remindAt;
 }
 
 abstract final class QuickAddParser {
@@ -75,6 +79,28 @@ abstract final class QuickAddParser {
     'sunday': DateTime.sunday,
   };
 
+  /// Weekday names longest first, so "tuesday" is never read as "tue" and a stray "sday".
+  static final _weekdayPattern =
+      (_weekdays.keys.toList()..sort((a, b) => b.length.compareTo(a.length)))
+          .join('|');
+
+  /// "remind [me] [at|on]" then either "in 2h", or a day, a time, or both.
+  ///
+  /// Groups: 1–2 an amount and unit; 3 the day; 4–6 a time with am or pm; 7–8 a 24-hour
+  /// time; 9 noon or midnight.
+  static final _remind = RegExp(
+    r'\bremind(?:\s+me)?(?:\s+(?:at|on))?\s+(?:'
+    r'in\s+(\d+)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d)\b'
+    r'|'
+    r'(?:(today|tonight|tmrw|tomorrow|(?:next\s+)?(?:'
+    '$_weekdayPattern'
+    r'))\b)?'
+    r'(?:\s*(?:at\s+)?(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b'
+    r'|(\d{1,2}):(\d{2})\b|(noon|midnight)\b))?'
+    r')',
+    caseSensitive: false,
+  );
+
   static const _priorities = {
     'high': 3,
     'hi': 3,
@@ -86,10 +112,46 @@ abstract final class QuickAddParser {
     '3': 1,
   };
 
+  /// The tasks in a pasted list: one a line, blank lines skipped, and a leading bullet,
+  /// number or checkbox taken off, so a list copied from notes or a document adds cleanly.
+  static List<String> splitLines(String text) => [
+    for (final line in text.split(RegExp(r'\r?\n')))
+      if (line
+              .replaceFirst(RegExp(r'^\s*(?:[-*•+]|\d+[.)])\s+'), '')
+              .replaceFirst(RegExp(r'^\s*\[[ xX]?\]\s*'), '')
+              .trim()
+          case final task when task.isNotEmpty)
+        task,
+  ];
+
   /// [now] is injected so the whole thing is a pure function and can be tested against
   /// fixed dates rather than whatever today happens to be.
   static ParsedQuickAdd parse(String input, {required DateTime now}) {
     final spans = <ParseSpan>[];
+    final today = DateTime(now.year, now.month, now.day);
+
+    // --- remind <when> ---
+    // Read first, and blanked out of everything read after it, so its day and time are
+    // never also taken for the due date.
+    DateTime? remindAt;
+    var rest = input;
+    for (final m in _remind.allMatches(input)) {
+      final at = _reminderFrom(m, now);
+      if (at == null) continue;
+      remindAt = at;
+      spans.add(
+        ParseSpan(
+          start: m.start,
+          end: m.end,
+          kind: ParseKind.reminder,
+          label:
+              'remind ${_dateLabel(DateTime(at.year, at.month, at.day), today)} '
+              '${_timeLabel((hour: at.hour, minute: at.minute))}',
+        ),
+      );
+      rest = input.replaceRange(m.start, m.end, ' ' * (m.end - m.start));
+      break;
+    }
 
     var priority = 0;
     final labels = <String>[];
@@ -100,7 +162,7 @@ abstract final class QuickAddParser {
     // --- !priority ---
     for (final m in RegExp(
       r'(?:^|\s)(![A-Za-z0-9]+)',
-    ).allMatches(input)) {
+    ).allMatches(rest)) {
       final word = m.group(1)!.substring(1).toLowerCase();
       final value = _priorities[word];
       if (value == null) continue;
@@ -116,7 +178,7 @@ abstract final class QuickAddParser {
     }
 
     // --- #label ---
-    for (final m in RegExp(r'(?:^|\s)(#[A-Za-z0-9_-]+)').allMatches(input)) {
+    for (final m in RegExp(r'(?:^|\s)(#[A-Za-z0-9_-]+)').allMatches(rest)) {
       final word = m.group(1)!.substring(1);
       labels.add(word);
       spans.add(
@@ -133,7 +195,7 @@ abstract final class QuickAddParser {
     final est = RegExp(
       r'(?:^|\s)~(\d+)\s*(m|min|mins|h|hr|hrs)\b',
       caseSensitive: false,
-    ).firstMatch(input);
+    ).firstMatch(rest);
     if (est != null) {
       final n = int.parse(est.group(1)!);
       final unit = est.group(2)!.toLowerCase();
@@ -149,12 +211,10 @@ abstract final class QuickAddParser {
     }
 
     // --- relative days ---
-    final today = DateTime(now.year, now.month, now.day);
-
     final rel = RegExp(
       r'\b(today|tonight|tmrw|tomorrow|in\s+(\d+)\s+(day|days|week|weeks))\b',
       caseSensitive: false,
-    ).firstMatch(input);
+    ).firstMatch(rest);
     if (rel != null) {
       final word = rel.group(1)!.toLowerCase();
       if (word == 'today' || word == 'tonight') {
@@ -182,7 +242,7 @@ abstract final class QuickAddParser {
       final wd = RegExp(
         r'\b(next\s+)?(' + _weekdays.keys.join('|') + r')\b',
         caseSensitive: false,
-      ).firstMatch(input);
+      ).firstMatch(rest);
       if (wd != null) {
         final target = _weekdays[wd.group(2)!.toLowerCase()]!;
         final forceNextWeek = wd.group(1) != null;
@@ -205,7 +265,7 @@ abstract final class QuickAddParser {
     final tm = RegExp(
       r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(\d{1,2}):(\d{2})\b',
       caseSensitive: false,
-    ).firstMatch(input);
+    ).firstMatch(rest);
     if (tm != null) {
       if (tm.group(3) != null) {
         var hour = int.parse(tm.group(1)!);
@@ -268,7 +328,78 @@ abstract final class QuickAddParser {
       priority: priority,
       labels: labels,
       estimateMin: estimateMin,
+      remindAt: remindAt,
     );
+  }
+
+  /// The moment a "remind" phrase means, or null when it names no day and no time.
+  static DateTime? _reminderFrom(RegExpMatch m, DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (m.group(1) case final amount?) {
+      final n = int.parse(amount);
+      final unit = m.group(2)!.toLowerCase();
+      final wait = unit.startsWith('d')
+          ? Duration(days: n)
+          : unit.startsWith('h')
+          ? Duration(hours: n)
+          : Duration(minutes: n);
+      if (wait == Duration.zero) return null;
+      final at = now.add(wait);
+      return DateTime(at.year, at.month, at.day, at.hour, at.minute);
+    }
+
+    ({int hour, int minute})? time;
+    if (m.group(6) case final meridiem?) {
+      final hour = int.parse(m.group(4)!);
+      if (hour < 1 || hour > 12) return null;
+      time = (
+        hour: hour % 12 + (meridiem.toLowerCase() == 'pm' ? 12 : 0),
+        minute: int.parse(m.group(5) ?? '0'),
+      );
+    } else if (m.group(7) case final hour?) {
+      time = (hour: int.parse(hour), minute: int.parse(m.group(8)!));
+    } else if (m.group(9) case final word?) {
+      time = word.toLowerCase() == 'noon'
+          ? (hour: 12, minute: 0)
+          : (hour: 0, minute: 0);
+    }
+    if (time != null && (time.hour > 23 || time.minute > 59)) return null;
+
+    final dayWord = m.group(3)?.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (dayWord == null) {
+      if (time == null) return null;
+      // A time alone is the next one to come: today, or tomorrow once it has passed.
+      final candidate = DateTime(
+        today.year,
+        today.month,
+        today.day,
+        time.hour,
+        time.minute,
+      );
+      return candidate.isAfter(now)
+          ? candidate
+          : DateTime(today.year, today.month, today.day + 1, time.hour, time.minute);
+    }
+
+    final day = switch (dayWord) {
+      'today' || 'tonight' => today,
+      'tmrw' || 'tomorrow' => DateTime(today.year, today.month, today.day + 1),
+      _ => _nextWeekday(dayWord, today),
+    };
+    // A day alone means its morning; tonight, its evening.
+    time ??= dayWord == 'tonight' ? (hour: 20, minute: 0) : (hour: 9, minute: 0);
+    return DateTime(day.year, day.month, day.day, time.hour, time.minute);
+  }
+
+  /// "fri" or "next fri", counted as the due date's weekdays are.
+  static DateTime _nextWeekday(String word, DateTime today) {
+    final forceNextWeek = word.startsWith('next ');
+    final target = _weekdays[word.replaceFirst('next ', '')]!;
+    var delta = (target - today.weekday) % 7;
+    if (delta == 0) delta = 7;
+    if (forceNextWeek && delta < 7) delta += 7;
+    return DateTime(today.year, today.month, today.day + delta);
   }
 
   static String _stripSpans(String input, List<ParseSpan> spans) {

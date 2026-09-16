@@ -110,7 +110,7 @@ void main() {
       final entry = read('linux/packaging/$id.desktop');
       expect(entry, contains('\nIcon=$id\n'));
       expect(entry, contains('\nStartupWMClass=$id\n'));
-      expect(entry, contains('\nExec=@EXEC@\n'), reason: 'install.sh fills it in');
+      expect(entry, contains('\nExec=@EXEC@\n'), reason: 'the installer fills it in');
 
       for (final size in [16, 24, 32, 48, 64, 128, 256, 512]) {
         final icon = png('linux/packaging/icons/${size}x$size/apps/$id.png');

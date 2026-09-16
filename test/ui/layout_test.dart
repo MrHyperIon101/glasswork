@@ -29,6 +29,7 @@ import 'package:glasswork/ui/screens/list_screen.dart';
 import 'package:glasswork/ui/screens/today_screen.dart';
 import 'package:glasswork/ui/widgets/block_dialog.dart';
 import 'package:glasswork/ui/widgets/content_header.dart';
+import 'package:glasswork/ui/widgets/task_composer.dart';
 
 /// Every screen and sheet, rendered with realistic data on a phone and on a desktop.
 ///
@@ -257,6 +258,37 @@ final _states = <_State>[
       ),
     );
     app.read(destinationProvider.notifier).go(const CapacityDestination());
+  }),
+  _State('new task with a reminder', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
+    app.read(composerOpenProvider.notifier).open();
+    await _settle(tester);
+    await tester.enterText(
+      find.descendant(of: find.byType(TaskComposer), matching: find.byType(TextField)).first,
+      'Submit the DBMS lab report fri 5pm !high remind thu 8pm',
+    );
+  }),
+  _State('choosing when to be reminded', (tester, app, data) async {
+    app.read(composerOpenProvider.notifier).open();
+    await _settle(tester);
+    final choose = find.byKey(const ValueKey('reminder-choose'));
+    await tester.ensureVisible(choose);
+    await _settle(tester);
+    await tester.tap(choose);
+  }),
+  _State('adding several tasks', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
+    app.read(composerOpenProvider.notifier).open();
+    await _settle(tester);
+    await tester.tap(find.text('Add several at once'));
+    await _settle(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-list')),
+      '- Lab 7: views and indexes fri !high ~2h #uni\n'
+      '- Read chapter 8 remind tomorrow 9am\n'
+      '- Book a room for the group project\n'
+      '- Email the TA about the marks',
+    );
   }),
   _State('new task', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));

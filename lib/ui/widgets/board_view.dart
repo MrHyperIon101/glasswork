@@ -324,6 +324,9 @@ class _CardBodyState extends ConsumerState<_CardBody> {
     final due = Format.due(task, DateTime.now());
     final plan = ref.watch(taskFeasibilityProvider(task.id));
     final steps = ref.watch(subtasksProvider(task.id)).value ?? const [];
+    final now = DateTime.now();
+    final reminder = task.remindAt?.toLocal();
+    final remindsLater = !done && reminder != null && reminder.isAfter(now);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -412,6 +415,7 @@ class _CardBodyState extends ConsumerState<_CardBody> {
               if (due != null ||
                   task.estimateMin != null ||
                   steps.isNotEmpty ||
+                  remindsLater ||
                   (plan != null && plan.state != Feasibility.fine)) ...[
                 const SizedBox(height: AppSpace.sm),
                 Wrap(
@@ -422,6 +426,11 @@ class _CardBodyState extends ConsumerState<_CardBody> {
                       _Pill(label: due.label, tint: due.colour),
                     if (task.estimateMin case final m?)
                       _Pill(label: Format.estimate(m)),
+                    if (remindsLater)
+                      _Pill(
+                        icon: Icons.notifications_none,
+                        label: Format.reminderTime(reminder, now),
+                      ),
                     if (steps.isNotEmpty)
                       _Pill(
                         label:
@@ -446,23 +455,34 @@ class _CardBodyState extends ConsumerState<_CardBody> {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, this.tint});
+  const _Pill({required this.label, this.tint, this.icon});
 
   final String label;
   final Color? tint;
+  final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 1),
-    decoration: BoxDecoration(
-      color: (tint ?? AppColour.grey).withValues(alpha: 0.16),
-      borderRadius: AppRadius.smallAll,
-    ),
-    child: Text(
-      label,
-      style: AppText.numeric.copyWith(color: tint ?? AppColour.labelSecondary),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final colour = tint ?? AppColour.labelSecondary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 1),
+      decoration: BoxDecoration(
+        color: (tint ?? AppColour.grey).withValues(alpha: 0.16),
+        borderRadius: AppRadius.smallAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon case final glyph?) ...[
+            Icon(glyph, size: 12, color: colour),
+            const SizedBox(width: AppSpace.xs),
+          ],
+          Text(label, style: AppText.numeric.copyWith(color: colour)),
+        ],
+      ),
+    );
+  }
 }
 
 class _AddCardButton extends ConsumerWidget {

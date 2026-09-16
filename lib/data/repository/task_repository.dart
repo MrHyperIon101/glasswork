@@ -80,6 +80,7 @@ class TaskRepository {
     String? dueDate,
     int priority = 0,
     int? estimateMin,
+    DateTime? remindAt,
   }) async {
     final last = await _lastKeyIn(listId);
     return _writer.insert(
@@ -94,6 +95,8 @@ class TaskRepository {
         dueDate: Value(dueDate),
         priority: Value(priority),
         estimateMin: Value(estimateMin),
+        // UTC, as setReminder stores it.
+        remindAt: Value(remindAt?.toUtc()),
       ),
     );
   }
