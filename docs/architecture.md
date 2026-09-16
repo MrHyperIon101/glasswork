@@ -7,9 +7,18 @@ themselves — the Android launcher label, the Linux window title and app grid e
 by `test/app_identity_test.dart`.
 
 The app icon is generated. `tool/app_icon.py` cuts a disc from `assets/branding/app_icon_source.png`
-and writes every platform's PNGs; change the source and rerun it, never edit the outputs. A Linux
-release build is installed for the user, icon and app grid entry included, by
-`linux/packaging/install.sh`.
+and writes every platform's PNGs; change the source and rerun it, never edit the outputs.
+
+**Linux ships as one installer file.** `linux/packaging/build_installer.sh` builds the release app and
+writes `build/linux/installer/Glasswork-Setup-<version>-<arch>`: a small GTK program
+(`linux/installer/installer.c`) with the app appended as a tarball. Opened, it installs into
+`~/.local/opt/dev.mrhyperion.glasswork` with an app grid entry and icons, or updates what is there:
+it unpacks beside the installed app and swaps the two with renames, so a failed update leaves the
+old app working. It closes a running app first and opens it again after. The app's data is never
+touched, and a copy of the program kept as `uninstall` removes the app from the entry's menu.
+`linux/packaging/install.sh` runs the same installer without a window. **Bump the version in
+`pubspec.yaml` for every release:** it is what tells an update from a reinstall, and Android refuses
+a build whose number went down.
 
 ---
 
@@ -176,6 +185,13 @@ All-day tasks store a `due_date` (date), **not** a timestamp. A timestamp for an
 A task's reminder is `tasks.remind_at` (UTC), synced like any field, so every device with the task
 raises it. `ReminderPlan` (pure) picks the next `ReminderPlan.limit` of them; `ReminderService` hands
 the plan to the platform only when it changes, once edits pause, and never throws.
+
+A reminder is set wherever a task is made or edited: typed into the title (`remind tomorrow 9am`,
+`remind in 2h`, `remind fri 6pm`, read by `QuickAddParser` before anything else so its time is not
+taken for the due date), picked from presets that suit the task, or chosen in `ReminderDialog` as a
+day and a typed time. Each says in words when it is and how long until it (`ReminderChoice.describe`),
+so a reminder set for the wrong day is caught while setting it. "Add several at once" takes a pasted
+list, one task a line, each line read the way a single title is.
 
 - **Android:** exact alarms through `flutter_local_notifications` (`USE_EXACT_ALARM` on 13 and later),
   put back after a restart by the plugin's boot receiver. Notification permission is asked the first

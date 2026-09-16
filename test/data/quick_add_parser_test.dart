@@ -7,6 +7,69 @@ void main() {
 
   ParsedQuickAdd parse(String s) => QuickAddParser.parse(s, now: now);
 
+  group('remind', () {
+    test('a day and a time is a reminder, not a due date', () {
+      final r = parse('call the bank remind tomorrow 9am');
+      expect(r.title, 'call the bank');
+      expect(r.remindAt, DateTime(2026, 9, 12, 9));
+      expect(r.dueDate, isNull);
+      expect(r.dueAt, isNull);
+      expect(r.spans.single.kind, ParseKind.reminder);
+      expect(r.spans.single.label, 'remind Tomorrow 09:00');
+    });
+
+    test('reads alongside a due date without taking it', () {
+      // Today is a Friday, so "fri" is next week's and "thu" the day before it.
+      final r = parse('submit lab fri 5pm remind thu 8pm');
+      expect(r.title, 'submit lab');
+      expect(r.dueAt, DateTime(2026, 9, 18, 17));
+      expect(r.remindAt, DateTime(2026, 9, 17, 20));
+    });
+
+    test('"in" counts from now', () {
+      expect(parse('stretch remind in 2h').remindAt, DateTime(2026, 9, 11, 11));
+      expect(parse('tea remind in 45 min').remindAt, DateTime(2026, 9, 11, 9, 45));
+      expect(parse('renew remind in 3 days').remindAt, DateTime(2026, 9, 14, 9));
+    });
+
+    test('a time alone is the next one to come', () {
+      expect(parse('water plants remind me at 6pm').remindAt, DateTime(2026, 9, 11, 18));
+      expect(parse('standup remind 8am').remindAt, DateTime(2026, 9, 12, 8));
+      expect(parse('call remind 18:30').remindAt, DateTime(2026, 9, 11, 18, 30));
+    });
+
+    test('a day alone is its morning, and tonight its evening', () {
+      expect(parse('review remind friday').remindAt, DateTime(2026, 9, 18, 9));
+      expect(parse('bins remind tonight').remindAt, DateTime(2026, 9, 11, 20));
+      expect(parse('plan remind next mon at noon').remindAt, DateTime(2026, 9, 21, 12));
+    });
+
+    test('keeps the due date its own words give', () {
+      final r = parse('pay rent tomorrow remind today 6pm');
+      expect(r.dueDate, '2026-09-12');
+      expect(r.remindAt, DateTime(2026, 9, 11, 18));
+      expect(r.title, 'pay rent');
+    });
+
+    test('is not read from words that only look like it', () {
+      for (final text in ['write the reminder email', 'remind about the lab']) {
+        final r = parse(text);
+        expect(r.remindAt, isNull, reason: text);
+        expect(r.title, text);
+      }
+    });
+  });
+
+  test('a pasted list splits into one task a line, without its bullets', () {
+    expect(
+      QuickAddParser.splitLines(
+        '- Write tests\n2. Fix bug !high\n\n* [ ] Ship it ~2h\n  • Tidy up\n'
+        '[x] Done thing\r\n3 things to buy\n- \n',
+      ),
+      ['Write tests', 'Fix bug !high', 'Ship it ~2h', 'Tidy up', 'Done thing', '3 things to buy'],
+    );
+  });
+
   test('plain text is left alone', () {
     final r = parse('buy milk');
     expect(r.title, 'buy milk');
