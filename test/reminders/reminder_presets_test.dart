@@ -22,6 +22,31 @@ void main() {
     ]);
   });
 
+  test('mornings and evenings are the times Settings has', () {
+    List<(String, DateTime)> chosen({DateTime? dueDate}) => [
+      for (final p in ReminderPresets.of(
+        now,
+        dueDate: dueDate,
+        morningMin: 7 * 60 + 30,
+        eveningMin: 20 * 60,
+      ))
+        (p.label, p.at),
+    ];
+
+    expect(chosen(), [
+      ('In an hour', DateTime(2026, 9, 15, 15, 5)),
+      ('This evening', DateTime(2026, 9, 15, 20)),
+      ('Tomorrow morning', DateTime(2026, 9, 16, 7, 30)),
+    ]);
+    expect(
+      chosen(dueDate: DateTime(2026, 9, 18)),
+      containsAllInOrder([
+        ('The evening before', DateTime(2026, 9, 17, 20)),
+        ('The morning it is due', DateTime(2026, 9, 18, 7, 30)),
+      ]),
+    );
+  });
+
   test('leaves out a choice that is only minutes away', () {
     expect(presets(DateTime(2026, 9, 15, 17, 50)), [
       ('In an hour', DateTime(2026, 9, 15, 18, 50)),

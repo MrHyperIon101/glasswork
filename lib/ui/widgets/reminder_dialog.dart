@@ -14,10 +14,13 @@ import 'value_stepper.dart';
 /// says in words when that is and how long until it, so a reminder set for the wrong day
 /// is caught here rather than when it fails to arrive.
 class ReminderDialog extends StatefulWidget {
-  const ReminderDialog({this.initial, super.key});
+  const ReminderDialog({this.initial, this.morningMin = 9 * 60, super.key});
 
   /// The reminder already set, if any.
   final DateTime? initial;
+
+  /// When a morning is, for starting on tomorrow morning late in the day.
+  final int morningMin;
 
   @override
   State<ReminderDialog> createState() => _ReminderDialogState();
@@ -36,7 +39,11 @@ class _ReminderDialogState extends State<ReminderDialog> {
   @override
   void initState() {
     super.initState();
-    final start = ReminderChoice.initial(DateTime.now(), existing: widget.initial);
+    final start = ReminderChoice.initial(
+      DateTime.now(),
+      existing: widget.initial,
+      morningMin: widget.morningMin,
+    );
     _day = DateTime(start.year, start.month, start.day);
     _minutes = start.hour * 60 + start.minute;
   }

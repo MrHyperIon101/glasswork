@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/scheduler.dart';
 import '../../data/db/database.dart';
+import '../../data/preferences.dart';
 import '../../data/quick_add_parser.dart';
 import '../../state/providers.dart';
 import '../../state/reminders_controller.dart';
@@ -94,8 +95,16 @@ class _FormState extends ConsumerState<_Form> {
     super.dispose();
   }
 
+  /// When a reminder that names a day but no time is: the morning Settings has.
+  int get _morningMin =>
+      (ref.read(preferencesProvider).value ?? const Preferences()).morningMin;
+
   void _onTitleChanged() {
-    final parsed = QuickAddParser.parse(_title.text, now: DateTime.now());
+    final parsed = QuickAddParser.parse(
+      _title.text,
+      now: DateTime.now(),
+      morningMin: _morningMin,
+    );
 
     setState(() {
       _spans = parsed.spans;
@@ -126,8 +135,11 @@ class _FormState extends ConsumerState<_Form> {
     return _dueDate;
   }
 
-  String get _cleanTitle =>
-      QuickAddParser.parse(_title.text, now: DateTime.now()).title;
+  String get _cleanTitle => QuickAddParser.parse(
+    _title.text,
+    now: DateTime.now(),
+    morningMin: _morningMin,
+  ).title;
 
   bool get _canSubmit => _cleanTitle.isNotEmpty && _sectionId != null;
 
@@ -220,7 +232,11 @@ class _FormState extends ConsumerState<_Form> {
 
     var reminded = false;
     for (final line in lines) {
-      final parsed = QuickAddParser.parse(line, now: DateTime.now());
+      final parsed = QuickAddParser.parse(
+        line,
+        now: DateTime.now(),
+        morningMin: _morningMin,
+      );
       if (parsed.title.isEmpty) continue;
 
       final created = await scope.tasks.create(
@@ -273,11 +289,8 @@ class _FormState extends ConsumerState<_Form> {
   Widget build(BuildContext context) {
     final projects = ref.watch(projectsProvider).value ?? const <Board>[];
 
-    // Default to wherever you are, falling back to the first project.
-    final projectId =
-        _projectId ??
-        ref.watch(currentProjectIdProvider) ??
-        projects.firstOrNull?.id;
+    // Default to wherever you are, or else the project Settings names, or else the first.
+    final projectId = _projectId ?? ref.watch(captureProjectIdProvider);
 
     final sections = projectId == null
         ? const <BoardList>[]
@@ -441,7 +454,7 @@ class _FormState extends ConsumerState<_Form> {
                     hint:
                         'Each line reads its own dates, !priority, ~estimate, #labels and '
                         '"remind tomorrow 9am", the same as a single task does.',
-                    child: _ListPreview(lines: _lines),
+                    child: _ListPreview(lines: _lines, morningMin: _morningMin),
                   ),
                   const SizedBox(height: AppSpace.lg),
                   ...destination,
@@ -648,9 +661,10 @@ class _FormState extends ConsumerState<_Form> {
 
 /// What each line of a list will become, before any of it is added.
 class _ListPreview extends StatelessWidget {
-  const _ListPreview({required this.lines});
+  const _ListPreview({required this.lines, required this.morningMin});
 
   final List<String> lines;
+  final int morningMin;
 
   /// Lines shown before the rest are counted instead.
   static const _shown = 8;
@@ -671,7 +685,11 @@ class _ListPreview extends StatelessWidget {
         for (final line in lines.take(_shown))
           Builder(
             builder: (context) {
-              final parsed = QuickAddParser.parse(line, now: now);
+              final parsed = QuickAddParser.parse(
+                line,
+                now: now,
+                morningMin: morningMin,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpace.sm),
                 child: Row(

@@ -7,7 +7,9 @@ import '../capacity/scheduler.dart';
 import '../capacity/setting_effects.dart';
 import '../capacity/timetable.dart' as tt;
 import '../data/repository/capacity_repository.dart';
+import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
+import '../data/repository/preferences_repository.dart';
 import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
@@ -30,6 +32,7 @@ class AppScope {
     required this.capacity,
     required this.projects,
     required this.labels,
+    required this.preferences,
     required this.workspace,
   });
 
@@ -45,6 +48,7 @@ class AppScope {
   final CapacityRepository capacity;
   final ProjectRepository projects;
   final LabelRepository labels;
+  final PreferencesRepository preferences;
   final Workspace workspace;
 }
 
@@ -80,8 +84,15 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     capacity: capacity,
     projects: ProjectRepository(writer),
     labels: LabelRepository(writer),
+    preferences: PreferencesRepository(db),
     workspace: workspace,
   );
+});
+
+/// How the app behaves on this device, as chosen in Settings.
+final preferencesProvider = StreamProvider<Preferences>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.preferences.watch();
 });
 
 // --- navigation -------------------------------------------------------------
@@ -115,6 +126,10 @@ class CapacityDestination extends Destination {
   const CapacityDestination();
 }
 
+class SettingsDestination extends Destination {
+  const SettingsDestination();
+}
+
 /// A project. Sections live inside it rather than being navigated to directly — a
 /// section is a column of a project, not a place.
 class ProjectDestination extends Destination {
@@ -133,7 +148,20 @@ class SelectedDestination extends Notifier<Destination> {
   @override
   Destination build() => const TodayDestination();
 
-  void go(Destination destination) => state = destination;
+  /// Where Settings was opened from, for going back to it.
+  Destination _beforeSettings = const TodayDestination();
+
+  void go(Destination destination) {
+    if (destination is SettingsDestination && state is! SettingsDestination) {
+      _beforeSettings = state;
+    }
+    state = destination;
+  }
+
+  /// Leaves Settings for wherever it was opened from.
+  void leaveSettings() {
+    if (state is SettingsDestination) state = _beforeSettings;
+  }
 }
 
 final destinationProvider =
@@ -253,7 +281,9 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
   final startOfToday = DateTime(today.year, today.month, today.day);
 
   return switch (ref.watch(destinationProvider)) {
-    TodayDestination() || CapacityDestination() => const <Task>[],
+    TodayDestination() ||
+    CapacityDestination() ||
+    SettingsDestination() => const <Task>[],
     DoneDestination() =>
       all.where((t) => t.status == TaskStatus.done).toList(),
     AllDestination() => all.where((t) => t.status != TaskStatus.done).toList(),
@@ -278,17 +308,22 @@ List<Task> _tasksInProject(Ref ref, List<Task> all, String projectId) {
   return all.where((t) => sections.contains(t.listId)).toList();
 }
 
-/// The section new tasks land in.
+/// The project new tasks land in.
 ///
-/// Inside a project that is its first section. From a smart view there is no project in
-/// context, so capture falls back to the first section of the first project — the
-/// composer always shows which, and lets you change it.
+/// Inside a project, that project. From a smart view there is no project in context, so
+/// capture goes to the project chosen in Settings, or else the first — the composer always
+/// shows which, and lets you change it.
+final captureProjectIdProvider = Provider<String?>((ref) {
+  if (ref.watch(currentProjectIdProvider) case final open?) return open;
+  final projects = ref.watch(projectsProvider).value ?? const <Board>[];
+  final chosen = ref.watch(preferencesProvider).value?.captureProjectId;
+  if (chosen != null && projects.any((p) => p.id == chosen)) return chosen;
+  return projects.firstOrNull?.id;
+});
+
+/// The section new tasks land in: the first of [captureProjectIdProvider]'s.
 final captureListIdProvider = Provider<String?>((ref) {
-  final projectId =
-      ref.watch(currentProjectIdProvider) ??
-      (ref.watch(projectsProvider).value ?? const <Board>[])
-          .firstOrNull
-          ?.id;
+  final projectId = ref.watch(captureProjectIdProvider);
   if (projectId == null) return null;
 
   final sections = ref.watch(sectionsProvider(projectId)).value;

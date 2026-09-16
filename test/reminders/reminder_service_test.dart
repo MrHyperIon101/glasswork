@@ -24,9 +24,11 @@ Task task(String id, {DateTime? remindAt, String title = 'Title'}) => Task(
 /// Records what it is asked to schedule, and fails when told to.
 class _Gateway implements ReminderGateway {
   final scheduled = <List<PlannedReminder>>[];
+  final snoozes = <Duration>[];
   ReminderResponse? launch;
   bool failStart = false;
   bool failSchedule = false;
+  bool failSample = false;
 
   @override
   Future<ReminderResponse?> start(
@@ -43,9 +45,16 @@ class _Gateway implements ReminderGateway {
   Future<bool> requestPermission() async => true;
 
   @override
-  Future<void> schedule(List<PlannedReminder> reminders) async {
+  Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {
     if (failSchedule) throw StateError('refused');
     scheduled.add(reminders);
+    snoozes.add(snooze);
+  }
+
+  @override
+  Future<bool> showSample() async {
+    if (failSample) throw StateError('no notification daemon');
+    return true;
   }
 }
 
@@ -126,6 +135,38 @@ void main() {
     service.refresh();
     await settle();
     expect([for (final r in gateway.scheduled.single) r.taskId], ['a']);
+  });
+
+  test('a new snooze length hands every reminder over again, and the same one does not', () async {
+    await service.start((_) {});
+    service.update([task('a', remindAt: inAnHour)]);
+    await settle();
+    expect(gateway.snoozes, [const Duration(minutes: 10)]);
+
+    service.snooze = const Duration(minutes: 30);
+    await settle();
+    expect(gateway.snoozes, [const Duration(minutes: 10), const Duration(minutes: 30)]);
+    expect(
+      [for (final r in gateway.scheduled.last) r.taskId],
+      ['a'],
+      reason: 'the buttons say how long, so the same reminders go again',
+    );
+
+    service.snooze = const Duration(minutes: 30);
+    await settle();
+    expect(gateway.snoozes, hasLength(2));
+  });
+
+  test('a sample that cannot be shown says so rather than throwing', () async {
+    expect(await service.showSample(), isTrue);
+    gateway.failSample = true;
+    expect(await service.showSample(), isFalse);
+  });
+
+  test('a Snooze button says how long it waits', () {
+    expect(snoozeLabel(const Duration(minutes: 10)), 'Snooze 10 min');
+    expect(snoozeLabel(const Duration(hours: 1)), 'Snooze 1 hr');
+    expect(snoozeLabel(const Duration(minutes: 90)), 'Snooze 1 hr 30 min');
   });
 
   test('reads what a notification hands back', () {

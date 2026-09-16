@@ -30,6 +30,7 @@ class ListScreen extends ConsumerWidget {
       AllDestination() => 'All open work',
       DoneDestination() => 'Completed',
       CapacityDestination() => 'Time budget',
+      SettingsDestination() => 'Settings',
       ProjectDestination() => 'Project',
     };
 

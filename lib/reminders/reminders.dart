@@ -47,8 +47,32 @@ abstract interface class ReminderGateway {
   /// it now may.
   Future<bool> requestPermission();
 
-  /// Makes [reminders] the ones this device raises, dropping any others it had.
-  Future<void> schedule(List<PlannedReminder> reminders);
+  /// Makes [reminders] the ones this device raises, dropping any others it had. Their
+  /// Snooze buttons wait [snooze].
+  Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze});
+
+  /// Shows a reminder now, to see how one looks and that one arrives. Returns whether it
+  /// could.
+  Future<bool> showSample();
+}
+
+/// The words on a reminder's Snooze button: "Snooze 10 min", "Snooze 1 hr", "Snooze 1 hr
+/// 30 min".
+String snoozeLabel(Duration snooze) {
+  final minutes = snooze.inMinutes;
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  return [
+    'Snooze',
+    if (hours > 0) '$hours hr',
+    if (rest > 0 || hours == 0) '$rest min',
+  ].join(' ');
+}
+
+/// What a sample reminder says.
+abstract final class SampleReminder {
+  static const title = 'Reminders are working';
+  static const body = "This is how a task's reminder will look.";
 }
 
 /// For platforms, and tests, with no notifications to raise reminders with.
@@ -66,7 +90,10 @@ class NoReminders implements ReminderGateway {
   Future<bool> requestPermission() async => false;
 
   @override
-  Future<void> schedule(List<PlannedReminder> reminders) async {}
+  Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {}
+
+  @override
+  Future<bool> showSample() async => false;
 }
 
 /// Keeps this device's reminders in step with the tasks.
@@ -82,10 +109,20 @@ class ReminderService {
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
-  /// How long a snoozed reminder waits.
-  static const snoozeFor = Duration(minutes: 10);
-
   final ReminderGateway _gateway;
+
+  /// How long a snoozed reminder waits: the length chosen in Settings.
+  Duration get snooze => _snooze;
+  Duration _snooze = const Duration(minutes: 10);
+
+  set snooze(Duration value) {
+    if (value == _snooze) return;
+    _snooze = value;
+    // Every reminder's Snooze button says how long it waits, so all of them are handed
+    // over again with the new length.
+    _scheduled = null;
+    refresh();
+  }
 
   /// Writes the line under a reminder's title.
   final String Function(Task task)? describe;
@@ -129,6 +166,16 @@ class ReminderService {
 
   Future<bool> requestPermission() => _gateway.requestPermission();
 
+  /// Shows a sample reminder now. Never throws: false when none could be shown.
+  Future<bool> showSample() async {
+    try {
+      return await _gateway.showSample();
+    } on Object catch (error) {
+      debugPrint('Reminders: could not show a sample: $error');
+      return false;
+    }
+  }
+
   /// Takes the latest tasks.
   void update(List<Task> tasks) {
     _tasks = tasks;
@@ -153,7 +200,7 @@ class ReminderService {
     _scheduled = plan;
 
     try {
-      await _gateway.schedule(plan);
+      await _gateway.schedule(plan, snooze: _snooze);
     } on Object catch (error) {
       // Tried again the next time anything changes, or the app comes back to the front.
       _scheduled = null;

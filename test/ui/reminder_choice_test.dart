@@ -27,6 +27,11 @@ void main() {
     expect(ReminderChoice.initial(DateTime(2026, 9, 16, 17, 31)), DateTime(2026, 9, 16, 19));
     expect(ReminderChoice.initial(DateTime(2026, 9, 16, 22, 50)), DateTime(2026, 9, 17, 9));
     expect(ReminderChoice.initial(DateTime(2026, 9, 16, 23, 40)), DateTime(2026, 9, 17, 9));
+    expect(
+      ReminderChoice.initial(DateTime(2026, 9, 16, 23, 40), morningMin: 7 * 60 + 15),
+      DateTime(2026, 9, 17, 7, 15),
+      reason: 'tomorrow morning is the morning Settings has',
+    );
   });
 
   test('a reminder already set is where a picker starts, while it is still ahead', () {

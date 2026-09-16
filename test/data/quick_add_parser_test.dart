@@ -42,6 +42,11 @@ void main() {
       expect(parse('review remind friday').remindAt, DateTime(2026, 9, 18, 9));
       expect(parse('bins remind tonight').remindAt, DateTime(2026, 9, 11, 20));
       expect(parse('plan remind next mon at noon').remindAt, DateTime(2026, 9, 21, 12));
+      expect(
+        QuickAddParser.parse('review remind friday', now: now, morningMin: 7 * 60 + 30).remindAt,
+        DateTime(2026, 9, 18, 7, 30),
+        reason: 'the morning Settings has',
+      );
     });
 
     test('keeps the due date its own words give', () {

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/preferences.dart';
 import '../../reminders/reminder_presets.dart';
+import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
@@ -12,7 +15,7 @@ import 'reminder_dialog.dart';
 ///
 /// What is set, said in words with how long until it; quick choices that suit the task;
 /// and any other moment, chosen in [ReminderDialog].
-class ReminderPicker extends StatelessWidget {
+class ReminderPicker extends ConsumerWidget {
   const ReminderPicker({
     required this.remindAt,
     required this.onChanged,
@@ -33,16 +36,25 @@ class ReminderPicker extends StatelessWidget {
   final ValueChanged<DateTime?> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final at = remindAt?.toLocal();
-    final presets = ReminderPresets.of(now, dueAt: dueAt, dueDate: dueDate);
+    // Mornings and evenings as Settings has them.
+    final preferences = ref.watch(preferencesProvider).value ?? const Preferences();
+    final presets = ReminderPresets.of(
+      now,
+      dueAt: dueAt,
+      dueDate: dueDate,
+      morningMin: preferences.morningMin,
+      eveningMin: preferences.eveningMin,
+    );
     final summary = at == null ? null : ReminderChoice.describe(at, now);
 
     Future<void> choose() async {
       final chosen = await showDialog<DateTime>(
         context: context,
-        builder: (_) => ReminderDialog(initial: at),
+        builder: (_) =>
+            ReminderDialog(initial: at, morningMin: preferences.morningMin),
       );
       if (chosen != null) onChanged(chosen);
     }

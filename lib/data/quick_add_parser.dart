@@ -126,7 +126,14 @@ abstract final class QuickAddParser {
 
   /// [now] is injected so the whole thing is a pure function and can be tested against
   /// fixed dates rather than whatever today happens to be.
-  static ParsedQuickAdd parse(String input, {required DateTime now}) {
+  ///
+  /// A reminder that names a day but no time is at [morningMin], minutes past midnight: the
+  /// morning chosen in Settings.
+  static ParsedQuickAdd parse(
+    String input, {
+    required DateTime now,
+    int morningMin = 9 * 60,
+  }) {
     final spans = <ParseSpan>[];
     final today = DateTime(now.year, now.month, now.day);
 
@@ -136,7 +143,7 @@ abstract final class QuickAddParser {
     DateTime? remindAt;
     var rest = input;
     for (final m in _remind.allMatches(input)) {
-      final at = _reminderFrom(m, now);
+      final at = _reminderFrom(m, now, morningMin);
       if (at == null) continue;
       remindAt = at;
       spans.add(
@@ -333,7 +340,7 @@ abstract final class QuickAddParser {
   }
 
   /// The moment a "remind" phrase means, or null when it names no day and no time.
-  static DateTime? _reminderFrom(RegExpMatch m, DateTime now) {
+  static DateTime? _reminderFrom(RegExpMatch m, DateTime now, int morningMin) {
     final today = DateTime(now.year, now.month, now.day);
 
     if (m.group(1) case final amount?) {
@@ -388,7 +395,9 @@ abstract final class QuickAddParser {
       _ => _nextWeekday(dayWord, today),
     };
     // A day alone means its morning; tonight, its evening.
-    time ??= dayWord == 'tonight' ? (hour: 20, minute: 0) : (hour: 9, minute: 0);
+    time ??= dayWord == 'tonight'
+        ? (hour: 20, minute: 0)
+        : (hour: morningMin ~/ 60, minute: morningMin % 60);
     return DateTime(day.year, day.month, day.day, time.hour, time.minute);
   }
 

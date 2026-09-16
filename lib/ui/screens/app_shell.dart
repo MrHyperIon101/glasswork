@@ -23,6 +23,7 @@ import '../widgets/undo_toast.dart';
 import 'capacity_screen.dart';
 import 'list_screen.dart';
 import 'project_screen.dart';
+import 'settings_screen.dart';
 import 'today_screen.dart';
 
 const _sidebarWidth = 262.0;
@@ -128,6 +129,12 @@ class _ShellState extends ConsumerState<_Shell> {
         ref.read(reminderServiceProvider).update(tasks);
       }
     }, fireImmediately: true);
+    // Snooze waits as long as Settings says, and each reminder's button says how long.
+    ref.listenManual(preferencesProvider, (_, next) {
+      if (next.value case final preferences?) {
+        ref.read(reminderServiceProvider).snooze = preferences.snooze;
+      }
+    }, fireImmediately: true);
     _startReminders();
   }
 
@@ -153,7 +160,7 @@ class _ShellState extends ConsumerState<_Shell> {
       case ReminderAction.snooze:
         await scope.tasks.setReminder(
           response.taskId,
-          DateTime.now().add(ReminderService.snoozeFor),
+          DateTime.now().add(ref.read(reminderServiceProvider).snooze),
         );
     }
   }
@@ -174,6 +181,10 @@ class _ShellState extends ConsumerState<_Shell> {
                 ref.read(composerOpenProvider.notifier).open(),
             const SingleActivator(LogicalKeyboardKey.keyN, meta: true): () =>
                 ref.read(composerOpenProvider.notifier).open(),
+            const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
+                ref.read(destinationProvider.notifier).go(const SettingsDestination()),
+            const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
+                ref.read(destinationProvider.notifier).go(const SettingsDestination()),
           },
           child: Focus(
             autofocus: true,
@@ -252,7 +263,7 @@ class _ShellState extends ConsumerState<_Shell> {
 }
 
 /// Back, on Android, closes what is open before it may leave the app: the topmost sheet,
-/// then the drawer, then a search.
+/// then the drawer, then a search, then Settings.
 ///
 /// The shell draws its sheets itself rather than pushing them as routes, so the navigator
 /// knows nothing of them, and without this a back gesture meant to dismiss one closes the
@@ -285,6 +296,8 @@ class _BackCloses extends ConsumerWidget {
       if (drawerOpen) onCloseDrawer,
       if (ref.watch(searchQueryProvider).isNotEmpty)
         ref.read(searchQueryProvider.notifier).clear,
+      if (ref.watch(destinationProvider) is SettingsDestination)
+        ref.read(destinationProvider.notifier).leaveSettings,
     ];
 
     return PopScope<Object?>(
@@ -418,6 +431,18 @@ class _Sidebar extends ConsumerWidget {
             ),
           ),
           const AppDivider(),
+          // Kept out of the list above, so it is always in reach however many projects
+          // push the rest down.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpace.sm, AppSpace.sm, AppSpace.sm, 0),
+            child: _SidebarRow(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              tint: AppColour.grey,
+              selected: current is SettingsDestination,
+              onTap: () => go(const SettingsDestination()),
+            ),
+          ),
           SyncStatusRow(onOpen: onNavigate),
         ],
       ),
@@ -567,6 +592,8 @@ class _Content extends ConsumerWidget {
       screen = TodayScreen(onMenu: onMenu);
     } else if (destination is CapacityDestination) {
       screen = CapacityScreen(onMenu: onMenu);
+    } else if (destination is SettingsDestination) {
+      screen = SettingsScreen(onMenu: onMenu);
     } else if (destination is ProjectDestination) {
       screen = ProjectScreen(projectId: destination.projectId, onMenu: onMenu);
       key = destination.projectId;

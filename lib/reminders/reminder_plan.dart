@@ -79,6 +79,10 @@ abstract final class ReminderPlan {
     return planned.take(limit).toList();
   }
 
+  /// The id of the sample reminder Settings shows. Not a task id, and not a UUID, so no
+  /// task's reminder shares it.
+  static final sampleId = notificationId('glasswork-sample-reminder');
+
   /// A notification id for [taskId]: a 31-bit FNV-1a hash, since platform ids are signed
   /// 32-bit integers and task ids are UUIDs.
   static int notificationId(String taskId) {
