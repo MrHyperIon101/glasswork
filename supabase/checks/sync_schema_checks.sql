@@ -360,6 +360,23 @@ select private.check(
    where t.tgname = 'touch_updated_at' and not t.tgisinternal),
   'every synced table stamps its own updated_at');
 
+select private.check(
+  (select count(*) = cardinality(private.synced_tables())
+   from pg_catalog.pg_publication_tables p
+   where p.pubname = 'supabase_realtime'
+     and p.schemaname = 'public'
+     and p.tablename = any (private.synced_tables())),
+  'every synced table tells listening devices when it changes');
+
+select private.check(
+  not exists (
+    select 1
+    from pg_catalog.pg_publication_tables p
+    where p.pubname = 'supabase_realtime'
+      and p.schemaname = 'public'
+      and p.tablename <> all (private.synced_tables())),
+  'no table outside sync is published to listening devices');
+
 -- --- done -------------------------------------------------------------------------------
 
 do $$

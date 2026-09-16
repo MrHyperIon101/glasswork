@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/state/providers.dart';
 import 'package:glasswork/state/sync_controller.dart';
+import 'package:glasswork/sync/change_feed.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:supabase/supabase.dart';
@@ -31,10 +32,14 @@ void main() {
     headers: {'content-type': 'application/json'},
   );
 
+  late _Feed feed;
+
   ProviderContainer launch(http.Response Function(http.Request request) answer) {
+    feed = _Feed();
     final container = ProviderContainer(
       overrides: [
         databaseProvider.overrideWith((ref) => db),
+        changeFeedProvider.overrideWith((ref) => feed),
         supabaseClientProvider.overrideWith((ref) {
           final client = SupabaseClient(
             'https://project.supabase.co',
@@ -146,4 +151,67 @@ void main() {
     await sync.syncNow();
     expect(requests, hasLength(sentBefore), reason: 'signed out, nothing is sent');
   });
+
+  test('word of another device\'s change pulls at once, and a burst of it pulls once', () async {
+    final container = await signedIn(
+      sessionJson(expiresIn: const Duration(hours: 1)),
+    );
+    await until(container, (s) => s is SyncOn && s.lastSynced != null && !s.syncing);
+    expect(feed.clientId, isNotNull, reason: 'listening from the moment sync is on');
+
+    int pulls() => requests.where((r) => r.url.path == '/rest/v1/rpc/pull_rows').length;
+    final before = pulls();
+
+    for (var i = 0; i < 5; i++) {
+      feed.onChange!();
+    }
+    await Future<void>.delayed(
+      SyncController.remoteDelay + const Duration(milliseconds: 400),
+    );
+
+    // One pull asks for every synced table once.
+    final tables = pulls() - before;
+    expect(tables, greaterThan(0), reason: 'a pull followed the message');
+    expect(
+      requests
+          .where((r) => r.url.path == '/rest/v1/rpc/pull_rows')
+          .skip(before)
+          .map((r) => jsonDecode(r.body)['target'])
+          .toSet(),
+      hasLength(tables),
+      reason: 'five messages, one pull',
+    );
+  });
+
+  test('signing out stops listening', () async {
+    final container = await signedIn(
+      sessionJson(expiresIn: const Duration(hours: 1)),
+    );
+    await until(container, (s) => s is SyncOn && s.lastSynced != null);
+    await container.read(syncProvider.notifier).signOut();
+    expect(feed.stopped, isTrue);
+  });
+}
+
+/// A change feed the test speaks for.
+class _Feed implements ChangeFeed {
+  String? clientId;
+  void Function()? onChange;
+  void Function(bool live)? onLive;
+  bool stopped = false;
+
+  @override
+  void start({
+    required String clientId,
+    required void Function() onChange,
+    required void Function(bool live) onLive,
+  }) {
+    this.clientId = clientId;
+    this.onChange = onChange;
+    this.onLive = onLive;
+    stopped = false;
+  }
+
+  @override
+  Future<void> stop() async => stopped = true;
 }
