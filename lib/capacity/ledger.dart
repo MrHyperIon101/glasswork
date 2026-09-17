@@ -166,6 +166,12 @@ class CapacitySettings {
     return asleep;
   }
 
+  /// Sleep between going to bed at [bedtimeMin] and next getting up at [wakeMin]: 23:30 to
+  /// 07:00 is seven and a half hours, 01:00 to 09:30 eight and a half. Zero when they are
+  /// the same minute.
+  static int nightBetween(int bedtimeMin, int wakeMin) =>
+      (wakeMin - bedtimeMin) % minutesInDay;
+
   /// Sleep in the night after the day that is [weekday]: from its bedtime to getting up the
   /// next day. Zero when the next day starts before this one ends.
   int nightAfter(int weekday) {

@@ -186,7 +186,9 @@ come from that day and the night before it, so the small hours after a late nigh
 date they fall on. `BlockCheck` refuses a block that falls in sleep, past midnight, or on top of
 another, and offers the nearest free time; blocks already there are flagged, never counted.
 `sleep_target_min` only marks short nights. Two columns a day, not one list, so edits to different
-days on different devices merge — and `setSleep` writes only the times that change.
+days on different devices merge — and `setSleep` writes only the times that change. Time budget
+lists sleep a night at a time, to bed on a day and up the next morning: rows of days, getting up
+first, read as sleeping from morning until night. A night's "Up at" writes the next day's wake.
 
 **The profile explains itself.** Each setting says what it is and what one step more would do to an
 average day this week. Those figures come from `SettingEffects`, which reruns the ledger with the

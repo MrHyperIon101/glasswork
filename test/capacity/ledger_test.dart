@@ -86,6 +86,12 @@ void main() {
       expect(late.nightAfter(DateTime.sunday), 450);
     });
 
+    test('between a bedtime and getting up, whichever side of midnight', () {
+      expect(CapacitySettings.nightBetween(23 * 60 + 30, 7 * 60), 450);
+      expect(CapacitySettings.nightBetween(60, 9 * 60 + 30), 510);
+      expect(CapacitySettings.nightBetween(7 * 60, 7 * 60), 0);
+    });
+
     test('takes the next day as it is set', () {
       final s = weekWith({
         DateTime.saturday: const DaySleep(wakeMin: 9 * 60, bedtimeMin: 23 * 60 + 30),

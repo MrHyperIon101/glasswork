@@ -228,42 +228,78 @@ void main() {
         {'bedtime_fri_min'},
       );
 
-      // Friday now runs past midnight, and the night after it is short.
-      expect(find.text('18h 30m'), findsOneWidget);
+      // Friday's night now starts after midnight, and is short: the row says how short.
+      expect(find.text('5h 30m'), findsOneWidget);
       expect(find.text('Only 5h 30m of sleep before Sat'), findsOneWidget);
     } finally {
       await finish(tester);
     }
   });
 
-  testWidgets('sleep set for several days at once changes just those days', (
+  testWidgets('getting up, typed in a night, sets the morning after it', (tester) async {
+    await start(tester);
+    try {
+      // Monday night's "Up at" is when Tuesday starts.
+      await scrollTo(tester, find.byKey(const ValueKey('wake-Tue')));
+      await tester.runAsync(() => db.delete(db.outbox).go());
+
+      await tester.enterText(field('wake-Tue'), '8:15');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _settle(tester);
+
+      final sleep = CapacityMapping.sleepOf(await profile(tester));
+      expect(
+        sleep[DateTime.tuesday - 1],
+        const DaySleep(wakeMin: 8 * 60 + 15, bedtimeMin: 23 * 60 + 30),
+      );
+      expect(sleep[DateTime.monday - 1], CapacitySettings.standardWeek[0]);
+      final queued = (await tester.runAsync(() => db.select(db.outbox).get()))!;
+      expect(
+        SyncWriter.decodeFieldNames(queued.single.changedFields),
+        {'wake_tue_min'},
+      );
+      expect(find.text('8h 45m'), findsOneWidget);
+    } finally {
+      await finish(tester);
+    }
+  });
+
+  testWidgets('sleep set for several nights sets their bedtimes and the mornings after', (
     tester,
   ) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.text('Set several days'));
-      await tester.tap(find.text('Set several days'));
+      await scrollTo(tester, find.text('Set several nights'));
+      await tester.tap(find.text('Set several nights'));
       await _settle(tester);
 
       final dialog = find.byType(Dialog);
       Finder time(int index) =>
           find.descendant(of: dialog, matching: find.byType(TextField)).at(index);
 
-      await tester.tap(find.descendant(of: dialog, matching: find.text('Weekends')));
-      await tester.enterText(time(0), '9:30');
-      await tester.enterText(time(1), '1:00');
+      await tester.tap(find.descendant(of: dialog, matching: find.text('Before weekends')));
+      await tester.enterText(time(0), '1:00');
+      await tester.enterText(time(1), '9:30');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await _settle(tester);
-      expect(find.text('15h 30m awake, to bed after midnight.'), findsOneWidget);
+      expect(find.text('8h 30m of sleep.'), findsOneWidget);
 
       await tester.tap(find.widgetWithText(PrimaryButton, 'Set'));
       await _settle(tester);
 
+      // Friday and Saturday nights: to bed at one, up at half past nine the next day.
       final sleep = CapacityMapping.sleepOf(await profile(tester));
-      const weekend = DaySleep(wakeMin: 9 * 60 + 30, bedtimeMin: 60);
-      expect(sleep[DateTime.saturday - 1], weekend);
-      expect(sleep[DateTime.sunday - 1], weekend);
-      expect(sleep[DateTime.friday - 1], CapacitySettings.standardWeek[4]);
+      expect(sleep[DateTime.friday - 1], const DaySleep(wakeMin: 7 * 60, bedtimeMin: 60));
+      expect(
+        sleep[DateTime.saturday - 1],
+        const DaySleep(wakeMin: 9 * 60 + 30, bedtimeMin: 60),
+      );
+      expect(
+        sleep[DateTime.sunday - 1],
+        const DaySleep(wakeMin: 9 * 60 + 30, bedtimeMin: 23 * 60 + 30),
+      );
+      expect(sleep[DateTime.thursday - 1], CapacitySettings.standardWeek[3]);
+      expect(sleep[DateTime.monday - 1], CapacitySettings.standardWeek[0]);
     } finally {
       await finish(tester);
     }
