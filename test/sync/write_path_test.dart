@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('only SyncWriter writes synced tables', () {
     // Never synced, and written directly on purpose.
-    const localOnly = {'localSettings', 'outbox'};
+    const localOnly = {'localSettings', 'outbox', 'imageFiles'};
 
     // A database (`db`, `_db`, `scope.db`...) given a table to write, and that table.
     final tableWrite = RegExp(

@@ -29,6 +29,8 @@ part 'database.g.dart';
     FieldValues,
     ProjectViews,
     Schedules,
+    NoteImages,
+    ImageFiles,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -49,7 +51,7 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// The weekday names the per-day sleep columns are named with, Monday first.
   static const sleepDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -110,6 +112,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         await m.createTable(areas);
         await m.addColumn(boards, boards.areaId);
+      }
+
+      // v7: images in notes, and which of their files this device holds.
+      if (from < 7) {
+        await m.createTable(noteImages);
+        await m.createTable(imageFiles);
       }
     },
     beforeOpen: (details) async {

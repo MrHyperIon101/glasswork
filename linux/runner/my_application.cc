@@ -6,6 +6,7 @@
 #endif
 
 #include "desktop_shell.h"
+#include "images_channel.h"
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
@@ -13,6 +14,7 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
   GtkWindow* window;
   DesktopShell* shell;
+  ImagesChannel* images;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -99,6 +101,7 @@ static void my_application_activate(GApplication* application) {
 
   self->window = window;
   self->shell = desktop_shell_new(GTK_APPLICATION(application), window, view);
+  self->images = images_channel_new(window, view);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -147,6 +150,7 @@ static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->shell, desktop_shell_free);
+  g_clear_pointer(&self->images, images_channel_free);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

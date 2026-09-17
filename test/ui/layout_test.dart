@@ -14,11 +14,14 @@ import 'package:glasswork/data/project_filter.dart';
 import 'package:glasswork/data/repository/area_repository.dart';
 import 'package:glasswork/data/repository/capacity_repository.dart';
 import 'package:glasswork/data/repository/label_repository.dart';
+import 'package:glasswork/data/repository/note_image_repository.dart';
 import 'package:glasswork/data/repository/note_repository.dart';
 import 'package:glasswork/data/repository/project_repository.dart';
 import 'package:glasswork/data/repository/subtask_repository.dart';
 import 'package:glasswork/data/repository/task_repository.dart';
 import 'package:glasswork/data/repository/workspace_repository.dart';
+import 'package:glasswork/images/device_images.dart';
+import 'package:glasswork/images/image_store.dart';
 import 'package:glasswork/main.dart';
 import 'package:glasswork/state/providers.dart';
 import 'package:glasswork/state/sync_controller.dart';
@@ -47,6 +50,7 @@ void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
   setUpAll(() async {
+    _imageFolder = await Directory.systemTemp.createTemp('glasswork_layout_images_');
     await (FontLoader(AppFont.ui)
           ..addFont(rootBundle.load('fonts/InterVariable.ttf')))
         .load();
@@ -84,6 +88,9 @@ void main() {
 }
 
 const _screenshots = String.fromEnvironment('SCREENSHOTS');
+
+/// Where the seeded notes' image files are kept, for every test in the file.
+late Directory _imageFolder;
 
 class _Device {
   const _Device(
@@ -206,6 +213,10 @@ final _states = <_State>[
   }),
   _State('writing a note', (tester, app, data) async {
     final note = app.read(notesProvider).value!.firstWhere((n) => n.id == data.noteId);
+    app.read(openNoteProvider.notifier).edit(note);
+  }),
+  _State('a note with images', (tester, app, data) async {
+    final note = app.read(notesProvider).value!.firstWhere((n) => n.id == data.imageNoteId);
     app.read(openNoteProvider.notifier).edit(note);
   }),
   _State('a new note', (tester, app, data) async {
@@ -514,6 +525,7 @@ Widget _app(AppDatabase db, {Key? boundary}) => ProviderScope(
   overrides: [
     databaseProvider.overrideWith((ref) => db),
     syncProvider.overrideWith(() => _Held(const SyncSignedOut())),
+    imageFolderProvider.overrideWith((ref) async => _imageFolder),
   ],
   child: RepaintBoundary(key: boundary, child: const GlassworkApp()),
 );
@@ -595,15 +607,23 @@ class _Seeded {
     required this.longTaskId,
     required this.semesterId,
     required this.noteId,
+    required this.imageNoteId,
   });
 
   /// For a state on a new install, which has none of these.
-  static const none = _Seeded(courseworkId: '', longTaskId: '', semesterId: '', noteId: '');
+  static const none = _Seeded(
+    courseworkId: '',
+    longTaskId: '',
+    semesterId: '',
+    noteId: '',
+    imageNoteId: '',
+  );
 
   final String courseworkId;
   final String longTaskId;
   final String semesterId;
   final String noteId;
+  final String imageNoteId;
 }
 
 /// A student's week: a timetable in force, two projects, tasks overdue, due today, due
@@ -780,11 +800,58 @@ Future<_Seeded> _seed(AppDatabase db) async {
     workspaceId: ws,
     text: 'Ask the TA about the lab 6 marking scheme',
   );
+  // A note with images: a photo of a whiteboard, and a second.
+  final board = await notes.capture(
+    workspaceId: ws,
+    text: 'Whiteboard from the DBMS lecture\nNormal forms, with the worked example',
+  );
+  final images = NoteImageRepository(writer, ImageStore(() async => _imageFolder));
+  for (final (width, height) in [(640, 420), (420, 560)]) {
+    await images.add(
+      workspaceId: ws,
+      noteId: board.id,
+      image: PickedImage(
+        bytes: await _photo(width, height),
+        width: width,
+        height: height,
+        mime: 'image/png',
+      ),
+    );
+  }
 
   return _Seeded(
     courseworkId: coursework.id,
     longTaskId: report.id,
     semesterId: semester.id,
     noteId: lecture.id,
+    imageNoteId: board.id,
   );
+}
+
+/// A picture to stand in for a photo: a gradient with a few shapes on it.
+Future<Uint8List> _photo(int width, int height) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final size = Size(width.toDouble(), height.toDouble());
+  canvas.drawRect(
+    Offset.zero & size,
+    Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(size.width, size.height), const [
+        Color(0xFF274060),
+        Color(0xFF5B3E7A),
+      ]),
+  );
+  final ink = Paint()
+    ..color = const Color(0xCCFFFFFF)
+    ..strokeWidth = 4
+    ..style = PaintingStyle.stroke;
+  for (var i = 0; i < 4; i++) {
+    final top = size.height * (0.2 + i * 0.17);
+    canvas.drawLine(Offset(size.width * 0.12, top), Offset(size.width * (0.5 + i * 0.1), top), ink);
+  }
+  canvas.drawCircle(Offset(size.width * 0.78, size.height * 0.3), size.shortestSide * 0.12, ink);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(width, height);
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+  return data!.buffer.asUint8List();
 }

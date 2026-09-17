@@ -12320,6 +12320,1042 @@ class SchedulesCompanion extends UpdateCompanion<TimetableSet> {
   }
 }
 
+class $NoteImagesTable extends NoteImages
+    with TableInfo<$NoteImagesTable, NoteImage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NoteImagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES notes (id)',
+    ),
+  );
+  static const VerificationMeta _storagePathMeta = const VerificationMeta(
+    'storagePath',
+  );
+  @override
+  late final GeneratedColumn<String> storagePath = GeneratedColumn<String>(
+    'storage_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _widthMeta = const VerificationMeta('width');
+  @override
+  late final GeneratedColumn<int> width = GeneratedColumn<int>(
+    'width',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<int> height = GeneratedColumn<int>(
+    'height',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _byteCountMeta = const VerificationMeta(
+    'byteCount',
+  );
+  @override
+  late final GeneratedColumn<int> byteCount = GeneratedColumn<int>(
+    'byte_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _orderKeyMeta = const VerificationMeta(
+    'orderKey',
+  );
+  @override
+  late final GeneratedColumn<String> orderKey = GeneratedColumn<String>(
+    'order_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    noteId,
+    storagePath,
+    mimeType,
+    width,
+    height,
+    byteCount,
+    orderKey,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'note_images';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NoteImage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('storage_path')) {
+      context.handle(
+        _storagePathMeta,
+        storagePath.isAcceptableOrUnknown(
+          data['storage_path']!,
+          _storagePathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_storagePathMeta);
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mimeTypeMeta);
+    }
+    if (data.containsKey('width')) {
+      context.handle(
+        _widthMeta,
+        width.isAcceptableOrUnknown(data['width']!, _widthMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_widthMeta);
+    }
+    if (data.containsKey('height')) {
+      context.handle(
+        _heightMeta,
+        height.isAcceptableOrUnknown(data['height']!, _heightMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_heightMeta);
+    }
+    if (data.containsKey('byte_count')) {
+      context.handle(
+        _byteCountMeta,
+        byteCount.isAcceptableOrUnknown(data['byte_count']!, _byteCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_byteCountMeta);
+    }
+    if (data.containsKey('order_key')) {
+      context.handle(
+        _orderKeyMeta,
+        orderKey.isAcceptableOrUnknown(data['order_key']!, _orderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NoteImage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NoteImage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      storagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}storage_path'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      width: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}width'],
+      )!,
+      height: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}height'],
+      )!,
+      byteCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}byte_count'],
+      )!,
+      orderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_key'],
+      )!,
+    );
+  }
+
+  @override
+  $NoteImagesTable createAlias(String alias) {
+    return $NoteImagesTable(attachedDatabase, alias);
+  }
+}
+
+class NoteImage extends DataClass implements Insertable<NoteImage> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String noteId;
+
+  /// Where storage keeps the bytes: the workspace, then the image and its type, as
+  /// "<workspace>/<image>.jpg". Storage lets a device read only its own workspaces' folders.
+  final String storagePath;
+  final String mimeType;
+  final int width;
+  final int height;
+  final int byteCount;
+
+  /// Fractional index: their order in the note.
+  final String orderKey;
+  const NoteImage({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.noteId,
+    required this.storagePath,
+    required this.mimeType,
+    required this.width,
+    required this.height,
+    required this.byteCount,
+    required this.orderKey,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['note_id'] = Variable<String>(noteId);
+    map['storage_path'] = Variable<String>(storagePath);
+    map['mime_type'] = Variable<String>(mimeType);
+    map['width'] = Variable<int>(width);
+    map['height'] = Variable<int>(height);
+    map['byte_count'] = Variable<int>(byteCount);
+    map['order_key'] = Variable<String>(orderKey);
+    return map;
+  }
+
+  NoteImagesCompanion toCompanion(bool nullToAbsent) {
+    return NoteImagesCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      noteId: Value(noteId),
+      storagePath: Value(storagePath),
+      mimeType: Value(mimeType),
+      width: Value(width),
+      height: Value(height),
+      byteCount: Value(byteCount),
+      orderKey: Value(orderKey),
+    );
+  }
+
+  factory NoteImage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NoteImage(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      noteId: serializer.fromJson<String>(json['noteId']),
+      storagePath: serializer.fromJson<String>(json['storagePath']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      width: serializer.fromJson<int>(json['width']),
+      height: serializer.fromJson<int>(json['height']),
+      byteCount: serializer.fromJson<int>(json['byteCount']),
+      orderKey: serializer.fromJson<String>(json['orderKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'noteId': serializer.toJson<String>(noteId),
+      'storagePath': serializer.toJson<String>(storagePath),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'width': serializer.toJson<int>(width),
+      'height': serializer.toJson<int>(height),
+      'byteCount': serializer.toJson<int>(byteCount),
+      'orderKey': serializer.toJson<String>(orderKey),
+    };
+  }
+
+  NoteImage copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? noteId,
+    String? storagePath,
+    String? mimeType,
+    int? width,
+    int? height,
+    int? byteCount,
+    String? orderKey,
+  }) => NoteImage(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    noteId: noteId ?? this.noteId,
+    storagePath: storagePath ?? this.storagePath,
+    mimeType: mimeType ?? this.mimeType,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    byteCount: byteCount ?? this.byteCount,
+    orderKey: orderKey ?? this.orderKey,
+  );
+  NoteImage copyWithCompanion(NoteImagesCompanion data) {
+    return NoteImage(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      storagePath: data.storagePath.present
+          ? data.storagePath.value
+          : this.storagePath,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      byteCount: data.byteCount.present ? data.byteCount.value : this.byteCount,
+      orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteImage(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('noteId: $noteId, ')
+          ..write('storagePath: $storagePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('byteCount: $byteCount, ')
+          ..write('orderKey: $orderKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    noteId,
+    storagePath,
+    mimeType,
+    width,
+    height,
+    byteCount,
+    orderKey,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NoteImage &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.noteId == this.noteId &&
+          other.storagePath == this.storagePath &&
+          other.mimeType == this.mimeType &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.byteCount == this.byteCount &&
+          other.orderKey == this.orderKey);
+}
+
+class NoteImagesCompanion extends UpdateCompanion<NoteImage> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> noteId;
+  final Value<String> storagePath;
+  final Value<String> mimeType;
+  final Value<int> width;
+  final Value<int> height;
+  final Value<int> byteCount;
+  final Value<String> orderKey;
+  final Value<int> rowid;
+  const NoteImagesCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.noteId = const Value.absent(),
+    this.storagePath = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.byteCount = const Value.absent(),
+    this.orderKey = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NoteImagesCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String noteId,
+    required String storagePath,
+    required String mimeType,
+    required int width,
+    required int height,
+    required int byteCount,
+    required String orderKey,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       noteId = Value(noteId),
+       storagePath = Value(storagePath),
+       mimeType = Value(mimeType),
+       width = Value(width),
+       height = Value(height),
+       byteCount = Value(byteCount),
+       orderKey = Value(orderKey);
+  static Insertable<NoteImage> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? noteId,
+    Expression<String>? storagePath,
+    Expression<String>? mimeType,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<int>? byteCount,
+    Expression<String>? orderKey,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (noteId != null) 'note_id': noteId,
+      if (storagePath != null) 'storage_path': storagePath,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (byteCount != null) 'byte_count': byteCount,
+      if (orderKey != null) 'order_key': orderKey,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NoteImagesCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? noteId,
+    Value<String>? storagePath,
+    Value<String>? mimeType,
+    Value<int>? width,
+    Value<int>? height,
+    Value<int>? byteCount,
+    Value<String>? orderKey,
+    Value<int>? rowid,
+  }) {
+    return NoteImagesCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      noteId: noteId ?? this.noteId,
+      storagePath: storagePath ?? this.storagePath,
+      mimeType: mimeType ?? this.mimeType,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      byteCount: byteCount ?? this.byteCount,
+      orderKey: orderKey ?? this.orderKey,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (storagePath.present) {
+      map['storage_path'] = Variable<String>(storagePath.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (byteCount.present) {
+      map['byte_count'] = Variable<int>(byteCount.value);
+    }
+    if (orderKey.present) {
+      map['order_key'] = Variable<String>(orderKey.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteImagesCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('noteId: $noteId, ')
+          ..write('storagePath: $storagePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('byteCount: $byteCount, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ImageFilesTable extends ImageFiles
+    with TableInfo<$ImageFilesTable, ImageFile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ImageFilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _imageIdMeta = const VerificationMeta(
+    'imageId',
+  );
+  @override
+  late final GeneratedColumn<String> imageId = GeneratedColumn<String>(
+    'image_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _storedMeta = const VerificationMeta('stored');
+  @override
+  late final GeneratedColumn<bool> stored = GeneratedColumn<bool>(
+    'stored',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("stored" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [imageId, stored];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'image_files';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ImageFile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('image_id')) {
+      context.handle(
+        _imageIdMeta,
+        imageId.isAcceptableOrUnknown(data['image_id']!, _imageIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_imageIdMeta);
+    }
+    if (data.containsKey('stored')) {
+      context.handle(
+        _storedMeta,
+        stored.isAcceptableOrUnknown(data['stored']!, _storedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {imageId};
+  @override
+  ImageFile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ImageFile(
+      imageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_id'],
+      )!,
+      stored: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}stored'],
+      )!,
+    );
+  }
+
+  @override
+  $ImageFilesTable createAlias(String alias) {
+    return $ImageFilesTable(attachedDatabase, alias);
+  }
+}
+
+class ImageFile extends DataClass implements Insertable<ImageFile> {
+  final String imageId;
+
+  /// Whether storage has the bytes, because this device sent them there or fetched them
+  /// from there. Until then an image made here still has to go up.
+  final bool stored;
+  const ImageFile({required this.imageId, required this.stored});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['image_id'] = Variable<String>(imageId);
+    map['stored'] = Variable<bool>(stored);
+    return map;
+  }
+
+  ImageFilesCompanion toCompanion(bool nullToAbsent) {
+    return ImageFilesCompanion(imageId: Value(imageId), stored: Value(stored));
+  }
+
+  factory ImageFile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ImageFile(
+      imageId: serializer.fromJson<String>(json['imageId']),
+      stored: serializer.fromJson<bool>(json['stored']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'imageId': serializer.toJson<String>(imageId),
+      'stored': serializer.toJson<bool>(stored),
+    };
+  }
+
+  ImageFile copyWith({String? imageId, bool? stored}) => ImageFile(
+    imageId: imageId ?? this.imageId,
+    stored: stored ?? this.stored,
+  );
+  ImageFile copyWithCompanion(ImageFilesCompanion data) {
+    return ImageFile(
+      imageId: data.imageId.present ? data.imageId.value : this.imageId,
+      stored: data.stored.present ? data.stored.value : this.stored,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ImageFile(')
+          ..write('imageId: $imageId, ')
+          ..write('stored: $stored')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(imageId, stored);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ImageFile &&
+          other.imageId == this.imageId &&
+          other.stored == this.stored);
+}
+
+class ImageFilesCompanion extends UpdateCompanion<ImageFile> {
+  final Value<String> imageId;
+  final Value<bool> stored;
+  final Value<int> rowid;
+  const ImageFilesCompanion({
+    this.imageId = const Value.absent(),
+    this.stored = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ImageFilesCompanion.insert({
+    required String imageId,
+    this.stored = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : imageId = Value(imageId);
+  static Insertable<ImageFile> custom({
+    Expression<String>? imageId,
+    Expression<bool>? stored,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (imageId != null) 'image_id': imageId,
+      if (stored != null) 'stored': stored,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ImageFilesCompanion copyWith({
+    Value<String>? imageId,
+    Value<bool>? stored,
+    Value<int>? rowid,
+  }) {
+    return ImageFilesCompanion(
+      imageId: imageId ?? this.imageId,
+      stored: stored ?? this.stored,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (imageId.present) {
+      map['image_id'] = Variable<String>(imageId.value);
+    }
+    if (stored.present) {
+      map['stored'] = Variable<bool>(stored.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ImageFilesCompanion(')
+          ..write('imageId: $imageId, ')
+          ..write('stored: $stored, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -12342,6 +13378,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FieldValuesTable fieldValues = $FieldValuesTable(this);
   late final $ProjectViewsTable projectViews = $ProjectViewsTable(this);
   late final $SchedulesTable schedules = $SchedulesTable(this);
+  late final $NoteImagesTable noteImages = $NoteImagesTable(this);
+  late final $ImageFilesTable imageFiles = $ImageFilesTable(this);
   late final Index areaWorkspace = Index(
     'area_workspace',
     'CREATE INDEX area_workspace ON areas (workspace_id)',
@@ -12398,6 +13436,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'schedule_workspace',
     'CREATE INDEX schedule_workspace ON schedules (workspace_id)',
   );
+  late final Index noteImageNote = Index(
+    'note_image_note',
+    'CREATE INDEX note_image_note ON note_images (note_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -12420,6 +13462,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fieldValues,
     projectViews,
     schedules,
+    noteImages,
+    imageFiles,
     areaWorkspace,
     boardWorkspace,
     listBoard,
@@ -12434,6 +13478,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fieldvalueField,
     projectviewBoard,
     scheduleWorkspace,
+    noteImageNote,
   ];
 }
 
@@ -16678,6 +17723,29 @@ typedef $$NotesTableUpdateCompanionBuilder = NotesCompanion Function({
   Value<int> rowid,
 });
 
+final class $$NotesTableReferences
+    extends BaseReferences<_$AppDatabase, $NotesTable, Note> {
+  $$NotesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$NoteImagesTable, List<NoteImage>>
+  _noteImagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.noteImages,
+    aliasName: 'notes__id__note_images__note_id',
+  );
+
+  $$NoteImagesTableProcessedTableManager get noteImagesRefs {
+    final manager = $$NoteImagesTableTableManager(
+      $_db,
+      $_db.noteImages,
+    ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_noteImagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
   $$NotesTableFilterComposer({
     required super.$db,
@@ -16735,6 +17803,31 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
     column: $table.pinned,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> noteImagesRefs(
+    Expression<bool> Function($$NoteImagesTableFilterComposer f) f,
+  ) {
+    final $$NoteImagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.noteImages,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NoteImagesTableFilterComposer(
+            $db: $db,
+            $table: $db.noteImages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$NotesTableOrderingComposer
@@ -16839,6 +17932,31 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<bool> get pinned =>
       $composableBuilder(column: $table.pinned, builder: (column) => column);
+
+  Expression<T> noteImagesRefs<T extends Object>(
+    Expression<T> Function($$NoteImagesTableAnnotationComposer a) f,
+  ) {
+    final $$NoteImagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.noteImages,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NoteImagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.noteImages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$NotesTableTableManager
@@ -16852,9 +17970,9 @@ class $$NotesTableTableManager
           $$NotesTableAnnotationComposer,
           $$NotesTableCreateCompanionBuilder,
           $$NotesTableUpdateCompanionBuilder,
-          (Note, BaseReferences<_$AppDatabase, $NotesTable, Note>),
+          (Note, $$NotesTableReferences),
           Note,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool noteImagesRefs})
         > {
   $$NotesTableTableManager(_$AppDatabase db, $NotesTable table)
     : super(
@@ -16923,15 +18041,32 @@ class $$NotesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$NotesTable, Note>(table),
-                  BaseReferences<_$AppDatabase, $NotesTable, Note>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$NotesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({noteImagesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (noteImagesRefs) db.noteImages],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (noteImagesRefs)
+                    await $_getPrefetchedData<Note, $NotesTable, NoteImage>(
+                      currentTable: table,
+                      referencedTable: $$NotesTableReferences
+                          ._noteImagesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$NotesTableReferences(db, table, p0).noteImagesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.noteId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -16946,9 +18081,9 @@ typedef $$NotesTableProcessedTableManager =
       $$NotesTableAnnotationComposer,
       $$NotesTableCreateCompanionBuilder,
       $$NotesTableUpdateCompanionBuilder,
-      (Note, BaseReferences<_$AppDatabase, $NotesTable, Note>),
+      (Note, $$NotesTableReferences),
       Note,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool noteImagesRefs})
     >;
 typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
   Value<int> seq,
@@ -20255,6 +21390,643 @@ typedef $$SchedulesTableProcessedTableManager =
       TimetableSet,
       PrefetchHooks Function()
     >;
+typedef $$NoteImagesTableCreateCompanionBuilder = NoteImagesCompanion Function({
+  required String id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  required String workspaceId,
+  required String noteId,
+  required String storagePath,
+  required String mimeType,
+  required int width,
+  required int height,
+  required int byteCount,
+  required String orderKey,
+  Value<int> rowid,
+});
+typedef $$NoteImagesTableUpdateCompanionBuilder = NoteImagesCompanion Function({
+  Value<String> id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  Value<String> workspaceId,
+  Value<String> noteId,
+  Value<String> storagePath,
+  Value<String> mimeType,
+  Value<int> width,
+  Value<int> height,
+  Value<int> byteCount,
+  Value<String> orderKey,
+  Value<int> rowid,
+});
+
+final class $$NoteImagesTableReferences
+    extends BaseReferences<_$AppDatabase, $NoteImagesTable, NoteImage> {
+  $$NoteImagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $NotesTable _noteIdTable(_$AppDatabase db) =>
+      db.notes.createAlias('note_images__note_id__notes__id');
+
+  $$NotesTableProcessedTableManager get noteId {
+    final $_column = $_itemColumn<String>('note_id')!;
+
+    final manager = $$NotesTableTableManager(
+      $_db,
+      $_db.notes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_noteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$NoteImagesTableFilterComposer
+    extends Composer<_$AppDatabase, $NoteImagesTable> {
+  $$NoteImagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get byteCount => $composableBuilder(
+    column: $table.byteCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$NotesTableFilterComposer get noteId {
+    final $$NotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableFilterComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NoteImagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NoteImagesTable> {
+  $$NoteImagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get byteCount => $composableBuilder(
+    column: $table.byteCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$NotesTableOrderingComposer get noteId {
+    final $$NotesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableOrderingComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NoteImagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NoteImagesTable> {
+  $$NoteImagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get width =>
+      $composableBuilder(column: $table.width, builder: (column) => column);
+
+  GeneratedColumn<int> get height =>
+      $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<int> get byteCount =>
+      $composableBuilder(column: $table.byteCount, builder: (column) => column);
+
+  GeneratedColumn<String> get orderKey =>
+      $composableBuilder(column: $table.orderKey, builder: (column) => column);
+
+  $$NotesTableAnnotationComposer get noteId {
+    final $$NotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NoteImagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NoteImagesTable,
+          NoteImage,
+          $$NoteImagesTableFilterComposer,
+          $$NoteImagesTableOrderingComposer,
+          $$NoteImagesTableAnnotationComposer,
+          $$NoteImagesTableCreateCompanionBuilder,
+          $$NoteImagesTableUpdateCompanionBuilder,
+          (NoteImage, $$NoteImagesTableReferences),
+          NoteImage,
+          PrefetchHooks Function({bool noteId})
+        > {
+  $$NoteImagesTableTableManager(_$AppDatabase db, $NoteImagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NoteImagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NoteImagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NoteImagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> noteId = const Value.absent(),
+                Value<String> storagePath = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<int> width = const Value.absent(),
+                Value<int> height = const Value.absent(),
+                Value<int> byteCount = const Value.absent(),
+                Value<String> orderKey = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoteImagesCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                noteId: noteId,
+                storagePath: storagePath,
+                mimeType: mimeType,
+                width: width,
+                height: height,
+                byteCount: byteCount,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String noteId,
+                required String storagePath,
+                required String mimeType,
+                required int width,
+                required int height,
+                required int byteCount,
+                required String orderKey,
+                Value<int> rowid = const Value.absent(),
+              }) => NoteImagesCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                noteId: noteId,
+                storagePath: storagePath,
+                mimeType: mimeType,
+                width: width,
+                height: height,
+                byteCount: byteCount,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$NoteImagesTable, NoteImage>(table),
+                  $$NoteImagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({noteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (noteId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.noteId,
+                        referencedTable: $$NoteImagesTableReferences
+                            ._noteIdTable(db),
+                        referencedColumn: $$NoteImagesTableReferences
+                            ._noteIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$NoteImagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NoteImagesTable,
+      NoteImage,
+      $$NoteImagesTableFilterComposer,
+      $$NoteImagesTableOrderingComposer,
+      $$NoteImagesTableAnnotationComposer,
+      $$NoteImagesTableCreateCompanionBuilder,
+      $$NoteImagesTableUpdateCompanionBuilder,
+      (NoteImage, $$NoteImagesTableReferences),
+      NoteImage,
+      PrefetchHooks Function({bool noteId})
+    >;
+typedef $$ImageFilesTableCreateCompanionBuilder = ImageFilesCompanion Function({
+  required String imageId,
+  Value<bool> stored,
+  Value<int> rowid,
+});
+typedef $$ImageFilesTableUpdateCompanionBuilder = ImageFilesCompanion Function({
+  Value<String> imageId,
+  Value<bool> stored,
+  Value<int> rowid,
+});
+
+class $$ImageFilesTableFilterComposer
+    extends Composer<_$AppDatabase, $ImageFilesTable> {
+  $$ImageFilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get imageId => $composableBuilder(
+    column: $table.imageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get stored => $composableBuilder(
+    column: $table.stored,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ImageFilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ImageFilesTable> {
+  $$ImageFilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get imageId => $composableBuilder(
+    column: $table.imageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get stored => $composableBuilder(
+    column: $table.stored,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ImageFilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ImageFilesTable> {
+  $$ImageFilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get imageId =>
+      $composableBuilder(column: $table.imageId, builder: (column) => column);
+
+  GeneratedColumn<bool> get stored =>
+      $composableBuilder(column: $table.stored, builder: (column) => column);
+}
+
+class $$ImageFilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ImageFilesTable,
+          ImageFile,
+          $$ImageFilesTableFilterComposer,
+          $$ImageFilesTableOrderingComposer,
+          $$ImageFilesTableAnnotationComposer,
+          $$ImageFilesTableCreateCompanionBuilder,
+          $$ImageFilesTableUpdateCompanionBuilder,
+          (
+            ImageFile,
+            BaseReferences<_$AppDatabase, $ImageFilesTable, ImageFile>,
+          ),
+          ImageFile,
+          PrefetchHooks Function()
+        > {
+  $$ImageFilesTableTableManager(_$AppDatabase db, $ImageFilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ImageFilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ImageFilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ImageFilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> imageId = const Value.absent(),
+                Value<bool> stored = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ImageFilesCompanion(
+                imageId: imageId,
+                stored: stored,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String imageId,
+                Value<bool> stored = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ImageFilesCompanion.insert(
+                imageId: imageId,
+                stored: stored,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ImageFilesTable, ImageFile>(table),
+                  BaseReferences<_$AppDatabase, $ImageFilesTable, ImageFile>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ImageFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ImageFilesTable,
+      ImageFile,
+      $$ImageFilesTableFilterComposer,
+      $$ImageFilesTableOrderingComposer,
+      $$ImageFilesTableAnnotationComposer,
+      $$ImageFilesTableCreateCompanionBuilder,
+      $$ImageFilesTableUpdateCompanionBuilder,
+      (ImageFile, BaseReferences<_$AppDatabase, $ImageFilesTable, ImageFile>),
+      ImageFile,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -20293,4 +22065,8 @@ class $AppDatabaseManager {
       $$ProjectViewsTableTableManager(_db, _db.projectViews);
   $$SchedulesTableTableManager get schedules =>
       $$SchedulesTableTableManager(_db, _db.schedules);
+  $$NoteImagesTableTableManager get noteImages =>
+      $$NoteImagesTableTableManager(_db, _db.noteImages);
+  $$ImageFilesTableTableManager get imageFiles =>
+      $$ImageFilesTableTableManager(_db, _db.imageFiles);
 }

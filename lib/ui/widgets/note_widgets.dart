@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
 import '../../data/note_text.dart';
+import '../../images/device_images.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
+import 'note_images.dart';
 
 /// Somewhere to jot a note down without opening anything: type, and Return keeps it.
 ///
@@ -42,6 +44,23 @@ class _QuickNoteFieldState extends ConsumerState<QuickNoteField> {
     _controller.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  /// Images chosen, kept as a note with whatever has been typed so far.
+  Future<void> _keepImages() async {
+    final picked = await ref.read(deviceImagesProvider).pick();
+    final scope = ref.read(appScopeProvider).value;
+    if (picked.isEmpty || scope == null) return;
+
+    final text = _controller.text;
+    _controller.clear();
+    setState(() => _saved++);
+    final note = text.trim().isEmpty
+        ? await scope.notes.create(workspaceId: scope.workspace.id)
+        : await scope.notes.capture(workspaceId: scope.workspace.id, text: text);
+    for (final image in picked) {
+      await scope.noteImages.add(workspaceId: scope.workspace.id, noteId: note.id, image: image);
+    }
   }
 
   Future<void> _keep() async {
@@ -108,7 +127,24 @@ class _QuickNoteFieldState extends ConsumerState<QuickNoteField> {
                 ),
               ),
             ),
-            const SizedBox(width: AppSpace.sm),
+            const SizedBox(width: AppSpace.xs),
+            Tooltip(
+              message: 'Keep images as a note',
+              child: Pressable(
+                key: const ValueKey('quick-note-images'),
+                onTap: _keepImages,
+                child: SizedBox(
+                  width: touch ? AppSize.touch - AppSpace.sm : AppSize.chip + AppSpace.xs,
+                  height: touch ? AppSize.touch - AppSpace.sm : AppSize.chip + AppSpace.xs,
+                  child: const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 18,
+                    color: AppColour.labelSecondary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpace.xs),
             // A tick for a moment after keeping one, then the arrow again.
             AnimatedSwitcher(
               duration: AppMotion.of(context, AppMotion.quick),
@@ -191,10 +227,12 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final scope = ref.read(appScopeProvider).value;
     if (scope == null) return;
     final note = widget.note;
+    final images = ref.read(noteImagesProvider).value?[note.id]?.length ?? 0;
     await scope.notes.softDelete(note.id);
-    ref
-        .read(undoProvider.notifier)
-        .offer('Deleted "${NoteText.heading(note)}"', () => scope.notes.restore(note.id));
+    ref.read(undoProvider.notifier).offer(
+      'Deleted "${NoteText.heading(note, images: images)}"',
+      () => scope.notes.restore(note.id),
+    );
   }
 
   @override
@@ -202,6 +240,7 @@ class _NoteCardState extends ConsumerState<NoteCard> {
     final note = widget.note;
     final preview = NoteText.preview(note);
     final touch = AppLayout.touch;
+    final images = ref.watch(noteImagesProvider).value?[note.id] ?? const <NoteImage>[];
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -228,12 +267,16 @@ class _NoteCardState extends ConsumerState<NoteCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (images.isNotEmpty) ...[
+                _Cover(images: images),
+                const SizedBox(height: AppSpace.md),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
-                      NoteText.heading(note),
+                      NoteText.heading(note, images: images.length),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.headline,
@@ -283,6 +326,50 @@ class _NoteCardState extends ConsumerState<NoteCard> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A note's first image across the top of its card, with how many more there are.
+class _Cover extends StatelessWidget {
+  const _Cover({required this.images});
+
+  final List<NoteImage> images;
+
+  /// Kept between a tall phone photo and a wide screenshot, so no card is all image.
+  static const _tallest = 0.8;
+  static const _widest = 2.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = images.first;
+    return ClipRRect(
+      borderRadius: AppRadius.mediumAll,
+      child: AspectRatio(
+        aspectRatio: (first.width / first.height).clamp(_tallest, _widest),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            NoteImageView(image: first, decodeWidth: 360),
+            if (images.length > 1)
+              Positioned(
+                right: AppSpace.sm,
+                bottom: AppSpace.sm,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
+                  decoration: const BoxDecoration(
+                    color: AppMaterial.sheetTint,
+                    borderRadius: AppRadius.roundAll,
+                  ),
+                  child: Text(
+                    '+${images.length - 1}',
+                    style: AppText.numeric.copyWith(color: AppColour.label),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

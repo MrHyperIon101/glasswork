@@ -397,6 +397,43 @@ select private.check(
       and p.tablename <> all (private.synced_tables())),
   'no table outside sync is published to listening devices');
 
+-- --- note images ------------------------------------------------------------------------
+
+select private.check(
+  (select not public and file_size_limit = 10485760
+   from storage.buckets where id = 'note-images'),
+  'note images are kept in a private bucket');
+
+-- As account A, whose workspace aaaaaaaa-...-001 is: its folder, and only its folder.
+set local request.jwt.claims to
+  '{"sub": "00000000-0000-4000-8000-00000000000a", "role": "authenticated"}';
+
+select private.check_as('authenticated',
+  $$with added as (
+      insert into storage.objects (bucket_id, name)
+      values ('note-images', 'aaaaaaaa-0000-4000-8000-000000000001/check.jpg')
+      returning 1)
+    select count(*) = 1 from added$$,
+  'a member can add an image to their workspace''s folder');
+
+select private.check_refused('authenticated',
+  $$insert into storage.objects (bucket_id, name)
+    values ('note-images', 'bbbbbbbb-0000-4000-8000-000000000001/check.jpg')$$,
+  '42501', 'nobody can add an image to another workspace''s folder');
+
+select private.check_as('authenticated',
+  $$select count(*) = 1 from storage.objects
+    where bucket_id = 'note-images' and name like 'aaaaaaaa-%'$$,
+  'a member sees the images in their workspace''s folder');
+
+-- Account B, who is not a member, sees none of them.
+set local request.jwt.claims to
+  '{"sub": "00000000-0000-4000-8000-00000000000b", "role": "authenticated"}';
+
+select private.check_as('authenticated',
+  $$select count(*) = 0 from storage.objects where bucket_id = 'note-images'$$,
+  'nobody else sees a workspace''s images');
+
 -- --- done -------------------------------------------------------------------------------
 
 do $$

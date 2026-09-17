@@ -10,6 +10,7 @@ import '../data/repository/area_repository.dart';
 import '../data/repository/capacity_repository.dart';
 import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
+import '../data/repository/note_image_repository.dart';
 import '../data/repository/note_repository.dart';
 import '../data/repository/preferences_repository.dart';
 import '../data/repository/project_repository.dart';
@@ -19,6 +20,7 @@ import '../data/repository/workspace_repository.dart';
 import '../data/project_filter.dart';
 import '../data/task_slots.dart';
 import '../data/task_stats.dart';
+import '../images/image_store.dart';
 import '../sync/sync_writer.dart';
 
 /// Everything the app needs once the database is open and seeded.
@@ -36,6 +38,7 @@ class AppScope {
     required this.projects,
     required this.labels,
     required this.notes,
+    required this.noteImages,
     required this.areas,
     required this.preferences,
     required this.workspace,
@@ -54,6 +57,7 @@ class AppScope {
   final ProjectRepository projects;
   final LabelRepository labels;
   final NoteRepository notes;
+  final NoteImageRepository noteImages;
   final AreaRepository areas;
   final PreferencesRepository preferences;
   final Workspace workspace;
@@ -92,6 +96,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     projects: ProjectRepository(writer),
     labels: LabelRepository(writer),
     notes: NoteRepository(writer),
+    noteImages: NoteImageRepository(writer, ref.watch(imageStoreProvider)),
     areas: AreaRepository(writer),
     preferences: PreferencesRepository(db),
     workspace: workspace,
@@ -560,6 +565,24 @@ final newProjectOpenProvider = NotifierProvider<NewProjectOpen, bool>(
 final notesProvider = StreamProvider<List<Note>>((ref) async* {
   final scope = await ref.watch(appScopeProvider.future);
   yield* scope.notes.watchAll(scope.workspace.id);
+});
+
+/// Each note's images, in their order, by note.
+final noteImagesProvider = StreamProvider<Map<String, List<NoteImage>>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.noteImages.watchAll(scope.workspace.id).map((images) {
+    final byNote = <String, List<NoteImage>>{};
+    for (final image in images) {
+      (byNote[image.noteId] ??= []).add(image);
+    }
+    return byNote;
+  });
+});
+
+/// The images whose files this device holds; the rest are still on their way.
+final localImagesProvider = StreamProvider<Set<String>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.noteImages.watchLocal();
 });
 
 /// The note open in the editor: one already written, or a new one that has no row until
