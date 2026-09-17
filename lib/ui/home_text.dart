@@ -1,3 +1,4 @@
+import '../capacity/day_agenda.dart';
 import '../capacity/day_now.dart';
 import '../data/task_stats.dart';
 import 'format.dart';
@@ -40,6 +41,32 @@ abstract final class HomeText {
     if (total == 0) return 'A clear day';
     if (stats.todayTotal == 0) return 'All ${stats.completedToday} done';
     return '${stats.completedToday} of $total done';
+  }
+
+  /// What a stretch of the day is called: its block, or free time.
+  static String agendaTitle(AgendaEntry entry) => entry.block?.title ?? 'Free';
+
+  /// The line under it: how long it lasts, or what is left of it while it is happening, and
+  /// for free time too short to use, that it does not count.
+  static String agendaDetail(AgendaEntry entry, int nowMin) {
+    final length = entry.when == AgendaTime.now
+        ? '${Format.estimate(entry.endMin - nowMin)} left'
+        : Format.estimate(entry.lengthMin);
+    return entry.free && !entry.usable ? '$length · too short to count' : length;
+  }
+
+  /// A day with no blocks on it: "Nothing fixed today", "tomorrow", or "on Saturday".
+  static String nothingFixed(DateTime day, DateTime now) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    // Whole dates apart, which a change of clocks cannot throw off.
+    final ahead = DateTime.utc(day.year, day.month, day.day)
+        .difference(DateTime.utc(now.year, now.month, now.day))
+        .inDays;
+    return switch (ahead) {
+      0 => 'Nothing fixed today',
+      1 => 'Nothing fixed tomorrow',
+      _ => 'Nothing fixed on ${days[day.weekday - 1]}',
+    };
   }
 
   /// Where the day stands right now, in two lines.

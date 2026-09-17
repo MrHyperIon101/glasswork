@@ -130,16 +130,22 @@ const _devices = [
   // Narrow enough for the sidebar to become a drawer, wide enough not to be a phone.
   _Device('narrow window', Size(820, 900), 1, TargetPlatform.linux),
   _Device('desktop', Size(1440, 900), 1, TargetPlatform.linux),
+  // A maximised window on a 1080p screen, under the top bar and the title bar: the home
+  // screen's cards share its height rather than stopping short of it.
+  _Device('large desktop', Size(1920, 1000), 1, TargetPlatform.linux),
 ];
 
 class _State {
-  const _State(this.name, this.apply, {this.drawerOnly = false});
+  const _State(this.name, this.apply, {this.drawerOnly = false, this.fresh = false});
 
   final String name;
   final Future<void> Function(WidgetTester tester, ProviderContainer app, _Seeded data) apply;
 
   /// Only where the sidebar is a drawer.
   final bool drawerOnly;
+
+  /// On a new install, with nothing in it yet, rather than the seeded week.
+  final bool fresh;
 }
 
 final _states = <_State>[
@@ -148,6 +154,15 @@ final _states = <_State>[
   // never laid out, and never checked, until it is scrolled to.
   _State('today, scrolled to the end', (tester, app, data) async {
     await _scrollToEnd(tester, find.byType(TodayScreen));
+  }),
+  // Every card with nothing to show: no tasks, no timetable, no notes.
+  _State('today, on a new install', (tester, app, data) async {}, fresh: true),
+  // Where a phone's page reaches the day's blocks, each read by its name and times.
+  _State('today, the timetable', (tester, app, data) async {
+    await Scrollable.ensureVisible(
+      tester.element(find.textContaining('Right now').first),
+      alignment: 0.05,
+    );
   }),
   _State('next 7 days', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(const UpcomingDestination());
@@ -386,7 +401,7 @@ Future<void> _check(WidgetTester tester, _Device device, _State state) async {
   final db = AppDatabase(NativeDatabase.memory());
   final boundary = GlobalKey();
   try {
-    final data = (await tester.runAsync(() => _seed(db)))!;
+    final data = state.fresh ? _Seeded.none : (await tester.runAsync(() => _seed(db)))!;
 
     await tester.pumpWidget(_app(db, boundary: boundary));
     await _settle(tester);
@@ -546,6 +561,9 @@ class _Seeded {
     required this.semesterId,
     required this.noteId,
   });
+
+  /// For a state on a new install, which has none of these.
+  static const none = _Seeded(courseworkId: '', longTaskId: '', semesterId: '', noteId: '');
 
   final String courseworkId;
   final String longTaskId;

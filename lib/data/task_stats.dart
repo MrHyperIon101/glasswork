@@ -16,6 +16,7 @@ class TaskStats {
     required this.estimatedMinutesToday,
     required this.untimedToday,
     required this.nextUp,
+    this.comingUp = const [],
     this.doneByDay = const [0, 0, 0, 0, 0, 0, 0],
     this.nextReminder,
   });
@@ -36,6 +37,13 @@ class TaskStats {
   /// Soonest upcoming task that isn't already overdue.
   final Task? nextUp;
 
+  /// Open tasks due after today and no more than [comingUpDays] days ahead: soonest day
+  /// first, timed tasks by their time before the day's all-day ones, then by priority.
+  final List<Task> comingUp;
+
+  /// How far ahead [comingUp] looks, the same week as "Next 7 days".
+  static const comingUpDays = 7;
+
   /// Tasks completed on each of the last seven days, six days ago first and today last.
   final List<int> doneByDay;
 
@@ -54,9 +62,12 @@ class TaskStats {
   static TaskStats from(List<Task> tasks, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    // From the date, not by adding hours, which a change of clocks would throw off.
+    final horizon = DateTime(today.year, today.month, today.day + comingUpDays);
 
     final overdue = <Task>[];
     final dueToday = <Task>[];
+    final comingUp = <Task>[];
     final doneByDay = List.filled(7, 0);
     Task? nextReminder;
     var open = 0;
@@ -102,6 +113,7 @@ class TaskStats {
         dueToday.add(task);
       } else if (due.isAfter(today)) {
         if (nextUp == null || due.isBefore(dueDayOf(nextUp)!)) nextUp = task;
+        if (!due.isAfter(horizon)) comingUp.add(task);
       }
     }
 
@@ -120,6 +132,15 @@ class TaskStats {
       return da.compareTo(db);
     }
 
+    int byDayThenSoonest(Task a, Task b) {
+      final byDay = dueDayOf(a)!.compareTo(dueDayOf(b)!);
+      if (byDay != 0) return byDay;
+      final byTime = bySoonest(a, b);
+      if (byTime != 0) return byTime;
+      final byPriority = b.priority.compareTo(a.priority);
+      return byPriority != 0 ? byPriority : a.id.compareTo(b.id);
+    }
+
     return TaskStats(
       open: open,
       overdue: overdue..sort(bySoonest),
@@ -129,6 +150,7 @@ class TaskStats {
       estimatedMinutesToday: estimate,
       untimedToday: untimed,
       nextUp: nextUp,
+      comingUp: comingUp..sort(byDayThenSoonest),
       doneByDay: doneByDay,
       nextReminder: nextReminder,
     );

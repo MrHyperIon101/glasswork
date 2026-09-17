@@ -233,9 +233,14 @@ list, one task a line, each line read the way a single title is.
 
 ## Home, notes and the timetable's colours
 
-- **Today** is a dashboard of cards. Its figures come from `TaskStats` (including the last week's
-  completions and the next reminder), `DayNow` (where the day stands against the ledger's blocks)
-  and the schedule; its sentences come from `HomeText`. All three are pure and tested.
+- **Today** is a dashboard of cards that fills the window. Where there is height enough, the cards
+  share it and a list longer than its card scrolls inside it, fading at the edge that has more;
+  in a shorter window, or on a phone, the page scrolls instead. Its figures come from `TaskStats`
+  (today, the week coming up, the last week's completions, the next reminder), `DayNow` (where the
+  day stands against the ledger's blocks), `DayAgenda` (those blocks and the free time between
+  them, which is the ledger's own gaps) and the schedule; its sentences come from `HomeText`. All
+  are pure and tested. The layout harness renders it at 1920x1000, a maximised window on a 1080p
+  screen, because a dashboard that stops short of the window only shows there.
 - **Notes** are the synced `notes` table: a title and a body, pinned or not. `NoteText` says how one
   reads — its heading, a preview, when it was last written (the newest field clock, since the row
   keeps no edit time). A new note in the editor has no row until something is typed, so opening

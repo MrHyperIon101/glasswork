@@ -101,6 +101,8 @@ class _QuickNoteFieldState extends ConsumerState<QuickNoteField> {
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     hintText: widget.hint,
+                    // One line, however narrow the field, rather than a column of words.
+                    hintMaxLines: 1,
                     hintStyle: AppText.body.copyWith(color: AppColour.labelTertiary),
                   ),
                 ),
