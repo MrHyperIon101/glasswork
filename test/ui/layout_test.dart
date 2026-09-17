@@ -367,6 +367,11 @@ final _states = <_State>[
   _State('new project', (tester, app, data) async {
     app.read(newProjectOpenProvider.notifier).open();
   }),
+  _State('choosing a project icon', (tester, app, data) async {
+    app.read(projectSettingsOpenProvider.notifier).open(data.courseworkId);
+    await _settle(tester);
+    await tester.tap(find.byKey(const ValueKey('project-icon')));
+  }),
   _State('project settings', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
     app.read(projectSettingsOpenProvider.notifier).open(data.courseworkId);
@@ -645,7 +650,8 @@ Future<_Seeded> _seed(AppDatabase db) async {
     workspaceId: ws,
     name: 'Portfolio site rebuild',
     purpose: 'New case studies and a faster homepage',
-    icon: '▲',
+    // A symbol, beside the other project's typed glyph.
+    icon: 'sym:palette',
     colour: 0xFF0A84FF,
   );
 

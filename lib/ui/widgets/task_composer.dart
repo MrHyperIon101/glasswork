@@ -11,6 +11,7 @@ import '../../state/reminders_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
+import '../project_icon.dart';
 import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
@@ -323,7 +324,12 @@ class _FormState extends ConsumerState<_Form> {
             children: [
               for (final p in projects)
                 ComposerChip(
-                  label: '${p.icon ?? '○'}  ${p.name}',
+                  label: p.name,
+                  leading: ProjectGlyph(
+                    icon: p.icon,
+                    colour: p.colour == null ? AppColour.accent : Color(p.colour!),
+                    size: 14,
+                  ),
                   selected: p.id == projectId,
                   tint: p.colour == null ? null : Color(p.colour!),
                   onTap: () => setState(() {

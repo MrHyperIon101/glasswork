@@ -13,6 +13,7 @@ import '../../state/reminders_controller.dart';
 import '../../state/sync_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
+import '../project_icon.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/new_project_sheet.dart';
@@ -443,7 +444,7 @@ class _Sidebar extends ConsumerWidget {
 
                 for (final project in projects)
                   _SidebarRow(
-                    emoji: project.icon ?? '○',
+                    glyph: project.icon,
                     label: project.name,
                     tint: project.colour == null
                         ? AppColour.purple
@@ -527,13 +528,15 @@ class _SidebarRow extends StatefulWidget {
     required this.selected,
     required this.onTap,
     this.icon,
-    this.emoji,
+    this.glyph,
     this.badge,
     this.muted = false,
   });
 
   final IconData? icon;
-  final String? emoji;
+
+  /// A project's icon, in place of [icon].
+  final String? glyph;
   final String label;
   final Color tint;
   final bool selected;
@@ -580,10 +583,10 @@ class _SidebarRowState extends State<_SidebarRow> {
             children: [
               SizedBox(
                 width: 22,
-                child: widget.emoji != null
-                    ? Text(
-                        widget.emoji!,
-                        style: TextStyle(fontSize: 13, color: widget.tint),
+                child: widget.icon == null
+                    ? Align(
+                        alignment: Alignment.centerLeft,
+                        child: ProjectGlyph(icon: widget.glyph, colour: widget.tint),
                       )
                     : Icon(
                         widget.icon,

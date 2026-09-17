@@ -14,6 +14,7 @@ import '../sheet.dart';
 import '../surface.dart';
 import 'confirm_dialog.dart';
 import 'field_controls.dart';
+import 'project_icon_picker.dart';
 
 /// Everything about a project that is not a task.
 ///
@@ -146,6 +147,21 @@ class _BodyState extends ConsumerState<_Body> {
                       purpose: v.trim(),
                     ),
                     decoration: _input('What this project is for'),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.lg),
+                FieldRow(
+                  label: 'Icon',
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ProjectIconButton(
+                      icon: project.icon,
+                      colour: project.colour == null
+                          ? AppColour.purple
+                          : Color(project.colour!),
+                      onChosen: (icon) =>
+                          _scope?.projects.updateProject(project.id, icon: icon),
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),

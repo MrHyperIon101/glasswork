@@ -162,7 +162,7 @@ void main() {
       await _settle(tester);
 
       await openSettings(tester);
-      final chip = find.widgetWithText(ComposerChip, '○  Glasswork');
+      final chip = find.widgetWithText(ComposerChip, 'Glasswork');
       await tester.scrollUntilVisible(chip, 200, scrollable: _page());
       // Built is not yet on screen: brought fully into view, so the tap lands on it.
       await tester.ensureVisible(chip);
@@ -191,7 +191,7 @@ void main() {
             .widget<ComposerChip>(
               find.descendant(
                 of: find.byType(TaskComposer),
-                matching: find.widgetWithText(ComposerChip, '○  Glasswork'),
+                matching: find.widgetWithText(ComposerChip, 'Glasswork'),
               ),
             )
             .selected,

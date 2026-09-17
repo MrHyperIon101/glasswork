@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../sheet.dart';
+import 'project_icon_picker.dart';
 import '../surface.dart';
 
 /// Creating a project, starting from what kind of work it is.
@@ -50,6 +51,9 @@ class _BodyState extends ConsumerState<_Body> {
   ProjectTemplate _template = ProjectTemplate.all.first;
   bool _nameTouched = false;
 
+  /// An icon chosen here, which outlasts changing the template.
+  String? _icon;
+
   @override
   void dispose() {
     _name.dispose();
@@ -78,7 +82,7 @@ class _BodyState extends ConsumerState<_Body> {
       workspaceId: scope.workspace.id,
       name: name,
       purpose: _purpose.text.trim().isEmpty ? null : _purpose.text.trim(),
-      icon: _template.icon,
+      icon: _icon ?? _template.icon,
       colour: _template.colour,
       sections: _template.sections,
       fields: _template.fields,
@@ -136,14 +140,26 @@ class _BodyState extends ConsumerState<_Body> {
                 const SizedBox(height: AppSpace.xl),
                 Text('Name', style: AppText.caption),
                 const SizedBox(height: AppSpace.sm),
-                TextField(
-                  controller: _name,
-                  autofocus: true,
-                  style: AppText.body,
-                  cursorColor: AppColour.accent,
-                  onChanged: (_) => setState(() => _nameTouched = true),
-                  onSubmitted: (_) => _create(),
-                  decoration: _fieldDecoration('Sem V — DBMS'),
+                Row(
+                  children: [
+                    ProjectIconButton(
+                      icon: _icon ?? _template.icon,
+                      colour: Color(_template.colour),
+                      onChosen: (icon) => setState(() => _icon = icon),
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Expanded(
+                      child: TextField(
+                        controller: _name,
+                        autofocus: true,
+                        style: AppText.body,
+                        cursorColor: AppColour.accent,
+                        onChanged: (_) => setState(() => _nameTouched = true),
+                        onSubmitted: (_) => _create(),
+                        decoration: _fieldDecoration('Sem V — DBMS'),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: AppSpace.lg),

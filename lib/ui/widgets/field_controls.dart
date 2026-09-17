@@ -93,6 +93,7 @@ class ComposerChip extends StatefulWidget {
     required this.selected,
     required this.onTap,
     this.tint,
+    this.leading,
     super.key,
   });
 
@@ -100,6 +101,9 @@ class ComposerChip extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
   final Color? tint;
+
+  /// Before the label: a project's icon, say.
+  final Widget? leading;
 
   @override
   State<ComposerChip> createState() => _ComposerChipState();
@@ -138,11 +142,22 @@ class _ComposerChipState extends State<ComposerChip> {
                   : const Color(0x00000000),
             ),
           ),
-          child: Text(
-            widget.label,
-            style: AppText.callout.copyWith(
-              color: widget.selected ? tint : AppColour.labelSecondary,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.leading case final leading?) ...[
+                leading,
+                const SizedBox(width: AppSpace.sm),
+              ],
+              Flexible(
+                child: Text(
+                  widget.label,
+                  style: AppText.callout.copyWith(
+                    color: widget.selected ? tint : AppColour.labelSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
