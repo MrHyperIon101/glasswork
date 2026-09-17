@@ -81,15 +81,17 @@ void main() {
     );
   });
 
-  test('a week of sleep reads as its pattern', () {
+  test('a week of sleep reads as its pattern, a night at a time', () {
     expect(
       SettingsText.sleepSummary(List.filled(7, up7bed2330)),
-      'Up at 07:00 and in bed by 23:30, every day',
+      'In bed by 23:30 and up at 07:00, every night',
     );
+    // Up late at the weekend: Friday's night ends later, and Saturday's and Sunday's start
+    // after midnight, which leaves four nights as the rest of the week has them.
     const weekend = DaySleep(wakeMin: 9 * 60, bedtimeMin: 60);
     expect(
       SettingsText.sleepSummary([...List.filled(5, up7bed2330), weekend, weekend]),
-      'Up at 07:00 and in bed by 23:30 on 5 days of the week',
+      'In bed by 23:30 and up at 07:00 on 4 nights of the week',
     );
   });
 

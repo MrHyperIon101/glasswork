@@ -116,21 +116,24 @@ abstract final class SettingsText {
         _ => 'Kept on this device.',
       };
 
-  /// A week's sleep in a line: "Up at 07:00 and in bed by 23:30, every day", or for the
-  /// pattern most days share, "… on 5 days of the week".
+  /// A week's sleep in a line, a night at a time as Time budget lists it: "In bed by 23:30
+  /// and up at 07:00, every night", or for the pattern most nights share, "… on 4 nights of
+  /// the week". [week] is each day's sleep, Monday first.
   static String sleepSummary(List<DaySleep> week) {
-    final counts = <DaySleep, int>{};
-    for (final day in week) {
-      counts[day] = (counts[day] ?? 0) + 1;
+    // A night is a day's bedtime and getting up the day after.
+    final counts = <(int, int), int>{};
+    for (var day = 0; day < week.length; day++) {
+      final night = (week[day].bedtimeMin, week[(day + 1) % week.length].wakeMin);
+      counts[night] = (counts[night] ?? 0) + 1;
     }
-    // Most days first; among equals, the one earliest in the week.
-    final (common, days) = counts.entries
+    // Most nights first; among equals, the one earliest in the week.
+    final ((bedtime, wake), nights) = counts.entries
         .map((e) => (e.key, e.value))
         .reduce((a, b) => b.$2 > a.$2 ? b : a);
-    final pattern =
-        'Up at ${Format.clock(common.wakeMin)} and in bed by '
-        '${Format.clock(common.bedtimeMin)}';
-    return days == week.length ? '$pattern, every day' : '$pattern on $days days of the week';
+    final pattern = 'In bed by ${Format.clock(bedtime)} and up at ${Format.clock(wake)}';
+    return nights == week.length
+        ? '$pattern, every night'
+        : '$pattern on $nights nights of the week';
   }
 
   /// The rest of the profile in a line: "Meals 1h 30m · Buffer 1h · Focus 65% · Gaps under

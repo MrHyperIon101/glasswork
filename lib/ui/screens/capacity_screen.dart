@@ -523,18 +523,18 @@ class _SleepWeek extends ConsumerWidget {
 
   static const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  /// Room for the arrow between getting up and going to bed.
+  /// Room for the arrow between going to bed and getting up.
   static const arrowWidth = AppSpace.xl;
 
-  /// Shares of the width for a day's name, each of its times, and how long it is awake.
-  /// The heading and the rows use the same shares, so the columns line up at any width and
-  /// any text size: fixed widths cut the lengths short on a phone, and wrapped the day
-  /// names with larger text.
+  /// Shares of the width for a night's name, each of its times, and how long it is. The
+  /// heading and the rows use the same shares, so the columns line up at any width and any
+  /// text size: fixed widths cut the lengths short on a phone, and wrapped the day names
+  /// with larger text.
   static const nameFlex = 4;
   static const timeFlex = 5;
-  static const awakeFlex = 5;
+  static const lengthFlex = 5;
 
-  /// Wide enough for every column and no wider. Stretched across a desktop, each day's
+  /// Wide enough for every column and no wider. Stretched across a desktop, each night's
   /// length ended up far from its times.
   static const maxWidth = 460.0;
 
@@ -562,15 +562,15 @@ class _SleepWeek extends ConsumerWidget {
           children: [
             Expanded(child: Text('Sleep', style: AppText.headline)),
             _SmallAction(
-              label: 'Set several days',
+              label: 'Set several nights',
               onTap: () => _setSeveral(context, settings, save),
             ),
           ],
         ),
         Text(
-          'When you get up on each day, and when you go to bed that night: after '
-          'midnight, if earlier than getting up. Nothing is ever planned into sleep, and '
-          'blocks that fall in it do not count.',
+          'When you go to bed each night, and when you get up the next morning. A bedtime '
+          'earlier than you got up that day is after midnight. Nothing is ever planned '
+          'into sleep, and blocks that fall in it do not count.',
           style: AppText.footnote,
         ),
         const SizedBox(height: AppSpace.md),
@@ -581,26 +581,46 @@ class _SleepWeek extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Spacer(flex: nameFlex),
-                  Expanded(flex: timeFlex, child: heading('Up at')),
-                  const SizedBox(width: arrowWidth),
+                  Expanded(
+                    flex: nameFlex,
+                    child: heading('Night', align: TextAlign.start),
+                  ),
                   Expanded(flex: timeFlex, child: heading('To bed')),
+                  const SizedBox(width: arrowWidth),
+                  Expanded(flex: timeFlex, child: heading('Up at')),
                   const SizedBox(width: AppSpace.sm),
                   Expanded(
-                    flex: awakeFlex,
-                    child: heading('Awake', align: TextAlign.end),
+                    flex: lengthFlex,
+                    child: heading('Asleep', align: TextAlign.end),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpace.xs),
+              // A row a night, the way a night is lived: to bed on the day it is named for,
+              // then up the next morning. Rows of days, getting up first, read as sleeping
+              // from morning until night.
               for (var day = DateTime.monday; day <= DateTime.sunday; day++)
-                _SleepDayRow(
+                _SleepNightRow(
                   name: names[day - 1],
                   nextName: names[CapacitySettings.dayAfter(day) - 1],
-                  sleep: settings.sleepOn(day),
+                  bedtimeMin: settings.sleepOn(day).bedtimeMin,
+                  wakeMin: settings.sleepOn(CapacitySettings.dayAfter(day)).wakeMin,
                   night: settings.nightAfter(day),
                   target: settings.sleepTargetMin,
-                  onChanged: (sleep) => save({day: sleep}),
+                  onBedtime: (minutes) {
+                    final sleep = settings.sleepOn(day);
+                    // Getting up and going to bed at the same minute is a day of no length.
+                    if (minutes == sleep.wakeMin) return false;
+                    save({day: DaySleep(wakeMin: sleep.wakeMin, bedtimeMin: minutes)});
+                    return true;
+                  },
+                  onWake: (minutes) {
+                    final next = CapacitySettings.dayAfter(day);
+                    final sleep = settings.sleepOn(next);
+                    if (minutes == sleep.bedtimeMin) return false;
+                    save({next: DaySleep(wakeMin: minutes, bedtimeMin: sleep.bedtimeMin)});
+                    return true;
+                  },
                 ),
             ],
           ),
@@ -614,52 +634,69 @@ class _SleepWeek extends ConsumerWidget {
     CapacitySettings settings,
     void Function(Map<int, DaySleep> days) save,
   ) async {
-    final result = await showAppDialog<(Set<int>, DaySleep)>(
+    final result = await showAppDialog<(Set<int>, int, int)>(
       context: context,
-      builder: (context) =>
-          _SleepDialog(initial: settings.sleepOn(DateTime.monday)),
+      builder: (context) => _SleepDialog(
+        bedtimeMin: settings.sleepOn(DateTime.monday).bedtimeMin,
+        wakeMin: settings.sleepOn(DateTime.tuesday).wakeMin,
+      ),
     );
     if (result == null) return;
-    final (days, sleep) = result;
-    save({for (final day in days) day: sleep});
+    final (nights, bedtime, wake) = result;
+
+    // Each night sets the bedtime of the day it starts on and getting up on the next, so
+    // two nights in a row share the day between them.
+    final days = <int, DaySleep>{};
+    DaySleep current(int day) => days[day] ?? settings.sleepOn(day);
+    for (final night in nights) {
+      days[night] = DaySleep(wakeMin: current(night).wakeMin, bedtimeMin: bedtime);
+      final next = CapacitySettings.dayAfter(night);
+      days[next] = DaySleep(wakeMin: wake, bedtimeMin: current(next).bedtimeMin);
+    }
+    // Never a day of no length, which only a clash with an untouched time could make.
+    save({
+      for (final MapEntry(key: day, value: sleep) in days.entries)
+        if (sleep.wakeMin != sleep.bedtimeMin) day: sleep,
+    });
   }
 }
 
-class _SleepDayRow extends StatelessWidget {
-  const _SleepDayRow({
+class _SleepNightRow extends StatelessWidget {
+  const _SleepNightRow({
     required this.name,
     required this.nextName,
-    required this.sleep,
+    required this.bedtimeMin,
+    required this.wakeMin,
     required this.night,
     required this.target,
-    required this.onChanged,
+    required this.onBedtime,
+    required this.onWake,
   });
 
+  /// The day the night starts on.
   final String name;
 
-  /// The day after, for naming the night between them.
+  /// The day after it, when getting up ends the night.
   final String nextName;
 
-  final DaySleep sleep;
+  final int bedtimeMin;
+  final int wakeMin;
 
-  /// Sleep in the night that follows.
+  /// How long the night is.
   final int night;
 
   /// The least sleep wanted in a night.
   final int target;
 
-  final ValueChanged<DaySleep> onChanged;
+  /// Each takes a typed time, and says whether it could be used.
+  final bool Function(int minutes) onBedtime;
+  final bool Function(int minutes) onWake;
 
   @override
   Widget build(BuildContext context) {
-    bool submit(String text, DaySleep Function(int minutes) apply) {
+    bool submit(String text, bool Function(int minutes) apply) {
       final minutes = TimeEntry.clock(text);
-      if (minutes == null) return false;
-      final changed = apply(minutes);
-      // Getting up and going to bed at the same minute is a day of no length.
-      if (changed.wakeMin == changed.bedtimeMin) return false;
-      onChanged(changed);
-      return true;
+      return minutes != null && apply(minutes);
     }
 
     return Padding(
@@ -681,14 +718,11 @@ class _SleepDayRow extends StatelessWidget {
               Expanded(
                 flex: _SleepWeek.timeFlex,
                 child: TypedValue(
-                  key: ValueKey('wake-$name'),
+                  key: ValueKey('bedtime-$name'),
                   fill: true,
-                  text: Format.clock(sleep.wakeMin),
+                  text: Format.clock(bedtimeMin),
                   keyboardType: TextInputType.datetime,
-                  onSubmit: (text) => submit(
-                    text,
-                    (m) => DaySleep(wakeMin: m, bedtimeMin: sleep.bedtimeMin),
-                  ),
+                  onSubmit: (text) => submit(text, onBedtime),
                 ),
               ),
               const SizedBox(
@@ -702,25 +736,25 @@ class _SleepDayRow extends StatelessWidget {
               Expanded(
                 flex: _SleepWeek.timeFlex,
                 child: TypedValue(
-                  key: ValueKey('bedtime-$name'),
+                  // Named for the day it sets: getting up ends the night on the next day.
+                  key: ValueKey('wake-$nextName'),
                   fill: true,
-                  text: Format.clock(sleep.bedtimeMin),
+                  text: Format.clock(wakeMin),
                   keyboardType: TextInputType.datetime,
-                  onSubmit: (text) => submit(
-                    text,
-                    (m) => DaySleep(wakeMin: sleep.wakeMin, bedtimeMin: m),
-                  ),
+                  onSubmit: (text) => submit(text, onWake),
                 ),
               ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
-                flex: _SleepWeek.awakeFlex,
+                flex: _SleepWeek.lengthFlex,
                 child: Text(
-                  Format.estimate(sleep.awakeMin),
+                  Format.estimate(night),
                   textAlign: TextAlign.end,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.numeric,
+                  style: AppText.numeric.copyWith(
+                    color: night < target ? AppColour.orange : null,
+                  ),
                 ),
               ),
             ],
@@ -741,31 +775,33 @@ class _SleepDayRow extends StatelessWidget {
   }
 }
 
-/// The same sleep for several days at once.
+/// The same sleep for several nights at once.
 class _SleepDialog extends StatefulWidget {
-  const _SleepDialog({required this.initial});
+  const _SleepDialog({required this.bedtimeMin, required this.wakeMin});
 
-  final DaySleep initial;
+  final int bedtimeMin;
+  final int wakeMin;
 
   @override
   State<_SleepDialog> createState() => _SleepDialogState();
 }
 
 class _SleepDialogState extends State<_SleepDialog> {
-  final _days = <int>{};
-  late int _wake = widget.initial.wakeMin;
-  late int _bedtime = widget.initial.bedtimeMin;
+  /// Nights, by the day each starts on.
+  final _nights = <int>{};
+  late int _bedtime = widget.bedtimeMin;
+  late int _wake = widget.wakeMin;
 
-  void _setDays(Iterable<int> days) => setState(
-    () => _days
+  void _setNights(Iterable<int> nights) => setState(
+    () => _nights
       ..clear()
-      ..addAll(days),
+      ..addAll(nights),
   );
 
   @override
   Widget build(BuildContext context) {
-    final sleep = DaySleep(wakeMin: _wake, bedtimeMin: _bedtime);
-    final valid = _days.isNotEmpty && _wake != _bedtime;
+    final length = CapacitySettings.nightBetween(_bedtime, _wake);
+    final valid = _nights.isNotEmpty && length > 0;
 
     ValueStepper time(String label, int value, void Function(int minutes) set) =>
         ValueStepper(
@@ -794,14 +830,14 @@ class _SleepDialogState extends State<_SleepDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Sleep for several days', style: AppText.title3),
+              Text('Sleep for several nights', style: AppText.title3),
               const SizedBox(height: AppSpace.lg),
-              Text('Days', style: AppText.caption),
+              Text('Nights, by the day they start', style: AppText.caption),
               const SizedBox(height: AppSpace.sm),
               WeekdayPicker(
-                selected: _days,
+                selected: _nights,
                 onToggle: (day) => setState(
-                  () => _days.contains(day) ? _days.remove(day) : _days.add(day),
+                  () => _nights.contains(day) ? _nights.remove(day) : _nights.add(day),
                 ),
               ),
               // Under the days, not beside the heading: on a phone with larger text, three
@@ -811,30 +847,30 @@ class _SleepDialogState extends State<_SleepDialog> {
                 offset: const Offset(-AppSpace.sm, 0),
                 child: Wrap(
                   children: [
+                    // Named for the morning after, which is what a bedtime is chosen for.
                     _SmallAction(
-                      label: 'Weekdays',
-                      onTap: () => _setDays(const [1, 2, 3, 4, 5]),
+                      label: 'Before weekdays',
+                      onTap: () => _setNights(const [7, 1, 2, 3, 4]),
                     ),
                     _SmallAction(
-                      label: 'Weekends',
-                      onTap: () => _setDays(const [6, 7]),
+                      label: 'Before weekends',
+                      onTap: () => _setNights(const [5, 6]),
                     ),
                     _SmallAction(
-                      label: 'Every day',
-                      onTap: () => _setDays(const [1, 2, 3, 4, 5, 6, 7]),
+                      label: 'Every night',
+                      onTap: () => _setNights(const [1, 2, 3, 4, 5, 6, 7]),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSpace.lg),
-              time('Up at', _wake, (m) => _wake = m),
               time('To bed', _bedtime, (m) => _bedtime = m),
+              time('Up at', _wake, (m) => _wake = m),
               const SizedBox(height: AppSpace.sm),
               Text(
-                _wake == _bedtime
-                    ? 'Getting up and going to bed at the same time leaves no day at all.'
-                    : '${Format.estimate(sleep.awakeMin)} awake'
-                          '${sleep.bedtimeFromMidnight > minutesInDay ? ', to bed after midnight' : ''}.',
+                length == 0
+                    ? 'Going to bed and getting up at the same time leaves no sleep at all.'
+                    : '${Format.estimate(length)} of sleep.',
                 style: AppText.footnote,
               ),
               const SizedBox(height: AppSpace.lg),
@@ -850,7 +886,7 @@ class _SleepDialogState extends State<_SleepDialog> {
                     label: 'Set',
                     enabled: valid,
                     onTap: () {
-                      if (valid) Navigator.pop(context, ({..._days}, sleep));
+                      if (valid) Navigator.pop(context, ({..._nights}, _bedtime, _wake));
                     },
                   ),
                 ],

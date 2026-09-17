@@ -255,21 +255,21 @@ final _states = <_State>[
     app.read(destinationProvider.notifier).go(const CapacityDestination());
     await _settle(tester);
     await tester.scrollUntilVisible(
-      find.text('Set several days'),
+      find.text('Set several nights'),
       300,
       scrollable: _pageScrollable(find.byType(CapacityScreen)),
     );
   }),
-  _State('setting sleep for several days', (tester, app, data) async {
+  _State('setting sleep for several nights', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(const CapacityDestination());
     await _settle(tester);
     await tester.scrollUntilVisible(
-      find.text('Set several days'),
+      find.text('Set several nights'),
       300,
       scrollable: _pageScrollable(find.byType(CapacityScreen)),
     );
     await _settle(tester);
-    await tester.tap(find.text('Set several days'));
+    await tester.tap(find.text('Set several nights'));
   }),
   _State('adding a block', (tester, app, data) => _openAddBlock(tester, app)),
   _State('adding a block that clashes', (tester, app, data) async {
