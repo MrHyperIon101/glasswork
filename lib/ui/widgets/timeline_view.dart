@@ -47,7 +47,8 @@ class TimelineView extends ConsumerWidget {
       if (plan == null) continue;
       rows.add((task, plan));
     }
-    rows.sort((a, b) => a.$2.task.dueDay.compareTo(b.$2.task.dueDay));
+    // Every placed task has a deadline: one with only a time counts on its day and no more.
+    rows.sort((a, b) => a.$2.task.dueDay!.compareTo(b.$2.task.dueDay!));
 
     final undated = tasks
         .where(
@@ -241,7 +242,7 @@ class _TimelineRowState extends ConsumerState<_TimelineRow> {
     final finishIndex = plan.finishDay == null
         ? startIndex
         : plan.finishDay!.difference(widget.start).inDays;
-    final dueIndex = plan.task.dueDay.difference(widget.start).inDays;
+    final dueIndex = plan.task.dueDay!.difference(widget.start).inDays;
 
     final name = Row(
       children: [

@@ -3,6 +3,7 @@ import 'package:glasswork/capacity/day_agenda.dart';
 import 'package:glasswork/capacity/day_now.dart';
 import 'package:glasswork/capacity/ledger.dart';
 import 'package:glasswork/capacity/recurrence.dart';
+import 'package:glasswork/capacity/task_slot.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/db/tables.dart';
 import 'package:glasswork/data/task_stats.dart';
@@ -117,6 +118,11 @@ void main() {
         (title: 'Free for the rest of the day', detail: '3h 30m until bed at 23:30'),
       );
       expect(HomeText.now(DayNow.of(day([lecture]), 23 * 60 + 40)).title, "The day's done");
+      const revise = TaskSlot(taskId: 'r', title: 'Revise', startMin: 11 * 60, endMin: 13 * 60);
+      expect(
+        HomeText.now(DayNow.of(day([lecture]), 12 * 60 + 15, tasks: const [revise])),
+        (title: 'Time for Revise', detail: 'Until 13:00 · 45m left'),
+      );
       expect(
         HomeText.now(DayNow.of(day([lecture]), 5 * 60)),
         (title: 'Your day starts soon', detail: 'First up: DBMS lecture at 09:00'),

@@ -1,5 +1,5 @@
 /// Parses a quick-add line like
-/// `submit dbms lab tmrw 5pm !high #uni ~4h remind tmrw 9am`
+/// `submit dbms lab tmrw 5pm !high #uni ~4h remind tmrw 9am plan thu 4pm`
 /// into structured fields.
 ///
 /// The grammar is deliberately small and explicit. Date parsing is a swamp, and a parser
@@ -25,7 +25,7 @@ class ParseSpan {
   final String label;
 }
 
-enum ParseKind { due, priority, label, estimate, reminder }
+enum ParseKind { due, priority, label, estimate, reminder, plan }
 
 class ParsedQuickAdd {
   const ParsedQuickAdd({
@@ -37,6 +37,7 @@ class ParsedQuickAdd {
     this.labels = const [],
     this.estimateMin,
     this.remindAt,
+    this.startAt,
   });
 
   /// The input with every recognised fragment removed.
@@ -56,6 +57,10 @@ class ParsedQuickAdd {
 
   /// When to be reminded, in local time: "remind tomorrow 9am", "remind in 2h".
   final DateTime? remindAt;
+
+  /// When the task has been given time to be done in, in local time: "plan fri 4pm". It
+  /// lasts as long as the estimate.
+  final DateTime? startAt;
 }
 
 abstract final class QuickAddParser {
@@ -85,11 +90,18 @@ abstract final class QuickAddParser {
           .join('|');
 
   /// "remind [me] [at|on]" then either "in 2h", or a day, a time, or both.
+  static final _remind = _when(r'remind(?:\s+me)?');
+
+  /// "plan [at|on|for]" and a when, as for a reminder: "plan fri 4pm", "plan tomorrow".
+  static final _plan = _when(r'plan');
+
+  /// [keyword], then "in 2h", or a day, a time, or both.
   ///
   /// Groups: 1–2 an amount and unit; 3 the day; 4–6 a time with am or pm; 7–8 a 24-hour
   /// time; 9 noon or midnight.
-  static final _remind = RegExp(
-    r'\bremind(?:\s+me)?(?:\s+(?:at|on))?\s+(?:'
+  static RegExp _when(String keyword) => RegExp(
+    '\\b$keyword'
+    r'(?:\s+(?:at|on|for))?\s+(?:'
     r'in\s+(\d+)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d)\b'
     r'|'
     r'(?:(today|tonight|tmrw|tomorrow|(?:next\s+)?(?:'
@@ -137,28 +149,32 @@ abstract final class QuickAddParser {
     final spans = <ParseSpan>[];
     final today = DateTime(now.year, now.month, now.day);
 
-    // --- remind <when> ---
-    // Read first, and blanked out of everything read after it, so its day and time are
-    // never also taken for the due date.
-    DateTime? remindAt;
+    // --- remind <when>, plan <when> ---
+    // Read first, and blanked out of everything read after them, so their days and times
+    // are never also taken for the due date.
     var rest = input;
-    for (final m in _remind.allMatches(input)) {
-      final at = _reminderFrom(m, now, morningMin);
-      if (at == null) continue;
-      remindAt = at;
-      spans.add(
-        ParseSpan(
-          start: m.start,
-          end: m.end,
-          kind: ParseKind.reminder,
-          label:
-              'remind ${_dateLabel(DateTime(at.year, at.month, at.day), today)} '
-              '${_timeLabel((hour: at.hour, minute: at.minute))}',
-        ),
-      );
-      rest = input.replaceRange(m.start, m.end, ' ' * (m.end - m.start));
-      break;
+    DateTime? read(RegExp pattern, ParseKind kind, String word) {
+      for (final m in pattern.allMatches(rest)) {
+        final at = _reminderFrom(m, now, morningMin);
+        if (at == null) continue;
+        spans.add(
+          ParseSpan(
+            start: m.start,
+            end: m.end,
+            kind: kind,
+            label:
+                '$word ${_dateLabel(DateTime(at.year, at.month, at.day), today)} '
+                '${_timeLabel((hour: at.hour, minute: at.minute))}',
+          ),
+        );
+        rest = rest.replaceRange(m.start, m.end, ' ' * (m.end - m.start));
+        return at;
+      }
+      return null;
     }
+
+    final remindAt = read(_remind, ParseKind.reminder, 'remind');
+    final startAt = read(_plan, ParseKind.plan, 'plan');
 
     var priority = 0;
     final labels = <String>[];
@@ -336,10 +352,11 @@ abstract final class QuickAddParser {
       labels: labels,
       estimateMin: estimateMin,
       remindAt: remindAt,
+      startAt: startAt,
     );
   }
 
-  /// The moment a "remind" phrase means, or null when it names no day and no time.
+  /// The moment a "remind" or "plan" phrase means, or null when it names no day and no time.
   static DateTime? _reminderFrom(RegExpMatch m, DateTime now, int morningMin) {
     final today = DateTime(now.year, now.month, now.day);
 

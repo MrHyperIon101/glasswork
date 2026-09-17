@@ -44,7 +44,8 @@ abstract final class HomeText {
   }
 
   /// What a stretch of the day is called: its block, or free time.
-  static String agendaTitle(AgendaEntry entry) => entry.block?.title ?? 'Free';
+  static String agendaTitle(AgendaEntry entry) =>
+      entry.block?.title ?? entry.task?.title ?? 'Free';
 
   /// The line under it: how long it lasts, or what is left of it while it is happening, and
   /// for free time too short to use, that it does not count.
@@ -80,10 +81,10 @@ abstract final class HomeText {
             : 'First up: ${first.title} at ${Format.clock(first.startMin)}',
       );
     }
-    if (now.current case final block?) {
+    if (now.current case final busy?) {
       return (
-        title: 'In ${block.title}',
-        detail: 'Until ${Format.clock(block.endMin)} · ${Format.estimate(now.untilMin)} left',
+        title: busy.isTask ? 'Time for ${busy.title}' : 'In ${busy.title}',
+        detail: 'Until ${Format.clock(busy.endMin)} · ${Format.estimate(now.untilMin)} left',
       );
     }
     if (now.next case final block?) {

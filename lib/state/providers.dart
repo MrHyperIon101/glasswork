@@ -17,6 +17,7 @@ import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
 import '../data/project_filter.dart';
+import '../data/task_slots.dart';
 import '../data/task_stats.dart';
 import '../sync/sync_writer.dart';
 
@@ -461,23 +462,34 @@ final plannedTasksProvider = Provider<List<PlannedTask>>((ref) {
   for (final task in tasks) {
     if (task.status == TaskStatus.done) continue;
     final due = TaskStats.dueDayOf(task);
-    if (due == null) continue;
+    // A task given a time counts on its day, deadline or not.
+    final day = TaskSlots.plannedDayOf(task);
+    if (due == null && day == null) continue;
 
     // Beyond the horizon the arithmetic cannot say anything honest, so it says nothing.
-    if (due.difference(startOfToday).inDays > capacityHorizonDays) continue;
+    if (day == null && due!.difference(startOfToday).inDays > capacityHorizonDays) continue;
 
     planned.add(
       PlannedTask(
         id: task.id,
         title: task.title,
         dueDay: due,
-        estimateMin: task.estimateMin ?? CapacityScheduler.assumedEstimateMin,
+        plannedDay: day,
+        // With a time, the time's own length; without, the scheduler's assumption.
+        estimateMin:
+            task.estimateMin ??
+            (day == null ? CapacityScheduler.assumedEstimateMin : TaskSlots.defaultLengthMin),
         priority: task.priority,
         estimateAssumed: task.estimateMin == null,
       ),
     );
   }
   return planned;
+});
+
+/// The tasks given a time on a day, as that day's timeline draws them.
+final taskSlotsProvider = Provider.family<List<TaskSlot>, DateTime>((ref, day) {
+  return TaskSlots.on(day, ref.watch(allTasksProvider).value ?? const <Task>[]);
 });
 
 /// The plan: what fits, what does not, and how each day is loaded.

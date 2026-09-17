@@ -81,6 +81,7 @@ class TaskRepository {
     int priority = 0,
     int? estimateMin,
     DateTime? remindAt,
+    DateTime? startAt,
   }) async {
     final last = await _lastKeyIn(listId);
     return _writer.insert(
@@ -97,6 +98,7 @@ class TaskRepository {
         estimateMin: Value(estimateMin),
         // UTC, as setReminder stores it.
         remindAt: Value(remindAt?.toUtc()),
+        startAt: Value(startAt?.toUtc()),
       ),
     );
   }
@@ -121,6 +123,17 @@ class TaskRepository {
   Future<void> setReminder(String id, DateTime? at) => _write(
     id,
     TasksCompanion(remindAt: Value(at?.toUtc())),
+  );
+
+  /// Gives the task time to be done in, from [start] for [lengthMin], or takes its time away
+  /// with null. How long it lasts is its estimate, so the two are one field and never
+  /// disagree. Stored in UTC, like a reminder.
+  Future<void> setTime(String id, DateTime? start, {int? lengthMin}) => _write(
+    id,
+    TasksCompanion(
+      startAt: Value(start?.toUtc()),
+      estimateMin: lengthMin == null ? const Value.absent() : Value(lengthMin),
+    ),
   );
 
   Future<void> setNotes(String id, String? notesMd) => _write(

@@ -137,6 +137,23 @@ abstract final class Format {
     return '${shortDate(local)} $time';
   }
 
+  /// A task's time, as briefly as it can be said from [now]: "Today 16:00–18:00",
+  /// "Tomorrow 09:00–10:00", "Fri 16:00–18:00" within the week, "25 Sep 16:00–18:00" beyond.
+  static String taskTime(DateTime start, int lengthMin, DateTime now) {
+    final local = start.toLocal();
+    final days = DateTime.utc(local.year, local.month, local.day)
+        .difference(DateTime.utc(now.year, now.month, now.day))
+        .inDays;
+    final from = local.hour * 60 + local.minute;
+    final range = clockRange(from, from + lengthMin);
+    return switch (days) {
+      0 => 'Today $range',
+      1 => 'Tomorrow $range',
+      > 1 && < 7 => '${_weekdayNames[local.weekday - 1]} $range',
+      _ => '${shortDate(local)} $range',
+    };
+  }
+
   /// "Mon 21 Sep".
   static String dayAndDate(DateTime d) =>
       '${_weekdayNames[d.weekday - 1]} ${shortDate(d)}';

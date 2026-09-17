@@ -45,6 +45,14 @@ void main() {
     expect(Format.hoursShort(117), '2h');
   });
 
+  test("a task's time says its day as briefly as it can, and its hours", () {
+    final now = DateTime(2026, 9, 15, 14);
+    expect(Format.taskTime(DateTime(2026, 9, 15, 16), 120, now), 'Today 16:00–18:00');
+    expect(Format.taskTime(DateTime(2026, 9, 16, 9), 60, now), 'Tomorrow 09:00–10:00');
+    expect(Format.taskTime(DateTime(2026, 9, 18, 23, 30), 90, now), 'Fri 23:30–01:00');
+    expect(Format.taskTime(DateTime(2026, 9, 25, 16), 45, now), '25 Sep 16:00–16:45');
+  });
+
   test('a date carries its day', () {
     expect(Format.dayAndDate(DateTime(2026, 9, 21)), 'Mon 21 Sep');
   });

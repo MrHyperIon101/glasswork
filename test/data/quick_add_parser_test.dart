@@ -7,6 +7,40 @@ void main() {
 
   ParsedQuickAdd parse(String s) => QuickAddParser.parse(s, now: now);
 
+  group('plan', () {
+    test('a day and a time give the task its time, lasting its estimate', () {
+      final r = parse('revise dbms plan thu 4pm ~2h');
+      expect(r.title, 'revise dbms');
+      expect(r.startAt, DateTime(2026, 9, 17, 16));
+      expect(r.estimateMin, 120);
+      expect(r.dueAt, isNull, reason: 'a time to do it is not a deadline');
+      expect(r.dueDate, isNull);
+      expect(
+        r.spans.singleWhere((s) => s.kind == ParseKind.plan).label,
+        'plan Thu 16:00',
+      );
+    });
+
+    test('beside a due date and a reminder, each is read for itself', () {
+      final r = parse('submit lab fri 5pm plan thu 3pm remind thu 2pm');
+      expect(r.dueAt, DateTime(2026, 9, 18, 17));
+      expect(r.startAt, DateTime(2026, 9, 17, 15));
+      expect(r.remindAt, DateTime(2026, 9, 17, 14));
+      expect(r.title, 'submit lab');
+    });
+
+    test('a day alone is its morning; "for" reads as "on"', () {
+      expect(parse('gym plan tomorrow').startAt, DateTime(2026, 9, 12, 9));
+      expect(parse('essay plan for mon 10am').startAt, DateTime(2026, 9, 14, 10));
+    });
+
+    test('the word in a title with no time after it is only a word', () {
+      final r = parse('plan the trip');
+      expect(r.startAt, isNull);
+      expect(r.title, 'plan the trip');
+    });
+  });
+
   group('remind', () {
     test('a day and a time is a reminder, not a due date', () {
       final r = parse('call the bank remind tomorrow 9am');

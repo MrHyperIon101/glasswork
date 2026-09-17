@@ -195,4 +195,38 @@ void main() {
     await tasks.softDelete(t.id);
     expect(await tasks.search('findable').first, isEmpty);
   });
+
+  test('a time for a task is its start, in UTC, and its estimate as the length', () async {
+    final task = await add('Revise DBMS');
+    await db.delete(db.outbox).go();
+
+    final start = DateTime(2026, 9, 18, 16);
+    await tasks.setTime(task.id, start, lengthMin: 120);
+    var row = await (db.select(db.tasks)..where((t) => t.id.equals(task.id))).getSingle();
+    expect(row.startAt!.toUtc(), start.toUtc());
+    expect(row.estimateMin, 120);
+    expect(
+      {
+        for (final e in await db.select(db.outbox).get())
+          ...SyncWriter.decodeFieldNames(e.changedFields),
+      },
+      {'start_at', 'estimate_min'},
+    );
+
+    // Taken away, the time goes and the estimate stays: it is still how long the task takes.
+    await tasks.setTime(task.id, null);
+    row = await (db.select(db.tasks)..where((t) => t.id.equals(task.id))).getSingle();
+    expect((row.startAt, row.estimateMin), (null, 120));
+  });
+
+  test('a task can be made with its time', () async {
+    final start = DateTime(2026, 9, 18, 9, 30);
+    final task = await tasks.create(
+      listId: listId,
+      workspaceId: workspaceId,
+      title: 'Gym',
+      startAt: start,
+    );
+    expect(task.startAt!.toUtc(), start.toUtc());
+  });
 }

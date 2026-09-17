@@ -17,6 +17,7 @@ import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
 import 'reminder_picker.dart';
+import 'task_time.dart';
 
 /// The task creation flow.
 ///
@@ -57,7 +58,7 @@ class _Form extends ConsumerStatefulWidget {
 }
 
 /// Which fields the user has set by hand, so a later parse does not clobber them.
-enum _Touched { due, priority, estimate, labels, reminder }
+enum _Touched { due, priority, estimate, labels, reminder, time }
 
 class _FormState extends ConsumerState<_Form> {
   final _title = TextEditingController();
@@ -73,6 +74,9 @@ class _FormState extends ConsumerState<_Form> {
   DateTime? _dueAt;
   DateTime? _dueDate;
   DateTime? _remindAt;
+
+  /// When it has been given time to be done in.
+  DateTime? _startAt;
   int _priority = 0;
   int? _estimateMin;
   final _labelNames = <String>{};
@@ -129,6 +133,9 @@ class _FormState extends ConsumerState<_Form> {
       }
       if (!_touched.contains(_Touched.reminder)) {
         _remindAt = parsed.remindAt;
+      }
+      if (!_touched.contains(_Touched.time)) {
+        _startAt = parsed.startAt;
       }
     });
   }
@@ -190,6 +197,7 @@ class _FormState extends ConsumerState<_Form> {
       priority: _priority,
       estimateMin: _estimateMin,
       remindAt: _remindAt,
+      startAt: _startAt,
     );
 
     if (_notes.text.trim().isNotEmpty) {
@@ -251,6 +259,7 @@ class _FormState extends ConsumerState<_Form> {
         priority: parsed.priority,
         estimateMin: parsed.estimateMin,
         remindAt: parsed.remindAt,
+        startAt: parsed.startAt,
       );
       reminded |= parsed.remindAt != null;
 
@@ -477,6 +486,25 @@ class _FormState extends ConsumerState<_Form> {
                         _touched.add(_Touched.due);
                         _dueAt = at;
                         _dueDate = date;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+
+                  FieldRow(
+                    label: 'Time',
+                    hint: 'On your time budget, "plan fri 4pm" in the title',
+                    child: TaskTimePicker(
+                      title: _cleanTitle.isEmpty ? 'this task' : _cleanTitle,
+                      start: _startAt,
+                      lengthMin: _estimateMin,
+                      onChanged: (start, lengthMin) => setState(() {
+                        _touched.add(_Touched.time);
+                        _startAt = start;
+                        if (lengthMin != null) {
+                          _touched.add(_Touched.estimate);
+                          _estimateMin = lengthMin;
+                        }
                       }),
                     ),
                   ),
