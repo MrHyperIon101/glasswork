@@ -1,7 +1,7 @@
 name: glasswork
 description: "Local-first task app with a capacity engine. Linux + Android."
 publish_to: 'none'
-version: 0.4.1+5
+version: 0.5.0+6
 
 environment:
   sdk: ^3.13.2
