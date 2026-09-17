@@ -1496,6 +1496,7 @@ class _NoteLineState extends ConsumerState<_NoteLine> {
   Widget build(BuildContext context) {
     final note = widget.note;
     final preview = NoteText.preview(note);
+    final images = ref.watch(noteImagesProvider).value?[note.id]?.length ?? 0;
     return Padding(
       padding: const EdgeInsets.only(top: AppSpace.xs),
       child: MouseRegion(
@@ -1519,7 +1520,11 @@ class _NoteLineState extends ConsumerState<_NoteLine> {
                   // Level with the heading's first line.
                   padding: const EdgeInsets.only(top: 2),
                   child: Icon(
-                    note.pinned ? Icons.push_pin_rounded : Icons.notes_rounded,
+                    note.pinned
+                        ? Icons.push_pin_rounded
+                        : images > 0
+                        ? Icons.image_outlined
+                        : Icons.notes_rounded,
                     size: 14,
                     color: note.pinned ? AppColour.yellow : AppColour.labelTertiary,
                   ),
@@ -1530,7 +1535,7 @@ class _NoteLineState extends ConsumerState<_NoteLine> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        NoteText.heading(note),
+                        NoteText.heading(note, images: images),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppText.callout.copyWith(color: AppColour.label),

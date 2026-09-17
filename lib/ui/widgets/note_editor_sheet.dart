@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
 import '../../data/note_text.dart';
+import '../../images/device_images.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
@@ -14,6 +15,7 @@ import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
+import 'note_images.dart';
 
 /// A note, open to write in.
 ///
@@ -120,6 +122,13 @@ class _EditorState extends ConsumerState<_Editor> {
     await scope.notes.setPinned(id, pinned: !pinned);
   }
 
+  /// Images chosen, or the one pasted, added to this note, which they make if it is new.
+  Future<void> _addImages({bool paste = false}) async {
+    await _saving;
+    final id = await addImagesToNote(ref, noteId: _id, paste: paste);
+    if (id != null && mounted && _id == null) setState(() => _id = id);
+  }
+
   Future<void> _delete() async {
     await _saving;
     final scope = ref.read(appScopeProvider).value;
@@ -128,6 +137,7 @@ class _EditorState extends ConsumerState<_Editor> {
     if (scope == null || id == null) return;
     final heading = NoteText.heading(
       (widget.note ?? _draft()).copyWith(title: _title.text, bodyMd: _body.text),
+      images: ref.read(noteImagesProvider).value?[id]?.length ?? 0,
     );
     await scope.notes.softDelete(id);
     ref
@@ -157,6 +167,10 @@ class _EditorState extends ConsumerState<_Editor> {
     final pinned = live?.pinned ?? false;
     final exists = _id != null;
     final compact = AppLayout.compact(context);
+    final images = _id == null
+        ? const <NoteImage>[]
+        : ref.watch(noteImagesProvider).value?[_id] ?? const <NoteImage>[];
+    final device = ref.watch(deviceImagesProvider);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -185,6 +199,18 @@ class _EditorState extends ConsumerState<_Editor> {
                   ),
                 ),
               ),
+              _ToolButton(
+                key: const ValueKey('note-add-images'),
+                icon: Icons.add_photo_alternate_outlined,
+                tooltip: 'Add images',
+                onTap: _addImages,
+              ),
+              if (device.canPaste)
+                _ToolButton(
+                  icon: Icons.content_paste_rounded,
+                  tooltip: 'Paste an image',
+                  onTap: () => _addImages(paste: true),
+                ),
               _ToolButton(
                 icon: pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
                 tooltip: pinned ? 'Unpin' : 'Pin to the top',
@@ -232,6 +258,17 @@ class _EditorState extends ConsumerState<_Editor> {
                   ),
                 ),
                 const SizedBox(height: AppSpace.md),
+                AnimatedSize(
+                  duration: AppMotion.of(context, AppMotion.medium),
+                  curve: AppMotion.standard,
+                  alignment: Alignment.topCenter,
+                  child: images.isEmpty
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpace.lg),
+                          child: NoteImageGrid(images: images),
+                        ),
+                ),
                 TextField(
                   key: const ValueKey('note-body'),
                   controller: _body,
@@ -265,6 +302,7 @@ class _ToolButton extends StatefulWidget {
     required this.tooltip,
     required this.onTap,
     this.tint,
+    super.key,
   });
 
   final IconData icon;

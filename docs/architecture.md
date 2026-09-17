@@ -257,6 +257,17 @@ list, one task a line, each line read the way a single title is.
   reads — its heading, a preview, when it was last written (the newest field clock, since the row
   keeps no edit time). A new note in the editor has no row until something is typed, so opening
   one and closing it leaves nothing behind. Deleting is a tombstone with undo, like tasks.
+- **Images in notes** are the synced `note_images` table, a row an image, and the image's bytes: a
+  file on each device that has them (`ImageStore`, in the app's data folder) and an object in the
+  private `note-images` storage bucket, under the workspace's own folder, which only its members can
+  read or add to. The platform makes each image ready before Dart sees it — upright, no longer than
+  2048 pixels, a JPEG or a PNG with transparency — in `linux/runner/image_prep.cc` and
+  `MainActivity.kt`, from the file chooser or clipboard and the photo picker. Adding one is
+  local-first: the file and the row first, then `ImageSync` sends it after the rows have synced,
+  and fetches other devices' images once their rows arrive, waiting a little for one whose bytes
+  have not been sent yet. `ImageFiles`, local-only, says which files this device holds and which
+  storage has. Deleting an image is a tombstone with undo; its bytes stay in storage, so an undo on
+  any device still finds them.
 - **A timetable block wears the same colour and short name everywhere** — the time budget's bars,
   its list of blocks, the home screen's strip. `BlockStyle.assign` gives every title in the
   timetables its own colour while there are colours enough, the same on every device; a phone's
@@ -331,4 +342,5 @@ get up at 07:00, so a morning reminder comes 2h after that"), and those sentence
 ## Out of scope for v1
 
 Web target. Teams and multi-user sharing (the schema allows it; the UI does not ship it). iOS, macOS,
-Windows. Attachments. Light mode (the palette is structured for it, but it is not built).
+Windows. Attachments other than images in notes. Light mode (the palette is structured for it, but it
+is not built).

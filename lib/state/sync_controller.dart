@@ -9,7 +9,9 @@ import 'package:supabase/supabase.dart';
 
 import '../sync/account_link.dart';
 import '../sync/backend_config.dart';
+import '../images/image_store.dart';
 import '../sync/change_feed.dart';
+import '../sync/image_sync.dart';
 import '../sync/supabase_transport.dart';
 import '../sync/sync_auth.dart';
 import '../sync/sync_engine.dart';
@@ -150,6 +152,11 @@ final changeFeedProvider = Provider<ChangeFeed>((ref) {
   return SupabaseChangeFeed(ref.watch(supabaseClientProvider));
 });
 
+/// Where note images' bytes are sent and fetched.
+final imageBlobsProvider = Provider<ImageBlobs>(
+  (ref) => SupabaseImageBlobs(ref.watch(supabaseClientProvider)),
+);
+
 final syncProvider = NotifierProvider<SyncController, SyncState>(
   SyncController.new,
 );
@@ -180,6 +187,9 @@ class SyncController extends Notifier<SyncState> {
   AppScope? _scope;
   SyncEngine? _engine;
   AccountLink? _link;
+  ImageSync? _images;
+  Future<void>? _imagesRunning;
+  Timer? _imagesAgain;
 
   Timer? _every;
   Timer? _afterEdit;
@@ -239,6 +249,11 @@ class SyncController extends Notifier<SyncState> {
     );
     _scope = scope;
     _engine = engine;
+    _images = ImageSync(
+      db: scope.db,
+      store: ref.watch(imageStoreProvider),
+      blobs: ref.watch(imageBlobsProvider),
+    );
     _link = AccountLink(
       db: scope.db,
       writer: scope.writer,
@@ -358,6 +373,8 @@ class SyncController extends Notifier<SyncState> {
         lastSynced: DateTime.now(),
         clearProblem: true,
       );
+      // With the rows through, the image files they name follow.
+      unawaited(_syncImages());
       return;
     }
 
@@ -521,7 +538,38 @@ class SyncController extends Notifier<SyncState> {
     }
   }
 
+  /// How long to wait for another device to send an image whose row arrived first.
+  static const imageWait = Duration(seconds: 20);
+
+  /// Sends and fetches image files, a batch at a time until none are left, never two passes
+  /// at once. A failure is left for the next sync to try again.
+  Future<void> _syncImages() {
+    if (_imagesRunning case final running?) return running;
+    Future<void> run() async {
+      final images = _images;
+      if (images == null) return;
+      try {
+        ImageSyncReport report;
+        do {
+          report = await images.run();
+        } while (report.more && ref.mounted && state is SyncOn);
+        if (report.waiting > 0 && ref.mounted && state is SyncOn) {
+          _imagesAgain?.cancel();
+          _imagesAgain = Timer(imageWait, () => unawaited(_syncImages()));
+        }
+      } on Exception catch (e) {
+        debugPrint('Images did not sync: $e');
+      }
+    }
+
+    final running = run();
+    _imagesRunning = running;
+    return running.whenComplete(() => _imagesRunning = null);
+  }
+
   void _stop() {
+    _imagesAgain?.cancel();
+    _imagesAgain = null;
     _every?.cancel();
     _every = null;
     _afterEdit?.cancel();

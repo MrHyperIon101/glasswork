@@ -164,6 +164,40 @@ class Notes extends Table with SyncColumns, WorkspaceScoped {
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
 }
 
+/// An image in a note.
+///
+/// The row syncs like any other; the image's bytes are a file, kept on each device that has
+/// them and in the project's storage, which is how they reach the others.
+@TableIndex(name: 'note_image_note', columns: {#noteId})
+class NoteImages extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get noteId => text().references(Notes, #id)();
+
+  /// Where storage keeps the bytes: the workspace, then the image and its type, as
+  /// `workspace/image.jpg`, by id. Storage lets a device read only its own workspaces' folders.
+  TextColumn get storagePath => text()();
+
+  TextColumn get mimeType => text()();
+  IntColumn get width => integer()();
+  IntColumn get height => integer()();
+  IntColumn get byteCount => integer()();
+
+  /// Fractional index: their order in the note.
+  TextColumn get orderKey => text()();
+}
+
+/// Local-only: the images whose bytes this device holds, and whether storage has them too.
+/// No [SyncColumns]: which files are on this device is this device's own fact.
+class ImageFiles extends Table {
+  TextColumn get imageId => text()();
+
+  /// Whether storage has the bytes, because this device sent them there or fetched them
+  /// from there. Until then an image made here still has to go up.
+  BoolColumn get stored => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {imageId};
+}
+
 /// Local-only write queue. Deliberately has no [SyncColumns] — it never syncs, it *is*
 /// the sync mechanism.
 ///

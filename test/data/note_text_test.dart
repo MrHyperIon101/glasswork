@@ -44,6 +44,9 @@ void main() {
     expect(NoteText.heading(note(title: 'Ideas', body: 'one')), 'Ideas');
     expect(NoteText.heading(note(body: 'first line\nsecond')), 'first line');
     expect(NoteText.heading(note()), 'Empty note');
+    expect(NoteText.heading(note(), images: 1), 'Image');
+    expect(NoteText.heading(note(), images: 3), '3 images');
+    expect(NoteText.heading(note(title: 'Whiteboard'), images: 2), 'Whiteboard');
   });
 
   test('a preview skips what the heading shows and runs on one line', () {

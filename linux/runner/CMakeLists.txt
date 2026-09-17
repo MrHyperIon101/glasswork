@@ -9,6 +9,8 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME}
   "main.cc"
   "desktop_shell.cc"
+  "image_prep.cc"
+  "images_channel.cc"
   "my_application.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )

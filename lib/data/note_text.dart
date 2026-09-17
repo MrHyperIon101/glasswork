@@ -28,11 +28,18 @@ abstract final class NoteText {
   }
 
   /// What a note is called: its title, or the start of its body, or that it is empty.
-  static String heading(Note note) {
+  /// A note of nothing but [images] is headed by them.
+  static String heading(Note note, {int images = 0}) {
     final title = note.title.trim();
     if (title.isNotEmpty) return title;
     final firstLine = note.bodyMd.trim().split('\n').first.trim();
-    if (firstLine.isEmpty) return 'Empty note';
+    if (firstLine.isEmpty) {
+      return switch (images) {
+        0 => 'Empty note',
+        1 => 'Image',
+        final n => '$n images',
+      };
+    }
     return firstLine.length <= headingLimit
         ? firstLine
         : '${firstLine.substring(0, headingLimit).trimRight()}…';
