@@ -9,9 +9,13 @@
 // dev.mrhyperion.glasswork/desktop channel; the tray's menu answers over the same channel.
 typedef struct _DesktopShell DesktopShell;
 
-DesktopShell* desktop_shell_new(GtkApplication* application,
-                                GtkWindow* window,
-                                FlView* view);
+// Made before the window has a Flutter view, because it answers the window's close button
+// and has to be asked first. The Flutter view, once realised, stops a close request at its
+// own handler and asks Dart to exit, so a handler connected after it never runs.
+DesktopShell* desktop_shell_new(GtkApplication* application, GtkWindow* window);
+
+// Opens the channel to Dart, once the window's Flutter view exists.
+void desktop_shell_attach(DesktopShell* shell, FlView* view);
 
 // Shows the window again, from the tray or from a second launch.
 void desktop_shell_present(DesktopShell* shell);

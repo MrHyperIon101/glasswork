@@ -301,6 +301,11 @@ AppIndicator icon offers Open, New task, New note and Quit. AppIndicator is load
 not linked, so the app still starts on a desktop without it; Settings then says there is no tray.
 Dart talks to it over the `dev.mrhyperion.glasswork/desktop` channel (`DesktopShell`).
 
+The shell is made before the window has its Flutter view. A realised `FlView` stops a close
+request at its own `delete-event` handler and asks Dart to exit, so a handler connected after it
+never runs and closing the window quits whatever the setting says. `test/desktop/runner_order_test.dart`
+reads the runner for that order.
+
 ---
 
 ## Settings
