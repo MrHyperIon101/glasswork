@@ -9,6 +9,7 @@ extension SyncedTables on AppDatabase {
   /// sync, and nothing would say so — which is why a test checks it against the schema.
   List<TableInfo<Table, Object?>> get syncedTables => [
     workspaces,
+    areas,
     boards,
     lists,
     tasks,

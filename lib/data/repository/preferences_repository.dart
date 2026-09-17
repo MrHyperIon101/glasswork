@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../db/database.dart';
 import '../preferences.dart';
+import '../project_groups.dart';
 
 /// Reads and writes [Preferences], in `LocalSettings`.
 ///
@@ -37,6 +38,24 @@ class PreferencesRepository {
     }
     await _put(Preferences.captureProjectKey, projectId);
   }
+
+  /// The areas the sidebar shows closed. Kept here, beside the preferences, because how
+  /// this device's sidebar was left is this device's alone.
+  Stream<Set<String>> watchCollapsedAreas() =>
+      (_db.select(_db.localSettings)..where((s) => s.key.equals(CollapsedAreas.key)))
+          .watchSingleOrNull()
+          .map((row) => CollapsedAreas.parse(row?.value));
+
+  Future<void> setAreaCollapsed(String areaId, {required bool collapsed}) =>
+      _db.transaction(() async {
+        final row =
+            await (_db.select(_db.localSettings)
+                  ..where((s) => s.key.equals(CollapsedAreas.key)))
+                .getSingleOrNull();
+        final ids = CollapsedAreas.parse(row?.value);
+        collapsed ? ids.add(areaId) : ids.remove(areaId);
+        await _put(CollapsedAreas.key, CollapsedAreas.format(ids));
+      });
 
   SimpleSelectStatement<$LocalSettingsTable, LocalSetting> _stored() =>
       _db.select(_db.localSettings)..where((s) => s.key.isIn(Preferences.keys));

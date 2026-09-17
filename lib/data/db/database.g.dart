@@ -473,6 +473,578 @@ class WorkspacesCompanion extends UpdateCompanion<Workspace> {
   }
 }
 
+class $AreasTable extends Areas with TableInfo<$AreasTable, Area> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AreasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fieldVersionsMeta = const VerificationMeta(
+    'fieldVersions',
+  );
+  @override
+  late final GeneratedColumn<String> fieldVersions = GeneratedColumn<String>(
+    'field_versions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _workspaceIdMeta = const VerificationMeta(
+    'workspaceId',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceId = GeneratedColumn<String>(
+    'workspace_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _orderKeyMeta = const VerificationMeta(
+    'orderKey',
+  );
+  @override
+  late final GeneratedColumn<String> orderKey = GeneratedColumn<String>(
+    'order_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    name,
+    orderKey,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'areas';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Area> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('field_versions')) {
+      context.handle(
+        _fieldVersionsMeta,
+        fieldVersions.isAcceptableOrUnknown(
+          data['field_versions']!,
+          _fieldVersionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('workspace_id')) {
+      context.handle(
+        _workspaceIdMeta,
+        workspaceId.isAcceptableOrUnknown(
+          data['workspace_id']!,
+          _workspaceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('order_key')) {
+      context.handle(
+        _orderKeyMeta,
+        orderKey.isAcceptableOrUnknown(data['order_key']!, _orderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderKeyMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Area map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Area(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      fieldVersions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_versions'],
+      )!,
+      workspaceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      orderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_key'],
+      )!,
+    );
+  }
+
+  @override
+  $AreasTable createAlias(String alias) {
+    return $AreasTable(attachedDatabase, alias);
+  }
+}
+
+class Area extends DataClass implements Insertable<Area> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  /// Tombstone. Rows are never hard-deleted while they might still sync.
+  final DateTime? deletedAt;
+
+  /// Which device last wrote this row. Also the tiebreaker for equal [orderKey] values,
+  /// which two offline clients can genuinely produce.
+  final String? clientId;
+
+  /// JSON map of field name -> hybrid logical clock.
+  final String fieldVersions;
+  final String workspaceId;
+  final String name;
+
+  /// Fractional index. Never an int, never a reindex loop.
+  final String orderKey;
+  const Area({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.clientId,
+    required this.fieldVersions,
+    required this.workspaceId,
+    required this.name,
+    required this.orderKey,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['field_versions'] = Variable<String>(fieldVersions);
+    map['workspace_id'] = Variable<String>(workspaceId);
+    map['name'] = Variable<String>(name);
+    map['order_key'] = Variable<String>(orderKey);
+    return map;
+  }
+
+  AreasCompanion toCompanion(bool nullToAbsent) {
+    return AreasCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      fieldVersions: Value(fieldVersions),
+      workspaceId: Value(workspaceId),
+      name: Value(name),
+      orderKey: Value(orderKey),
+    );
+  }
+
+  factory Area.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Area(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      fieldVersions: serializer.fromJson<String>(json['fieldVersions']),
+      workspaceId: serializer.fromJson<String>(json['workspaceId']),
+      name: serializer.fromJson<String>(json['name']),
+      orderKey: serializer.fromJson<String>(json['orderKey']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'clientId': serializer.toJson<String?>(clientId),
+      'fieldVersions': serializer.toJson<String>(fieldVersions),
+      'workspaceId': serializer.toJson<String>(workspaceId),
+      'name': serializer.toJson<String>(name),
+      'orderKey': serializer.toJson<String>(orderKey),
+    };
+  }
+
+  Area copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> clientId = const Value.absent(),
+    String? fieldVersions,
+    String? workspaceId,
+    String? name,
+    String? orderKey,
+  }) => Area(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    fieldVersions: fieldVersions ?? this.fieldVersions,
+    workspaceId: workspaceId ?? this.workspaceId,
+    name: name ?? this.name,
+    orderKey: orderKey ?? this.orderKey,
+  );
+  Area copyWithCompanion(AreasCompanion data) {
+    return Area(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      fieldVersions: data.fieldVersions.present
+          ? data.fieldVersions.value
+          : this.fieldVersions,
+      workspaceId: data.workspaceId.present
+          ? data.workspaceId.value
+          : this.workspaceId,
+      name: data.name.present ? data.name.value : this.name,
+      orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Area(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('name: $name, ')
+          ..write('orderKey: $orderKey')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    clientId,
+    fieldVersions,
+    workspaceId,
+    name,
+    orderKey,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Area &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.clientId == this.clientId &&
+          other.fieldVersions == this.fieldVersions &&
+          other.workspaceId == this.workspaceId &&
+          other.name == this.name &&
+          other.orderKey == this.orderKey);
+}
+
+class AreasCompanion extends UpdateCompanion<Area> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> clientId;
+  final Value<String> fieldVersions;
+  final Value<String> workspaceId;
+  final Value<String> name;
+  final Value<String> orderKey;
+  final Value<int> rowid;
+  const AreasCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    this.workspaceId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.orderKey = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AreasCompanion.insert({
+    required String id,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.fieldVersions = const Value.absent(),
+    required String workspaceId,
+    required String name,
+    required String orderKey,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       workspaceId = Value(workspaceId),
+       name = Value(name),
+       orderKey = Value(orderKey);
+  static Insertable<Area> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? clientId,
+    Expression<String>? fieldVersions,
+    Expression<String>? workspaceId,
+    Expression<String>? name,
+    Expression<String>? orderKey,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (clientId != null) 'client_id': clientId,
+      if (fieldVersions != null) 'field_versions': fieldVersions,
+      if (workspaceId != null) 'workspace_id': workspaceId,
+      if (name != null) 'name': name,
+      if (orderKey != null) 'order_key': orderKey,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AreasCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? clientId,
+    Value<String>? fieldVersions,
+    Value<String>? workspaceId,
+    Value<String>? name,
+    Value<String>? orderKey,
+    Value<int>? rowid,
+  }) {
+    return AreasCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      clientId: clientId ?? this.clientId,
+      fieldVersions: fieldVersions ?? this.fieldVersions,
+      workspaceId: workspaceId ?? this.workspaceId,
+      name: name ?? this.name,
+      orderKey: orderKey ?? this.orderKey,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (fieldVersions.present) {
+      map['field_versions'] = Variable<String>(fieldVersions.value);
+    }
+    if (workspaceId.present) {
+      map['workspace_id'] = Variable<String>(workspaceId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (orderKey.present) {
+      map['order_key'] = Variable<String>(orderKey.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AreasCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('clientId: $clientId, ')
+          ..write('fieldVersions: $fieldVersions, ')
+          ..write('workspaceId: $workspaceId, ')
+          ..write('name: $name, ')
+          ..write('orderKey: $orderKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -630,6 +1202,18 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _areaIdMeta = const VerificationMeta('areaId');
+  @override
+  late final GeneratedColumn<String> areaId = GeneratedColumn<String>(
+    'area_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES areas (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -646,6 +1230,7 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     archived,
     viewDefault,
     orderKey,
+    areaId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -748,6 +1333,12 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
     } else if (isInserting) {
       context.missing(_orderKeyMeta);
     }
+    if (data.containsKey('area_id')) {
+      context.handle(
+        _areaIdMeta,
+        areaId.isAcceptableOrUnknown(data['area_id']!, _areaIdMeta),
+      );
+    }
     return context;
   }
 
@@ -815,6 +1406,10 @@ class $BoardsTable extends Boards with TableInfo<$BoardsTable, Board> {
         DriftSqlType.string,
         data['${effectivePrefix}order_key'],
       )!,
+      areaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}area_id'],
+      ),
     );
   }
 
@@ -856,6 +1451,10 @@ class Board extends DataClass implements Insertable<Board> {
 
   /// Fractional index. Never an int, never a reindex loop.
   final String orderKey;
+
+  /// The area the project is listed under. Null, or an area since deleted, lists it with
+  /// the projects in no area.
+  final String? areaId;
   const Board({
     required this.id,
     required this.createdAt,
@@ -871,6 +1470,7 @@ class Board extends DataClass implements Insertable<Board> {
     required this.archived,
     required this.viewDefault,
     required this.orderKey,
+    this.areaId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -903,6 +1503,9 @@ class Board extends DataClass implements Insertable<Board> {
       );
     }
     map['order_key'] = Variable<String>(orderKey);
+    if (!nullToAbsent || areaId != null) {
+      map['area_id'] = Variable<String>(areaId);
+    }
     return map;
   }
 
@@ -930,6 +1533,9 @@ class Board extends DataClass implements Insertable<Board> {
       archived: Value(archived),
       viewDefault: Value(viewDefault),
       orderKey: Value(orderKey),
+      areaId: areaId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(areaId),
     );
   }
 
@@ -955,6 +1561,7 @@ class Board extends DataClass implements Insertable<Board> {
         serializer.fromJson<String>(json['viewDefault']),
       ),
       orderKey: serializer.fromJson<String>(json['orderKey']),
+      areaId: serializer.fromJson<String?>(json['areaId']),
     );
   }
   @override
@@ -977,6 +1584,7 @@ class Board extends DataClass implements Insertable<Board> {
         $BoardsTable.$converterviewDefault.toJson(viewDefault),
       ),
       'orderKey': serializer.toJson<String>(orderKey),
+      'areaId': serializer.toJson<String?>(areaId),
     };
   }
 
@@ -995,6 +1603,7 @@ class Board extends DataClass implements Insertable<Board> {
     bool? archived,
     BoardView? viewDefault,
     String? orderKey,
+    Value<String?> areaId = const Value.absent(),
   }) => Board(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -1010,6 +1619,7 @@ class Board extends DataClass implements Insertable<Board> {
     archived: archived ?? this.archived,
     viewDefault: viewDefault ?? this.viewDefault,
     orderKey: orderKey ?? this.orderKey,
+    areaId: areaId.present ? areaId.value : this.areaId,
   );
   Board copyWithCompanion(BoardsCompanion data) {
     return Board(
@@ -1033,6 +1643,7 @@ class Board extends DataClass implements Insertable<Board> {
           ? data.viewDefault.value
           : this.viewDefault,
       orderKey: data.orderKey.present ? data.orderKey.value : this.orderKey,
+      areaId: data.areaId.present ? data.areaId.value : this.areaId,
     );
   }
 
@@ -1052,7 +1663,8 @@ class Board extends DataClass implements Insertable<Board> {
           ..write('colour: $colour, ')
           ..write('archived: $archived, ')
           ..write('viewDefault: $viewDefault, ')
-          ..write('orderKey: $orderKey')
+          ..write('orderKey: $orderKey, ')
+          ..write('areaId: $areaId')
           ..write(')'))
         .toString();
   }
@@ -1073,6 +1685,7 @@ class Board extends DataClass implements Insertable<Board> {
     archived,
     viewDefault,
     orderKey,
+    areaId,
   );
   @override
   bool operator ==(Object other) =>
@@ -1091,7 +1704,8 @@ class Board extends DataClass implements Insertable<Board> {
           other.colour == this.colour &&
           other.archived == this.archived &&
           other.viewDefault == this.viewDefault &&
-          other.orderKey == this.orderKey);
+          other.orderKey == this.orderKey &&
+          other.areaId == this.areaId);
 }
 
 class BoardsCompanion extends UpdateCompanion<Board> {
@@ -1109,6 +1723,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
   final Value<bool> archived;
   final Value<BoardView> viewDefault;
   final Value<String> orderKey;
+  final Value<String?> areaId;
   final Value<int> rowid;
   const BoardsCompanion({
     this.id = const Value.absent(),
@@ -1125,6 +1740,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     this.archived = const Value.absent(),
     this.viewDefault = const Value.absent(),
     this.orderKey = const Value.absent(),
+    this.areaId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BoardsCompanion.insert({
@@ -1142,6 +1758,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     this.archived = const Value.absent(),
     this.viewDefault = const Value.absent(),
     required String orderKey,
+    this.areaId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        workspaceId = Value(workspaceId),
@@ -1162,6 +1779,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     Expression<bool>? archived,
     Expression<String>? viewDefault,
     Expression<String>? orderKey,
+    Expression<String>? areaId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1179,6 +1797,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
       if (archived != null) 'archived': archived,
       if (viewDefault != null) 'view_default': viewDefault,
       if (orderKey != null) 'order_key': orderKey,
+      if (areaId != null) 'area_id': areaId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1198,6 +1817,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     Value<bool>? archived,
     Value<BoardView>? viewDefault,
     Value<String>? orderKey,
+    Value<String?>? areaId,
     Value<int>? rowid,
   }) {
     return BoardsCompanion(
@@ -1215,6 +1835,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
       archived: archived ?? this.archived,
       viewDefault: viewDefault ?? this.viewDefault,
       orderKey: orderKey ?? this.orderKey,
+      areaId: areaId ?? this.areaId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1266,6 +1887,9 @@ class BoardsCompanion extends UpdateCompanion<Board> {
     if (orderKey.present) {
       map['order_key'] = Variable<String>(orderKey.value);
     }
+    if (areaId.present) {
+      map['area_id'] = Variable<String>(areaId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1289,6 +1913,7 @@ class BoardsCompanion extends UpdateCompanion<Board> {
           ..write('archived: $archived, ')
           ..write('viewDefault: $viewDefault, ')
           ..write('orderKey: $orderKey, ')
+          ..write('areaId: $areaId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11699,6 +12324,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $WorkspacesTable workspaces = $WorkspacesTable(this);
+  late final $AreasTable areas = $AreasTable(this);
   late final $BoardsTable boards = $BoardsTable(this);
   late final $ListsTable lists = $ListsTable(this);
   late final $TasksTable tasks = $TasksTable(this);
@@ -11716,6 +12342,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FieldValuesTable fieldValues = $FieldValuesTable(this);
   late final $ProjectViewsTable projectViews = $ProjectViewsTable(this);
   late final $SchedulesTable schedules = $SchedulesTable(this);
+  late final Index areaWorkspace = Index(
+    'area_workspace',
+    'CREATE INDEX area_workspace ON areas (workspace_id)',
+  );
   late final Index boardWorkspace = Index(
     'board_workspace',
     'CREATE INDEX board_workspace ON boards (workspace_id)',
@@ -11774,6 +12404,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     workspaces,
+    areas,
     boards,
     lists,
     tasks,
@@ -11789,6 +12420,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     fieldValues,
     projectViews,
     schedules,
+    areaWorkspace,
     boardWorkspace,
     listBoard,
     taskListOrder,
@@ -12049,6 +12681,378 @@ typedef $$WorkspacesTableProcessedTableManager =
       Workspace,
       PrefetchHooks Function()
     >;
+typedef $$AreasTableCreateCompanionBuilder = AreasCompanion Function({
+  required String id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  required String workspaceId,
+  required String name,
+  required String orderKey,
+  Value<int> rowid,
+});
+typedef $$AreasTableUpdateCompanionBuilder = AreasCompanion Function({
+  Value<String> id,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<String?> clientId,
+  Value<String> fieldVersions,
+  Value<String> workspaceId,
+  Value<String> name,
+  Value<String> orderKey,
+  Value<int> rowid,
+});
+
+final class $$AreasTableReferences
+    extends BaseReferences<_$AppDatabase, $AreasTable, Area> {
+  $$AreasTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BoardsTable, List<Board>> _boardsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.boards,
+    aliasName: 'areas__id__boards__area_id',
+  );
+
+  $$BoardsTableProcessedTableManager get boardsRefs {
+    final manager = $$BoardsTableTableManager(
+      $_db,
+      $_db.boards,
+    ).filter((f) => f.areaId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_boardsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$AreasTableFilterComposer extends Composer<_$AppDatabase, $AreasTable> {
+  $$AreasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> boardsRefs(
+    Expression<bool> Function($$BoardsTableFilterComposer f) f,
+  ) {
+    final $$BoardsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.areaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableFilterComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AreasTableOrderingComposer
+    extends Composer<_$AppDatabase, $AreasTable> {
+  $$AreasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderKey => $composableBuilder(
+    column: $table.orderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AreasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AreasTable> {
+  $$AreasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldVersions => $composableBuilder(
+    column: $table.fieldVersions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get workspaceId => $composableBuilder(
+    column: $table.workspaceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get orderKey =>
+      $composableBuilder(column: $table.orderKey, builder: (column) => column);
+
+  Expression<T> boardsRefs<T extends Object>(
+    Expression<T> Function($$BoardsTableAnnotationComposer a) f,
+  ) {
+    final $$BoardsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.boards,
+      getReferencedColumn: (t) => t.areaId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BoardsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.boards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AreasTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AreasTable,
+          Area,
+          $$AreasTableFilterComposer,
+          $$AreasTableOrderingComposer,
+          $$AreasTableAnnotationComposer,
+          $$AreasTableCreateCompanionBuilder,
+          $$AreasTableUpdateCompanionBuilder,
+          (Area, $$AreasTableReferences),
+          Area,
+          PrefetchHooks Function({bool boardsRefs})
+        > {
+  $$AreasTableTableManager(_$AppDatabase db, $AreasTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AreasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AreasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AreasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                Value<String> workspaceId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> orderKey = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AreasCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                name: name,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> fieldVersions = const Value.absent(),
+                required String workspaceId,
+                required String name,
+                required String orderKey,
+                Value<int> rowid = const Value.absent(),
+              }) => AreasCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                clientId: clientId,
+                fieldVersions: fieldVersions,
+                workspaceId: workspaceId,
+                name: name,
+                orderKey: orderKey,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AreasTable, Area>(table),
+                  $$AreasTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({boardsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (boardsRefs) db.boards],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (boardsRefs)
+                    await $_getPrefetchedData<Area, $AreasTable, Board>(
+                      currentTable: table,
+                      referencedTable: $$AreasTableReferences._boardsRefsTable(
+                        db,
+                      ),
+                      managerFromTypedResult: (p0) =>
+                          $$AreasTableReferences(db, table, p0).boardsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.areaId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AreasTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AreasTable,
+      Area,
+      $$AreasTableFilterComposer,
+      $$AreasTableOrderingComposer,
+      $$AreasTableAnnotationComposer,
+      $$AreasTableCreateCompanionBuilder,
+      $$AreasTableUpdateCompanionBuilder,
+      (Area, $$AreasTableReferences),
+      Area,
+      PrefetchHooks Function({bool boardsRefs})
+    >;
 typedef $$BoardsTableCreateCompanionBuilder = BoardsCompanion Function({
   required String id,
   Value<DateTime> createdAt,
@@ -12064,6 +13068,7 @@ typedef $$BoardsTableCreateCompanionBuilder = BoardsCompanion Function({
   Value<bool> archived,
   Value<BoardView> viewDefault,
   required String orderKey,
+  Value<String?> areaId,
   Value<int> rowid,
 });
 typedef $$BoardsTableUpdateCompanionBuilder = BoardsCompanion Function({
@@ -12081,12 +13086,30 @@ typedef $$BoardsTableUpdateCompanionBuilder = BoardsCompanion Function({
   Value<bool> archived,
   Value<BoardView> viewDefault,
   Value<String> orderKey,
+  Value<String?> areaId,
   Value<int> rowid,
 });
 
 final class $$BoardsTableReferences
     extends BaseReferences<_$AppDatabase, $BoardsTable, Board> {
   $$BoardsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $AreasTable _areaIdTable(_$AppDatabase db) =>
+      db.areas.createAlias('boards__area_id__areas__id');
+
+  $$AreasTableProcessedTableManager? get areaId {
+    final $_column = $_itemColumn<String>('area_id');
+    if ($_column == null) return null;
+    final manager = $$AreasTableTableManager(
+      $_db,
+      $_db.areas,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_areaIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 
   static MultiTypedResultKey<$ListsTable, List<BoardList>> _listsRefsTable(
     _$AppDatabase db,
@@ -12223,6 +13246,29 @@ class $$BoardsTableFilterComposer
     column: $table.orderKey,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$AreasTableFilterComposer get areaId {
+    final $$AreasTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.areaId,
+      referencedTable: $db.areas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AreasTableFilterComposer(
+            $db: $db,
+            $table: $db.areas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<bool> listsRefs(
     Expression<bool> Function($$ListsTableFilterComposer f) f,
@@ -12378,6 +13424,29 @@ class $$BoardsTableOrderingComposer
     column: $table.orderKey,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$AreasTableOrderingComposer get areaId {
+    final $$AreasTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.areaId,
+      referencedTable: $db.areas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AreasTableOrderingComposer(
+            $db: $db,
+            $table: $db.areas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$BoardsTableAnnotationComposer
@@ -12437,6 +13506,29 @@ class $$BoardsTableAnnotationComposer
 
   GeneratedColumn<String> get orderKey =>
       $composableBuilder(column: $table.orderKey, builder: (column) => column);
+
+  $$AreasTableAnnotationComposer get areaId {
+    final $$AreasTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.areaId,
+      referencedTable: $db.areas,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AreasTableAnnotationComposer(
+            $db: $db,
+            $table: $db.areas,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<T> listsRefs<T extends Object>(
     Expression<T> Function($$ListsTableAnnotationComposer a) f,
@@ -12528,6 +13620,7 @@ class $$BoardsTableTableManager
           (Board, $$BoardsTableReferences),
           Board,
           PrefetchHooks Function({
+            bool areaId,
             bool listsRefs,
             bool fieldDefsRefs,
             bool projectViewsRefs,
@@ -12560,6 +13653,7 @@ class $$BoardsTableTableManager
                 Value<bool> archived = const Value.absent(),
                 Value<BoardView> viewDefault = const Value.absent(),
                 Value<String> orderKey = const Value.absent(),
+                Value<String?> areaId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BoardsCompanion(
                 id: id,
@@ -12576,6 +13670,7 @@ class $$BoardsTableTableManager
                 archived: archived,
                 viewDefault: viewDefault,
                 orderKey: orderKey,
+                areaId: areaId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12594,6 +13689,7 @@ class $$BoardsTableTableManager
                 Value<bool> archived = const Value.absent(),
                 Value<BoardView> viewDefault = const Value.absent(),
                 required String orderKey,
+                Value<String?> areaId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BoardsCompanion.insert(
                 id: id,
@@ -12610,6 +13706,7 @@ class $$BoardsTableTableManager
                 archived: archived,
                 viewDefault: viewDefault,
                 orderKey: orderKey,
+                areaId: areaId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -12622,6 +13719,7 @@ class $$BoardsTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
+                areaId = false,
                 listsRefs = false,
                 fieldDefsRefs = false,
                 projectViewsRefs = false,
@@ -12633,7 +13731,36 @@ class $$BoardsTableTableManager
                     if (fieldDefsRefs) db.fieldDefs,
                     if (projectViewsRefs) db.projectViews,
                   ],
-                  addJoins: null,
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (areaId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.areaId,
+                            referencedTable: $$BoardsTableReferences
+                                ._areaIdTable(db),
+                            referencedColumn: $$BoardsTableReferences
+                                ._areaIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (listsRefs)
@@ -12716,6 +13843,7 @@ typedef $$BoardsTableProcessedTableManager =
       (Board, $$BoardsTableReferences),
       Board,
       PrefetchHooks Function({
+        bool areaId,
         bool listsRefs,
         bool fieldDefsRefs,
         bool projectViewsRefs,
@@ -19133,6 +20261,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$WorkspacesTableTableManager get workspaces =>
       $$WorkspacesTableTableManager(_db, _db.workspaces);
+  $$AreasTableTableManager get areas =>
+      $$AreasTableTableManager(_db, _db.areas);
   $$BoardsTableTableManager get boards =>
       $$BoardsTableTableManager(_db, _db.boards);
   $$ListsTableTableManager get lists =>

@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/db/tables.dart';
 import 'package:glasswork/data/project_filter.dart';
+import 'package:glasswork/data/repository/area_repository.dart';
 import 'package:glasswork/data/repository/capacity_repository.dart';
 import 'package:glasswork/data/repository/label_repository.dart';
 import 'package:glasswork/data/repository/note_repository.dart';
@@ -367,6 +368,25 @@ final _states = <_State>[
   _State('new project', (tester, app, data) async {
     app.read(newProjectOpenProvider.notifier).open();
   }),
+  _State('naming a new area', (tester, app, data) async {
+    // The sidebar is a drawer on a phone, so the dialog is opened as the row opens it.
+    if (tester.any(find.byIcon(Icons.menu_rounded))) {
+      await tester.tap(find.byIcon(Icons.menu_rounded).first);
+      await _settle(tester);
+    }
+    // Past the projects, further down a phone's drawer than it builds at first.
+    await tester.scrollUntilVisible(
+      find.text('New area'),
+      100,
+      scrollable: find
+          .ancestor(of: find.text('All open work'), matching: find.byType(Scrollable))
+          .first,
+    );
+    await _settle(tester);
+    await tester.tap(find.text('New area'));
+    await _settle(tester);
+    await tester.enterText(find.byKey(const ValueKey('area-name')), 'Clubs and societies');
+  }),
   _State('choosing a project icon', (tester, app, data) async {
     app.read(projectSettingsOpenProvider.notifier).open(data.courseworkId);
     await _settle(tester);
@@ -654,6 +674,10 @@ Future<_Seeded> _seed(AppDatabase db) async {
     icon: 'sym:palette',
     colour: 0xFF0A84FF,
   );
+
+  // The coursework in an area of its own; the portfolio in none.
+  final university = await AreaRepository(writer).create(workspaceId: ws, name: 'University');
+  await AreaRepository(writer).moveProject(coursework.id, university.id);
 
   final courseSections = await projects.watchSections(coursework.id).first;
   final portfolioSections = await projects.watchSections(portfolio.id).first;

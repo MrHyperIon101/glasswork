@@ -254,6 +254,23 @@ list, one task a line, each line read the way a single title is.
 
 ---
 
+## Projects and areas
+
+- **A project's icon** is its `icon` text: `sym:` and a name for one of `ProjectIcon.symbols`, drawn
+  in the project's colour, and anything else is an emoji or letters typed in, kept as the first two
+  characters a person would count (`ProjectIcon.typed`). A symbol a device does not know draws as
+  the empty circle, so a newer version's symbols never break an older one. `ProjectGlyph` draws
+  both kinds at the same size wherever a project is named.
+- **Areas** are the synced `areas` table: named groups of projects, and `boards.area_id` says which
+  one a project is listed under. The sidebar lists projects in no area under Projects, then each
+  area with its own (`ProjectGroups`); a project whose area is deleted, or has not arrived yet,
+  lists under Projects rather than nowhere. Deleting an area is a tombstone with undo and writes
+  nothing to its projects, so undoing puts them back. A project moves by being dragged onto an
+  area (or onto Projects), or from its settings. Which areas are closed is this device's own, kept
+  in `LocalSettings`.
+
+---
+
 ## Desktop: the tray
 
 The Linux runner is a single-instance GTK application, so launching Glasswork again brings its one

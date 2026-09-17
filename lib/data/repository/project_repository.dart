@@ -92,6 +92,7 @@ class ProjectRepository {
     String? purpose,
     String? icon,
     int? colour,
+    String? areaId,
     List<String> sections = const ['To do', 'In progress', 'Done'],
     List<FieldDefSpec> fields = const [],
   }) {
@@ -106,6 +107,7 @@ class ProjectRepository {
           purpose: Value(purpose),
           icon: Value(icon),
           colour: Value(colour),
+          areaId: Value(areaId),
           orderKey: last == null ? OrderKey.first : OrderKey.after(last),
           viewDefault: const Value(BoardView.board),
         ),

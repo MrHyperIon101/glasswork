@@ -66,10 +66,11 @@ void main() {
   });
 
   test('the server syncs the same tables, in the same order', () {
+    // The last definition, since a migration that adds a synced table replaces the list.
     final list = RegExp(
-      r'create function private\.synced_tables\(\).*?array\[(.*?)\]',
+      r'create (?:or replace )?function private\.synced_tables\(\).*?array\[(.*?)\]',
       dotAll: true,
-    ).firstMatch(sql);
+    ).allMatches(sql).lastOrNull;
     if (list == null) fail('private.synced_tables() not found in supabase/migrations');
 
     expect(
