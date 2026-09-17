@@ -19,6 +19,7 @@ import '../../sync/sync_auth.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
+import '../project_icon.dart';
 import '../motion.dart';
 import '../settings_text.dart';
 import '../surface.dart';
@@ -485,7 +486,14 @@ class _NewTasks extends ConsumerWidget {
               children: [
                 for (final project in projects)
                   ComposerChip(
-                    label: '${project.icon ?? '○'}  ${project.name}',
+                    label: project.name,
+                    leading: ProjectGlyph(
+                      icon: project.icon,
+                      colour: project.colour == null
+                          ? AppColour.accent
+                          : Color(project.colour!),
+                      size: 14,
+                    ),
                     selected: project.id == target.id,
                     tint: project.colour == null ? null : Color(project.colour!),
                     onTap: () => repo?.setCaptureProject(project.id),
