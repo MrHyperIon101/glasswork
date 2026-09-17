@@ -18,9 +18,13 @@ class FakeBlobs implements ImageBlobs {
   final uploads = <String>[];
   Object? failUploads;
 
+  /// Paths storage will not take.
+  final refuse = <String>{};
+
   @override
   Future<void> upload(String path, Uint8List bytes, String mime) async {
     if (failUploads case final error?) throw error;
+    if (refuse.contains(path)) throw ImageRefusedException(path, 'new row violates row-level security policy');
     uploads.add(path);
     stored[path] = bytes;
   }
@@ -135,6 +139,16 @@ void main() {
 
     blobs.failUploads = null;
     expect((await sync.run()).sent, 1, reason: 'the one not sent goes next time');
+  });
+
+  test('an image storage refuses is left unsent, and the images after it still go', () async {
+    final refused = await images.add(workspaceId: workspaceId, noteId: noteId, image: picture(1));
+    final fine = await images.add(workspaceId: workspaceId, noteId: noteId, image: picture(2));
+    blobs.refuse.add(refused.storagePath);
+
+    final report = await sync.run();
+    expect((report.sent, report.refused, report.more), (1, 1, false));
+    expect(blobs.stored.keys, [fine.storagePath]);
   });
 
   test('many images go a batch at a time, and say there is more', () async {

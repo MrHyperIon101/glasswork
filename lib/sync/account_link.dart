@@ -269,6 +269,21 @@ class AccountLink {
         );
       }
 
+      // An image's bytes are kept in storage under its workspace's folder, which is how
+      // storage decides who may read them. None of this device's has been sent yet, so they
+      // go under the account's folder instead, before their rows leave this workspace.
+      await _db.customUpdate(
+        'UPDATE note_images SET storage_path = ? || substr(storage_path, length(?) + 1) '
+        "WHERE workspace_id = ? AND storage_path LIKE ? || '/%'",
+        variables: [
+          Variable.withString(to),
+          Variable.withString(from),
+          Variable.withString(from),
+          Variable.withString(from),
+        ],
+        updates: {_db.noteImages},
+      );
+
       for (final table in _db.syncedTables) {
         if (table.actualTableName == 'workspaces') continue;
         await _db.customUpdate(

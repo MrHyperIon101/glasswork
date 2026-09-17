@@ -17,6 +17,18 @@ abstract interface class ImageBlobs {
   Future<Uint8List> download(String path);
 }
 
+/// Storage refused an image's bytes: not a network failure, and trying again will not
+/// change it, so it must not stop the images after it from going.
+class ImageRefusedException implements Exception {
+  const ImageRefusedException(this.path, this.reason);
+
+  final String path;
+  final String reason;
+
+  @override
+  String toString() => 'storage refused $path: $reason';
+}
+
 /// Storage has no bytes at a path, because the device that added the image has not sent
 /// them yet.
 class ImageNotStoredException implements Exception {
@@ -30,10 +42,19 @@ class ImageNotStoredException implements Exception {
 
 /// What one pass did.
 class ImageSyncReport {
-  const ImageSyncReport({this.sent = 0, this.fetched = 0, this.waiting = 0, this.more = false});
+  const ImageSyncReport({
+    this.sent = 0,
+    this.fetched = 0,
+    this.waiting = 0,
+    this.refused = 0,
+    this.more = false,
+  });
 
   final int sent;
   final int fetched;
+
+  /// Images storage would not take. Left unsent, and tried again next time.
+  final int refused;
 
   /// Images another device added and has not sent yet, to try again for soon.
   final int waiting;
@@ -65,6 +86,7 @@ class ImageSync {
     var sent = 0;
     var fetched = 0;
     var waiting = 0;
+    var refused = 0;
 
     // Up: held here, not yet in storage.
     final unsent =
@@ -79,7 +101,12 @@ class ImageSync {
       final bytes = await _store.read(image.id, image.mimeType);
       // Its file is gone from this device, so there is nothing to send.
       if (bytes == null) continue;
-      await _blobs.upload(image.storagePath, bytes, image.mimeType);
+      try {
+        await _blobs.upload(image.storagePath, bytes, image.mimeType);
+      } on ImageRefusedException {
+        refused++;
+        continue;
+      }
       await _markHeld(image.id);
       sent++;
     }
@@ -109,7 +136,9 @@ class ImageSync {
       sent: sent,
       fetched: fetched,
       waiting: waiting,
-      more: unsent.length > batch || missing.length > batch,
+      refused: refused,
+      // Refused ones stay unsent, and would otherwise read as more to do every time.
+      more: unsent.length - refused > batch || missing.length > batch,
     );
   }
 
@@ -137,6 +166,13 @@ class SupabaseImageBlobs implements ImageBlobs {
     } on StorageException catch (error) {
       // Sent before, by a pass that stopped before it could say so.
       if (error.statusCode == '409' || error.message.toLowerCase().contains('exists')) return;
+      // Not allowed there, or not an image storage takes: no retry will change that.
+      if (error.statusCode == '403' ||
+          error.statusCode == '413' ||
+          error.statusCode == '415' ||
+          error.message.toLowerCase().contains('security policy')) {
+        throw ImageRefusedException(path, error.message);
+      }
       rethrow;
     }
   }
