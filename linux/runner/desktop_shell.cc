@@ -81,6 +81,7 @@ void desktop_shell_present(DesktopShell* shell) {
 }
 
 static void tell_dart(DesktopShell* shell, const char* method) {
+  if (shell->channel == nullptr) return;
   fl_method_channel_invoke_method(shell->channel, method, nullptr, nullptr,
                                   nullptr, nullptr);
 }
@@ -201,22 +202,23 @@ static void on_method_call(FlMethodChannel* channel,
   }
 }
 
-DesktopShell* desktop_shell_new(GtkApplication* application,
-                                GtkWindow* window,
-                                FlView* view) {
+DesktopShell* desktop_shell_new(GtkApplication* application, GtkWindow* window) {
   DesktopShell* shell = g_new0(DesktopShell, 1);
   shell->application = application;
   shell->window = window;
   shell->indicator_loaded = LoadIndicator(&shell->indicator);
+  // First, before the Flutter view connects its own: see desktop_shell.h.
+  g_signal_connect(window, "delete-event", G_CALLBACK(on_delete), shell);
+  return shell;
+}
 
+void desktop_shell_attach(DesktopShell* shell, FlView* view) {
   FlEngine* engine = fl_view_get_engine(view);
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   shell->channel = fl_method_channel_new(fl_engine_get_binary_messenger(engine),
                                          kChannel, FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(shell->channel, on_method_call,
                                             shell, nullptr);
-  g_signal_connect(window, "delete-event", G_CALLBACK(on_delete), shell);
-  return shell;
 }
 
 void desktop_shell_free(DesktopShell* shell) {

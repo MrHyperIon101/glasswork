@@ -67,6 +67,10 @@ static void my_application_activate(GApplication* application) {
 
   gtk_window_set_default_size(window, 2560, 1440);
 
+  // Before the Flutter view exists, so the close button asks the tray first.
+  self->window = window;
+  self->shell = desktop_shell_new(GTK_APPLICATION(application), window);
+
   // The window icon, from the bundle's data directory. X11 desktops show it. GNOME on
   // Wayland shows the icon of the desktop entry instead, which
   // linux/packaging/install.sh installs.
@@ -99,8 +103,7 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
-  self->window = window;
-  self->shell = desktop_shell_new(GTK_APPLICATION(application), window, view);
+  desktop_shell_attach(self->shell, view);
   self->images = images_channel_new(window, view);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
