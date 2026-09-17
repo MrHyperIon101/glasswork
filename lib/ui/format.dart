@@ -149,6 +149,14 @@ abstract final class Format {
     return '${d.day} ${months[d.month - 1]}';
   }
 
+  /// A length of time in as few characters as a narrow column has room for: "45m", "2h",
+  /// "6.5h", to the nearest tenth of an hour.
+  static String hoursShort(int minutes) {
+    if (minutes < 60) return '${minutes}m';
+    final tenths = (minutes / 6).round();
+    return tenths % 10 == 0 ? '${tenths ~/ 10}h' : '${tenths ~/ 10}.${tenths % 10}h';
+  }
+
   static String estimate(int minutes) {
     if (minutes < 60) return '${minutes}m';
     final h = minutes ~/ 60;

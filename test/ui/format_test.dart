@@ -36,6 +36,15 @@ void main() {
     expect(Format.reminderTime(DateTime(2026, 9, 25, 9), now), '25 Sep 09:00');
   });
 
+  test('hours are short enough for a narrow column', () {
+    expect(Format.hoursShort(45), '45m');
+    expect(Format.hoursShort(60), '1h');
+    expect(Format.hoursShort(6 * 60 + 30), '6.5h');
+    expect(Format.hoursShort(7 * 60 + 12), '7.2h');
+    // To the nearest tenth: 1h 57m is closer to 2h than to 1.9h.
+    expect(Format.hoursShort(117), '2h');
+  });
+
   test('a date carries its day', () {
     expect(Format.dayAndDate(DateTime(2026, 9, 21)), 'Mon 21 Sep');
   });

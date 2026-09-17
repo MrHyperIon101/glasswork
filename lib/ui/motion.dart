@@ -311,18 +311,28 @@ class _PressableState extends State<Pressable> {
 
 /// A whole number that counts to its new value rather than jumping to it.
 class AnimatedCount extends StatelessWidget {
-  const AnimatedCount(this.value, {required this.style, this.suffix = '', super.key});
+  const AnimatedCount(this.value, {required TextStyle this.style, this.suffix = '', super.key})
+    : builder = null;
+
+  /// The count as it goes, given to [builder]: for a number set inside a line of other text.
+  const AnimatedCount.builder(this.value, {required this.builder, super.key})
+    : style = null,
+      suffix = '';
 
   final int value;
-  final TextStyle style;
+  final TextStyle? style;
   final String suffix;
+  final Widget Function(BuildContext context, String shown)? builder;
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
     tween: Tween(end: value.toDouble()),
     duration: AppMotion.of(context, AppMotion.slow),
     curve: AppMotion.standard,
-    builder: (context, shown, _) => Text('${shown.round()}$suffix', style: style),
+    builder: (context, shown, _) {
+      final text = '${shown.round()}$suffix';
+      return builder?.call(context, text) ?? Text(text, style: style);
+    },
   );
 }
 

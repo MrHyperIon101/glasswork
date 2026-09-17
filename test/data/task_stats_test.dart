@@ -16,6 +16,7 @@ Task task({
   DateTime? deletedAt,
   int? estimateMin,
   DateTime? remindAt,
+  int priority = 0,
 }) {
   return Task(
     id: id,
@@ -24,7 +25,7 @@ Task task({
     title: title,
     orderKey: 'a0',
     status: status,
-    priority: 0,
+    priority: priority,
     slipCount: 0,
     createdAt: now,
     updatedAt: now,
@@ -155,6 +156,30 @@ void main() {
     ], now);
 
     expect(stats.nextUp?.id, 'near');
+  });
+
+  test('coming up is the next week after today, soonest first', () {
+    final stats = TaskStats.from([
+      task(id: 'today', dueDate: '2026-09-16'),
+      task(id: 'late', dueDate: '2026-09-15'),
+      task(id: 'sat', dueDate: '2026-09-19'),
+      task(id: 'tomorrow all day', dueDate: '2026-09-17'),
+      task(id: 'tomorrow 9am', dueAt: DateTime(2026, 9, 17, 9)),
+      task(id: 'tomorrow, urgent', dueDate: '2026-09-17', priority: 3),
+      // A week from today is the last day in; the day after is not.
+      task(id: 'a week on', dueDate: '2026-09-23'),
+      task(id: 'eight days on', dueDate: '2026-09-24'),
+      task(id: 'done', dueDate: '2026-09-18', status: TaskStatus.done, completedAt: now),
+      task(id: 'undated'),
+    ], now);
+
+    expect(stats.comingUp.map((t) => t.id), [
+      'tomorrow 9am',
+      'tomorrow, urgent',
+      'tomorrow all day',
+      'sat',
+      'a week on',
+    ]);
   });
 
   test('progress is null when nothing is due rather than zero', () {
