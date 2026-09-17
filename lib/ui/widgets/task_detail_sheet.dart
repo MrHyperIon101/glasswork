@@ -14,6 +14,7 @@ import '../sheet.dart';
 import '../surface.dart';
 import 'field_controls.dart';
 import 'reminder_picker.dart';
+import 'task_time.dart';
 
 /// The task inspector.
 ///
@@ -159,6 +160,18 @@ class _BodyState extends ConsumerState<_Body> {
                     dueAt: at,
                     dueDate: at == null ? _isoOf(date) : null,
                   ),
+                ),
+              ),
+              const SizedBox(height: AppSpace.xl),
+              _Section(
+                label: 'Time',
+                child: TaskTimePicker(
+                  title: task.title,
+                  taskId: task.id,
+                  start: task.startAt,
+                  lengthMin: task.estimateMin,
+                  onChanged: (start, lengthMin) =>
+                      _scope?.tasks.setTime(task.id, start, lengthMin: lengthMin),
                 ),
               ),
               const SizedBox(height: AppSpace.xl),

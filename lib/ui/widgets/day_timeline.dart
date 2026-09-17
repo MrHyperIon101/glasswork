@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/ledger.dart';
+import '../../capacity/task_slot.dart';
 import '../../theme/tokens.dart';
 import '../block_style.dart';
 import '../format.dart';
@@ -21,12 +22,16 @@ class DayTimeline extends StatelessWidget {
   const DayTimeline({
     required this.day,
     this.allocatedMin = 0,
+    this.tasks = const [],
     this.showHours = true,
     this.dense = false,
     super.key,
   });
 
   final DayCapacity day;
+
+  /// Tasks given a time on this day, drawn where they fall.
+  final List<TaskSlot> tasks;
 
   /// Minutes of task work the planner has put on this day.
   final int allocatedMin;
@@ -109,6 +114,16 @@ class DayTimeline extends StatelessWidget {
                       bottom: 0,
                       child: _Block(block: block),
                     ),
+
+                  // Tasks given a time, over whatever they were put on, so a clash shows.
+                  for (final task in tasks)
+                    Positioned(
+                      left: x(task.startMin),
+                      width: (x(task.endMin) - x(task.startMin)).clamp(2.0, width),
+                      top: AppSpace.xs,
+                      bottom: AppSpace.xs,
+                      child: _TaskBlock(task: task),
+                    ),
                 ],
               ),
             );
@@ -116,9 +131,9 @@ class DayTimeline extends StatelessWidget {
         ),
         // A phone's bar is too narrow for names, so the blocks are named beneath it, each
         // with the colour and short name it wears in the bar.
-        if (AppLayout.compact(context) && day.blocks.isNotEmpty) ...[
+        if (AppLayout.compact(context) && (day.blocks.isNotEmpty || tasks.isNotEmpty)) ...[
           const SizedBox(height: AppSpace.sm),
-          _BlockKey(blocks: day.blocks, dense: dense),
+          _BlockKey(blocks: day.blocks, tasks: tasks, dense: dense),
         ],
         const SizedBox(height: AppSpace.sm),
         _Legend(day: day, allocatedMin: allocatedMin, dense: dense),
@@ -129,9 +144,10 @@ class DayTimeline extends StatelessWidget {
 
 /// The day's blocks by name: colour, short name, full name and when.
 class _BlockKey extends ConsumerWidget {
-  const _BlockKey({required this.blocks, required this.dense});
+  const _BlockKey({required this.blocks, required this.tasks, required this.dense});
 
   final List<BlockSpan> blocks;
+  final List<TaskSlot> tasks;
 
   /// A row in a week: short names and times only, which is enough to match the bar.
   final bool dense;
@@ -155,6 +171,11 @@ class _BlockKey extends ConsumerWidget {
             _Tag(
               colour: BlockStyle.colourIn(colours, block.title),
               text: '${BlockStyle.abbreviate(block.title)} ${Format.clock(block.startMin)}',
+            ),
+          for (final task in tasks)
+            _Tag(
+              colour: AppColour.label,
+              text: '${BlockStyle.abbreviate(task.title)} ${Format.clock(task.startMin)}',
             ),
         ],
       );
@@ -186,6 +207,28 @@ class _BlockKey extends ConsumerWidget {
                   Format.clockRange(block.startMin, block.endMin),
                   style: AppText.numeric,
                 ),
+              ],
+            ),
+          ),
+        for (final task in tasks)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+            child: Row(
+              children: [
+                _Tag(colour: AppColour.label, text: BlockStyle.abbreviate(task.title)),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Text(
+                    task.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.callout.copyWith(
+                      color: task.done ? AppColour.labelTertiary : AppColour.label,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Text(Format.clockRange(task.startMin, task.endMin), style: AppText.numeric),
               ],
             ),
           ),
@@ -339,6 +382,65 @@ class _Block extends ConsumerWidget {
                         fontVariations: const [FontVariation('wght', 600)],
                       ),
                     ),
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A task given a time: a white pill, a colour no timetable block wears, so it reads as
+/// something you put there rather than something fixed; faded once it is done.
+class _TaskBlock extends StatelessWidget {
+  const _TaskBlock({required this.task});
+
+  final TaskSlot task;
+
+  static const _namedFrom = 64.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '${task.title} · ${Format.clockRange(task.startMin, task.endMin)}',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final named = constraints.maxWidth >= _namedFrom;
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            padding: EdgeInsets.symmetric(horizontal: named ? AppSpace.xs : 0),
+            alignment: named ? Alignment.centerLeft : Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColour.label.withValues(alpha: task.done ? 0.3 : 0.9),
+              borderRadius: AppRadius.smallAll,
+            ),
+            child: constraints.maxWidth < AppSize.chip
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        task.done ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                        size: 10,
+                        color: AppColour.base,
+                      ),
+                      if (named) ...[
+                        const SizedBox(width: 2),
+                        Flexible(
+                          child: Text(
+                            task.title,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.fade,
+                            style: AppText.numeric.copyWith(
+                              color: AppColour.base,
+                              fontSize: 10,
+                              fontVariations: const [FontVariation('wght', 600)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
           );
         },

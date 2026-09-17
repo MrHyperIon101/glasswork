@@ -194,6 +194,16 @@ first, read as sleeping from morning until night. A night's "Up at" writes the n
 average day this week. Those figures come from `SettingEffects`, which reruns the ledger with the
 setting moved rather than doing arithmetic of its own.
 
+**A task can be given a time**, and that is how a task reaches the time budget: `tasks.start_at`, lasting
+its estimate (an hour without one), so there is one field and nothing to keep in step with a block.
+`TaskSlots` places it on its day; the scheduler takes its minutes from that day before the forward
+pass places anything else (`PlannedTask.plannedDay`), a time already gone is placed like any other
+task, and a task with a time and no deadline counts on its day and has no feasibility of its own.
+The day's timeline draws it as a white pill, a colour no block wears; `DayAgenda` lists it and gives
+it its part of the free time; `DayNow` is busy with it. Choosing a time checks it against that day's
+blocks, sleep and other tasks (`SlotCheck`) and offers the next free time. Typed, it is
+`plan fri 4pm`, read like a reminder.
+
 **Never let a model compute a number the ledger can compute.** The LLM reads the arithmetic's output
 and talks about it. It does not decide what is feasible.
 

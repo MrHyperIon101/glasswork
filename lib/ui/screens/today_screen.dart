@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../capacity/day_agenda.dart';
 import '../../capacity/day_now.dart';
 import '../../capacity/ledger.dart';
+import '../../capacity/task_slot.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../data/note_text.dart';
@@ -698,27 +699,33 @@ class _DayCardState extends ConsumerState<_DayCard> {
     final today = days.first;
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;
-    final dayNow = DayNow.of(today, nowMin);
+    final tasksToday = ref.watch(taskSlotsProvider(today.date));
+    final dayNow = DayNow.of(today, nowMin, tasks: tasksToday);
     final settings = CapacityMapping.settings(ref.watch(capacityProfileProvider).value);
     final text = HomeText.now(dayNow, bedtimeMin: settings.sleepOn(now.weekday).bedtimeMin);
     final colours = ref.watch(blockColoursProvider);
     final colour = switch (dayNow.current) {
-      final block? => BlockStyle.colourIn(colours, block.title),
+      final busy? when busy.isTask => AppColour.label,
+      final busy? => BlockStyle.colourIn(colours, busy.title),
       null when dayNow.dayDone || dayNow.beforeWaking => AppColour.indigo,
       null => AppColour.green,
     };
     void openBudget() => ref.read(destinationProvider.notifier).go(const CapacityDestination());
+    void openTask(String id) => ref.read(openTaskProvider.notifier).open(id);
     // With a height of its own to fill, the card goes on to tomorrow's blocks.
     final tomorrow = widget.fill && days.length > 1 ? days[1] : null;
+    final tasksTomorrow = tomorrow == null
+        ? const <TaskSlot>[]
+        : ref.watch(taskSlotsProvider(tomorrow.date));
 
-    final entries = DayAgenda.of(today, nowMin);
+    final entries = DayAgenda.of(today, nowMin, tasks: tasksToday);
     // Blocks that overlap can both be on now; the key goes to the first.
     final current = entries.where((e) => e.when == AgendaTime.now).firstOrNull;
 
     final agenda = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (today.blocks.isEmpty)
+        if (today.blocks.isEmpty && tasksToday.isEmpty)
           _NothingFixed(day: today.date, onOpen: openBudget)
         else
           for (final entry in entries)
@@ -727,21 +734,28 @@ class _DayCardState extends ConsumerState<_DayCard> {
               entry: entry,
               nowMin: nowMin,
               colours: colours,
+              onOpenTask: openTask,
             ),
         if (tomorrow != null) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpace.sm, AppSpace.lg, AppSpace.sm, AppSpace.xs),
             child: Text('Tomorrow', style: AppText.caption),
           ),
-          if (tomorrow.blocks.isEmpty)
+          if (tomorrow.blocks.isEmpty && tasksTomorrow.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
               child: Text(HomeText.nothingFixed(tomorrow.date, now), style: AppText.footnote),
             )
           else
             // A minute before midnight, so nothing of tomorrow has started.
-            for (final entry in DayAgenda.of(tomorrow, -1))
-              if (!entry.free) _AgendaRow(entry: entry, nowMin: -1, colours: colours),
+            for (final entry in DayAgenda.of(tomorrow, -1, tasks: tasksTomorrow))
+              if (!entry.free)
+                _AgendaRow(
+                  entry: entry,
+                  nowMin: -1,
+                  colours: colours,
+                  onOpenTask: openTask,
+                ),
         ],
       ],
     );
@@ -752,7 +766,9 @@ class _DayCardState extends ConsumerState<_DayCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _CardHeading(
-            icon: dayNow.current != null
+            icon: dayNow.current?.isTask ?? false
+                ? Icons.schedule_rounded
+                : dayNow.current != null
                 ? Icons.event_available_rounded
                 : dayNow.dayDone || dayNow.beforeWaking
                 ? Icons.bedtime_rounded
@@ -779,7 +795,7 @@ class _DayCardState extends ConsumerState<_DayCard> {
             ),
           ),
           const SizedBox(height: AppSpace.lg),
-          _DayStrip(day: today, nowMin: nowMin, colours: colours),
+          _DayStrip(day: today, nowMin: nowMin, colours: colours, tasks: tasksToday),
           const SizedBox(height: AppSpace.md),
           const AppDivider(),
           const SizedBox(height: AppSpace.sm),
@@ -792,11 +808,19 @@ class _DayCardState extends ConsumerState<_DayCard> {
 
 /// The waking day as a strip: blocks in their colours, and a marker at now.
 class _DayStrip extends StatelessWidget {
-  const _DayStrip({required this.day, required this.nowMin, required this.colours});
+  const _DayStrip({
+    required this.day,
+    required this.nowMin,
+    required this.colours,
+    required this.tasks,
+  });
 
   final DayCapacity day;
   final int nowMin;
   final Map<String, Color> colours;
+
+  /// Tasks given a time, white on the strip as on the time budget.
+  final List<TaskSlot> tasks;
 
   static const _height = 12.0;
 
@@ -857,6 +881,26 @@ class _DayStrip extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // A little inside the strip, so the marker at now still shows across one.
+                  for (final task in tasks)
+                    Positioned(
+                      left: x(task.startMin),
+                      width: math.max(3, x(task.endMin) - x(task.startMin)),
+                      top: AppSpace.xs + 2,
+                      height: _height - 4,
+                      child: Tooltip(
+                        message:
+                            '${task.title} · ${Format.clockRange(task.startMin, task.endMin)}',
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColour.label.withValues(
+                              alpha: task.done || task.endMin <= nowMin ? 0.3 : 0.85,
+                            ),
+                            borderRadius: AppRadius.roundAll,
+                          ),
+                        ),
+                      ),
+                    ),
                   if (nowMin >= start && nowMin <= end)
                     Positioned(
                       left: x(nowMin) - 1,
@@ -898,6 +942,7 @@ class _AgendaRow extends StatelessWidget {
     required this.entry,
     required this.nowMin,
     required this.colours,
+    required this.onOpenTask,
     super.key,
   });
 
@@ -905,14 +950,26 @@ class _AgendaRow extends StatelessWidget {
   final int nowMin;
   final Map<String, Color> colours;
 
+  /// Opens a task given a time, from its row.
+  final ValueChanged<String> onOpenTask;
+
   /// Room for "00:00" in the times column, before the text is scaled.
   static const _timesWidth = 40.0;
 
   @override
   Widget build(BuildContext context) {
     final block = entry.block;
-    final happening = entry.when == AgendaTime.now;
-    final colour = block == null ? AppColour.labelTertiary : BlockStyle.colourIn(colours, block.title);
+    final task = entry.task;
+    // A block or a task: something that takes the time, as against free time.
+    final filled = !entry.free;
+    final done = task?.done ?? false;
+    final happening = entry.when == AgendaTime.now && !done;
+    final colour = switch ((block, task)) {
+      (final block?, _) => BlockStyle.colourIn(colours, block.title),
+      // White, which no timetable block wears, as the time budget draws a task.
+      (_, final task?) => task.done ? AppColour.grey : AppColour.label,
+      _ => AppColour.labelTertiary,
+    };
     final times = MediaQuery.textScalerOf(context).scale(_timesWidth);
     final detail = HomeText.agendaDetail(entry, nowMin);
 
@@ -920,7 +977,7 @@ class _AgendaRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 2),
       padding: EdgeInsets.symmetric(
         horizontal: AppSpace.sm,
-        vertical: block == null ? AppSpace.xs : AppSpace.sm,
+        vertical: filled ? AppSpace.sm : AppSpace.xs,
       ),
       decoration: BoxDecoration(
         color: happening ? colour.withValues(alpha: 0.14) : null,
@@ -939,10 +996,10 @@ class _AgendaRow extends StatelessWidget {
                   Text(
                     Format.clock(entry.startMin),
                     style: AppText.numeric.copyWith(
-                      color: block == null ? AppColour.labelTertiary : AppColour.label,
+                      color: filled ? AppColour.label : AppColour.labelTertiary,
                     ),
                   ),
-                  if (block != null)
+                  if (filled)
                     Text(
                       Format.clock(entry.endMin),
                       style: AppText.numeric.copyWith(color: AppColour.labelTertiary),
@@ -954,13 +1011,13 @@ class _AgendaRow extends StatelessWidget {
             Container(
               width: 3,
               decoration: BoxDecoration(
-                color: block == null ? AppColour.fill : colour,
+                color: filled ? colour : AppColour.fill,
                 borderRadius: AppRadius.roundAll,
               ),
             ),
             const SizedBox(width: AppSpace.md),
             Expanded(
-              child: block == null
+              child: !filled
                   ? Row(
                       children: [
                         Text(HomeText.agendaTitle(entry), style: AppText.callout),
@@ -981,11 +1038,29 @@ class _AgendaRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          HomeText.agendaTitle(entry),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.headline,
+                        Row(
+                          children: [
+                            if (task != null) ...[
+                              Icon(
+                                done ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                                size: 13,
+                                color: colour,
+                              ),
+                              const SizedBox(width: AppSpace.xs),
+                            ],
+                            Flexible(
+                              child: Text(
+                                HomeText.agendaTitle(entry),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.headline.copyWith(
+                                  color: done ? AppColour.labelTertiary : null,
+                                  decoration: done ? TextDecoration.lineThrough : null,
+                                  decorationColor: AppColour.labelTertiary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.numeric),
                       ],
@@ -997,13 +1072,13 @@ class _AgendaRow extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
                   decoration: BoxDecoration(
-                    color: block == null ? AppColour.fillStrong : colour,
+                    color: filled ? colour : AppColour.fillStrong,
                     borderRadius: AppRadius.roundAll,
                   ),
                   child: Text(
                     'Now',
                     style: AppText.caption.copyWith(
-                      color: block == null ? AppColour.label : AppColour.base,
+                      color: filled ? AppColour.base : AppColour.label,
                     ),
                   ),
                 ),
@@ -1014,10 +1089,20 @@ class _AgendaRow extends StatelessWidget {
       ),
     );
 
-    return AnimatedOpacity(
+    final shown = AnimatedOpacity(
       duration: AppMotion.of(context, AppMotion.medium),
       opacity: entry.when == AgendaTime.past ? 0.45 : 1,
       child: row,
+    );
+    if (task == null) return shown;
+    // A task opens from its row, as it does from any list.
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Pressable(
+        pressedScale: 0.98,
+        onTap: () => onOpenTask(task.taskId),
+        child: shown,
+      ),
     );
   }
 }

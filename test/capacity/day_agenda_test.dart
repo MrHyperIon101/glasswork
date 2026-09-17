@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/capacity/day_agenda.dart';
 import 'package:glasswork/capacity/ledger.dart';
 import 'package:glasswork/capacity/recurrence.dart';
+import 'package:glasswork/capacity/task_slot.dart';
 
 /// A Wednesday.
 final wed = DateTime(2026, 9, 16);
@@ -84,5 +85,50 @@ void main() {
       ('DBMS lecture', 540, 630, AgendaTime.later),
       ('free', 630, 1440, AgendaTime.later),
     ]);
+  });
+
+  group('with tasks given a time', () {
+    const revise = TaskSlot(taskId: 'r', title: 'Revise', startMin: 13 * 60, endMin: 15 * 60);
+
+    List<(String, int, int)> named(List<AgendaEntry> entries) => [
+      for (final e in entries) (e.block?.title ?? e.task?.title ?? 'free', e.startMin, e.endMin),
+    ];
+
+    test('a task takes its part of the free time, and the rest is what is left', () {
+      final agenda = DayAgenda.of(day, 9 * 60 + 30, tasks: const [revise]);
+      expect(named(agenda).sublist(4), [
+        ('Computer networks', 660, 720),
+        ('free', 720, 780),
+        ('Revise', 780, 900),
+        ('free', 900, 1410),
+      ]);
+      final task = agenda.firstWhere((e) => e.task != null);
+      expect((task.free, task.usable, task.when), (false, true, AgendaTime.later));
+    });
+
+    test('a task on top of a class is listed beside it, and takes no free time', () {
+      const clash = TaskSlot(taskId: 'c', title: 'Call', startMin: 9 * 60 + 30, endMin: 10 * 60);
+      final agenda = DayAgenda.of(day, 6 * 60, tasks: const [clash]);
+      expect(named(agenda).sublist(2, 4), [
+        ('DBMS lecture', 540, 630),
+        ('Call', 570, 600),
+      ]);
+      expect(named(agenda).where((e) => e.$1 == 'free'), [
+        ('free', 480, 540),
+        ('free', 630, 660),
+        ('free', 720, 1410),
+      ]);
+    });
+
+    test('a sliver of free time a task leaves is not listed; tasks come in any order', () {
+      const early = TaskSlot(taskId: 'e', title: 'Email', startMin: 12 * 60 + 3, endMin: 13 * 60);
+      final agenda = DayAgenda.of(day, 6 * 60, tasks: const [revise, early]);
+      expect(named(agenda).sublist(4), [
+        ('Computer networks', 660, 720),
+        ('Email', 723, 780),
+        ('Revise', 780, 900),
+        ('free', 900, 1410),
+      ]);
+    });
   });
 }

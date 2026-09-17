@@ -33,13 +33,25 @@ class PlannedTask {
     required this.estimateMin,
     this.priority = 0,
     this.estimateAssumed = false,
-  });
+    this.plannedDay,
+  }) : assert(
+         dueDay != null || plannedDay != null,
+         'a task with neither a deadline nor a time has nothing to be planned against',
+       );
 
   final String id;
   final String title;
-  final DateTime dueDay;
+
+  /// Null only for a task given a time with no deadline, which is here for the time it
+  /// takes on its day and has no feasibility of its own.
+  final DateTime? dueDay;
+
   final int estimateMin;
   final int priority;
+
+  /// The day the task has been given a time on. Its minutes go on that day, whatever the
+  /// pass would have chosen; a day it overfills shows as over, rather than moving the work.
+  final DateTime? plannedDay;
 
   /// True when the estimate is the app's guess rather than yours. Shown differently, so
   /// you can see which numbers it is inventing.
@@ -106,37 +118,77 @@ abstract final class CapacityScheduler {
   ///
   /// Sleep cannot be scheduled into: usable minutes are derived from the waking window
   /// only, so the floor holds structurally rather than by a check somewhere.
+  ///
+  /// A task with a time today or later is placed on that day first, its whole estimate
+  /// taken from that day. One whose time has passed is placed like any other, since the time
+  /// it had is gone. A task with a time and no deadline counts on its day and nowhere else.
   static Schedule run(List<PlannedTask> tasks, List<DayCapacity> capacity) {
     if (capacity.isEmpty) {
       return Schedule(
         tasks: [
           for (final t in tasks)
-            ScheduledTask(
-              task: t,
-              startDay: null,
-              finishDay: null,
-              slackDays: -1,
-              shortfallMin: t.estimateMin,
-            ),
+            if (t.dueDay != null)
+              ScheduledTask(
+                task: t,
+                startDay: null,
+                finishDay: null,
+                slackDays: -1,
+                shortfallMin: t.estimateMin,
+              ),
         ],
         allocatedByDay: const {},
       );
     }
 
+    final remaining = [for (final day in capacity) day.usableMin];
+    final allocated = <DateTime, int>{};
+    final results = <ScheduledTask>[];
+
+    final first = _date(capacity.first.date);
+    final dayIndex = {
+      for (final (i, day) in capacity.indexed) _date(day.date): i,
+    };
+
+    final floating = <PlannedTask>[];
+    for (final task in tasks) {
+      final planned = task.plannedDay == null ? null : _date(task.plannedDay!);
+      if (planned == null || planned.isBefore(first)) {
+        if (task.dueDay != null) floating.add(task);
+        continue;
+      }
+
+      // Beyond the horizon it is still where it was put, just outside what is counted.
+      if (dayIndex[planned] case final i?) {
+        remaining[i] -= task.estimateMin;
+        allocated.update(
+          capacity[i].date,
+          (v) => v + task.estimateMin,
+          ifAbsent: () => task.estimateMin,
+        );
+      }
+      if (task.dueDay case final due?) {
+        results.add(
+          ScheduledTask(
+            task: task,
+            startDay: planned,
+            finishDay: planned,
+            slackDays: _daysBetween(planned, due),
+            shortfallMin: 0,
+          ),
+        );
+      }
+    }
+
     // Earliest deadline first. Priority and id break ties so the result is deterministic
     // — the same inputs must always produce the same plan, or nobody can trust it.
-    final ordered = [...tasks]
+    final ordered = floating
       ..sort((a, b) {
-        final byDue = a.dueDay.compareTo(b.dueDay);
+        final byDue = a.dueDay!.compareTo(b.dueDay!);
         if (byDue != 0) return byDue;
         final byPriority = b.priority.compareTo(a.priority);
         if (byPriority != 0) return byPriority;
         return a.id.compareTo(b.id);
       });
-
-    final remaining = [for (final day in capacity) day.usableMin];
-    final allocated = <DateTime, int>{};
-    final results = <ScheduledTask>[];
 
     var cursor = 0;
 
@@ -163,9 +215,7 @@ abstract final class CapacityScheduler {
 
       // Anything still needed ran past the end of the horizon.
       final shortfall = need;
-      final slack = finishDay == null
-          ? -1
-          : task.dueDay.difference(finishDay).inDays;
+      final slack = finishDay == null ? -1 : _daysBetween(finishDay, task.dueDay!);
 
       results.add(
         ScheduledTask(
@@ -180,4 +230,11 @@ abstract final class CapacityScheduler {
 
     return Schedule(tasks: results, allocatedByDay: allocated);
   }
+
+  static DateTime _date(DateTime day) => DateTime(day.year, day.month, day.day);
+
+  /// Whole dates from [from] to [to], which a change of clocks between them cannot throw off.
+  static int _daysBetween(DateTime from, DateTime to) => DateTime.utc(to.year, to.month, to.day)
+      .difference(DateTime.utc(from.year, from.month, from.day))
+      .inDays;
 }

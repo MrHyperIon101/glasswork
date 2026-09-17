@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../capacity/scheduler.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../data/task_slots.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
@@ -93,7 +94,24 @@ class _TaskRowState extends ConsumerState<TaskRow> {
                       color: AppColour.labelQuaternary,
                     ),
                   ),
-                if (task.estimateMin case final mins?)
+                // A time given, in place of the estimate it lasts for.
+                if (task.startAt case final start?)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.schedule_rounded, size: 12, color: AppColour.accent),
+                      const SizedBox(width: 2),
+                      Text(
+                        Format.taskTime(
+                          start,
+                          task.estimateMin ?? TaskSlots.defaultLengthMin,
+                          DateTime.now(),
+                        ),
+                        style: AppText.numeric.copyWith(color: AppColour.accent),
+                      ),
+                    ],
+                  )
+                else if (task.estimateMin case final mins?)
                   Text(Format.estimate(mins), style: AppText.numeric),
                 if (task.remindAt?.toLocal() case final at?
                     when at.isAfter(DateTime.now()))

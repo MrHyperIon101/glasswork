@@ -330,6 +330,9 @@ final _states = <_State>[
     app.read(composerOpenProvider.notifier).open();
     await _settle(tester);
     final choose = find.byKey(const ValueKey('reminder-choose'));
+    // Below the time on a phone with larger text, further down than the sheet builds at first.
+    await tester.scrollUntilVisible(choose, 100, scrollable: _pageScrollable(find.byType(TaskComposer)));
+    await _settle(tester);
     await tester.ensureVisible(choose);
     await _settle(tester);
     await tester.tap(choose);
@@ -361,6 +364,13 @@ final _states = <_State>[
       ),
     );
     app.read(openTaskProvider.notifier).open(data.longTaskId);
+  }),
+  _State('giving a task a time', (tester, app, data) async {
+    app.read(openTaskProvider.notifier).open(data.longTaskId);
+    await _settle(tester);
+    await tester.ensureVisible(find.byKey(const ValueKey('task-time')));
+    await _settle(tester);
+    await tester.tap(find.byKey(const ValueKey('task-time')));
   }),
   _State('task detail', (tester, app, data) async {
     app.read(openTaskProvider.notifier).open(data.longTaskId);
@@ -725,9 +735,12 @@ Future<_Seeded> _seed(AppDatabase db) async {
     if (i == 0) await steps.setDone(step.id, done: true);
   }
 
-  await add(courseSections[1], 'ER diagram for the library system', due: 1, estimate: 60, priority: 2, tags: [uni]);
+  final er = await add(courseSections[1], 'ER diagram for the library system', due: 1, estimate: 60, priority: 2, tags: [uni]);
   await add(courseSections[0], 'Lab 6: triggers and stored procedures', due: -3, estimate: 90, priority: 2, tags: [uni]);
-  await add(courseSections[0], 'Read chapter 7 on transactions', due: 5, estimate: 45, tags: [reading]);
+  final chapter = await add(courseSections[0], 'Read chapter 7 on transactions', due: 5, estimate: 45, tags: [reading]);
+  // Tasks given a time: one this evening, one tomorrow afternoon.
+  await tasks.setTime(er.id, today.add(const Duration(hours: 19)));
+  await tasks.setTime(chapter.id, today.add(const Duration(days: 1, hours: 16)), lengthMin: 90);
   await add(courseSections[0], 'Revise for the mid-semester exam', due: 9, estimate: 900, priority: 3);
   await add(courseSections[2], 'Collect feedback on the report draft');
   final done = await add(courseSections[3], 'Set up the project repository');

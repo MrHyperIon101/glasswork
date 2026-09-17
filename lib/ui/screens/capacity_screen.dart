@@ -148,7 +148,11 @@ class _TodayCardState extends ConsumerState<_TodayCard> {
           ),
           const SizedBox(height: AppSpace.lg),
 
-          DayTimeline(day: day, allocatedMin: planned),
+          DayTimeline(
+            day: day,
+            allocatedMin: planned,
+            tasks: ref.watch(taskSlotsProvider(day.date)),
+          ),
 
           const SizedBox(height: AppSpace.md),
           const AppDivider(),
@@ -254,6 +258,7 @@ class _WeekCard extends ConsumerWidget {
     Widget timeline(DayCapacity day) => DayTimeline(
       day: day,
       allocatedMin: schedule.allocatedOn(day.date),
+      tasks: ref.watch(taskSlotsProvider(day.date)),
       showHours: false,
       // Seven full legends down a phone make a wall of figures.
       dense: compact,

@@ -24,15 +24,17 @@ List<DayCapacity> flatCapacity(int days, int usable) => [
 
 PlannedTask task(
   String id, {
-  required int dueInDays,
+  required int? dueInDays,
   required int estimateMin,
   int priority = 0,
+  int? plannedInDays,
 }) => PlannedTask(
   id: id,
   title: id,
-  dueDay: day(dueInDays),
+  dueDay: dueInDays == null ? null : day(dueInDays),
   estimateMin: estimateMin,
   priority: priority,
+  plannedDay: plannedInDays == null ? null : day(plannedInDays),
 );
 
 void main() {
@@ -197,5 +199,77 @@ void main() {
     for (var i = 0; i < 7; i++) {
       expect(schedule.allocatedOn(day(i)), lessThanOrEqualTo(240));
     }
+  });
+
+  group('a task given a time', () {
+    ScheduledTask planOf(Schedule schedule, String id) =>
+        schedule.tasks.singleWhere((t) => t.task.id == id);
+
+    test('takes its minutes from its own day, before the pass places the rest', () {
+      final schedule = CapacityScheduler.run([
+        task('essay', dueInDays: 1, estimateMin: 300),
+        task('revise', dueInDays: 5, estimateMin: 120, plannedInDays: 2),
+        task('lab', dueInDays: 3, estimateMin: 240),
+      ], flatCapacity(7, 240));
+
+      final revise = planOf(schedule, 'revise');
+      expect((revise.startDay, revise.finishDay, revise.slackDays), (day(2), day(2), 3));
+      expect(revise.state, Feasibility.fine);
+
+      // The essay fills Monday and an hour of Tuesday; the lab takes the rest of Tuesday and
+      // the hour Wednesday has left beside the revision.
+      expect(planOf(schedule, 'essay').finishDay, day(1));
+      expect(planOf(schedule, 'lab').finishDay, day(2));
+      expect(
+        [for (var i = 0; i < 4; i++) schedule.allocatedOn(day(i))],
+        [240, 240, 180, 0],
+      );
+    });
+
+    test('a time that overfills its day shows the day over, and moves nothing', () {
+      final schedule = CapacityScheduler.run([
+        task('marathon', dueInDays: 2, estimateMin: 300, plannedInDays: 0),
+        task('email', dueInDays: 1, estimateMin: 60),
+      ], flatCapacity(3, 240));
+
+      expect(schedule.allocatedOn(day(0)), 300);
+      expect(planOf(schedule, 'email').startDay, day(1));
+    });
+
+    test('a time after the deadline cannot work', () {
+      final schedule = CapacityScheduler.run([
+        task('late', dueInDays: 2, estimateMin: 60, plannedInDays: 4),
+      ], flatCapacity(7, 240));
+
+      expect(planOf(schedule, 'late').slackDays, -2);
+      expect(planOf(schedule, 'late').state, Feasibility.impossible);
+    });
+
+    test('with no deadline, it counts on its day and has no plan of its own', () {
+      final schedule = CapacityScheduler.run([
+        task('gym', dueInDays: null, estimateMin: 90, plannedInDays: 1),
+      ], flatCapacity(3, 240));
+
+      expect(schedule.tasks, isEmpty);
+      expect(schedule.allocatedOn(day(1)), 90);
+    });
+
+    test('a time already gone is placed like any other task', () {
+      final schedule = CapacityScheduler.run([
+        task('missed', dueInDays: 3, estimateMin: 60, plannedInDays: -1),
+      ], flatCapacity(7, 240));
+
+      expect(planOf(schedule, 'missed').startDay, day(0));
+    });
+
+    test('a time beyond the horizon stays where it was put, counted nowhere inside it', () {
+      final schedule = CapacityScheduler.run([
+        task('trip', dueInDays: 12, estimateMin: 120, plannedInDays: 10),
+      ], flatCapacity(7, 240));
+
+      expect(planOf(schedule, 'trip').startDay, day(10));
+      expect(planOf(schedule, 'trip').state, Feasibility.fine);
+      expect([for (var i = 0; i < 7; i++) schedule.allocatedOn(day(i))], everyElement(0));
+    });
   });
 }
