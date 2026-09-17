@@ -1,11 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/repository/capacity_repository.dart';
+import 'package:glasswork/data/repository/note_image_repository.dart';
+import 'package:glasswork/data/repository/note_repository.dart';
 import 'package:glasswork/data/repository/task_repository.dart';
 import 'package:glasswork/data/repository/workspace_repository.dart';
+import 'package:glasswork/images/device_images.dart';
+import 'package:glasswork/images/image_store.dart';
 import 'package:glasswork/sync/account_link.dart';
 import 'package:glasswork/sync/sync_transport.dart';
 
@@ -172,6 +177,37 @@ void main() {
       expect(gym.scheduleId, fallbacks.single.id, reason: device.name);
       expect(gym.workspaceId, laptopWorkspace, reason: device.name);
       expect((await db.select(db.workspaces).get()).map((w) => w.id), [laptopWorkspace]);
+    }
+  });
+
+  test("combining moves the device's images under the account's own folder", () async {
+    final laptopWorkspace = await laptopClaims();
+    final phoneWorkspace = await launch(phone);
+    final note = await NoteRepository(phone.writer).create(workspaceId: phoneWorkspace, title: 'Board');
+    final image = await NoteImageRepository(phone.writer, ImageStore(() async => scratch)).add(
+      workspaceId: phoneWorkspace,
+      noteId: note.id,
+      image: PickedImage(bytes: Uint8List(8), width: 4, height: 2, mime: 'image/jpeg'),
+    );
+    expect(image.storagePath, '$phoneWorkspace/${image.id}.jpg');
+
+    final link = linkFor(phone);
+    final plan = await link.plan(account) as AdoptAccount;
+    await link.adopt(account, plan, LinkChoice.combine);
+    await phone.sync();
+    await laptop.sync();
+
+    // Storage lets a device into its workspaces' folders alone, and the phone's own
+    // workspace is gone: under its old folder, the image could never be sent.
+    for (final device in [phone, laptop]) {
+      final row = await (device.db.select(device.db.noteImages)
+            ..where((i) => i.id.equals(image.id)))
+          .getSingle();
+      expect(
+        (row.workspaceId, row.storagePath),
+        (laptopWorkspace, '$laptopWorkspace/${image.id}.jpg'),
+        reason: device.name,
+      );
     }
   });
 
