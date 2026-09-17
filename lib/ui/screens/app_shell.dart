@@ -7,15 +7,18 @@ import '../../app_config.dart';
 import '../../desktop/desktop_shell.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../data/project_groups.dart';
 import '../../reminders/reminders.dart';
 import '../../state/providers.dart';
 import '../../state/reminders_controller.dart';
 import '../../state/sync_controller.dart';
+import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../project_icon.dart';
 import '../motion.dart';
 import '../surface.dart';
+import '../widgets/area_widgets.dart';
 import '../widgets/new_project_sheet.dart';
 import '../widgets/note_editor_sheet.dart';
 import '../widgets/project_settings_sheet.dart';
@@ -360,6 +363,10 @@ class _Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projects = ref.watch(projectsProvider).value ?? const <Board>[];
+    final areas = ref.watch(areasProvider).value ?? const <Area>[];
+    final collapsed = ref.watch(collapsedAreasProvider).value ?? const <String>{};
+    final groups = ProjectGroups.of(projects, areas);
+    final scope = ref.watch(appScopeProvider).value;
     final sections = ref.watch(allSectionsProvider).value ?? const <BoardList>[];
     final all = ref.watch(allTasksProvider).value ?? const <Task>[];
     final stats = ref.watch(statsProvider);
@@ -381,6 +388,20 @@ class _Sidebar extends ConsumerWidget {
       ref.read(searchQueryProvider.notifier).clear();
       onNavigate?.call();
     }
+
+    // Picked up and dropped on an area, or on Projects to leave its area.
+    Widget projectRow(Board project) => ProjectDragSource(
+      key: ValueKey('sidebar-project-${project.id}'),
+      project: project,
+      child: _SidebarRow(
+        glyph: project.icon,
+        label: project.name,
+        tint: project.colour == null ? AppColour.purple : Color(project.colour!),
+        badge: openIn(project.id),
+        selected: current is ProjectDestination && current.projectId == project.id,
+        onTap: () => go(ProjectDestination(project.id)),
+      ),
+    );
 
     return VibrancyMaterial.sidebar(
       child: Column(
@@ -440,21 +461,62 @@ class _Sidebar extends ConsumerWidget {
                   onTap: () => go(const NotesDestination()),
                 ),
 
-                const _SectionLabel('Projects'),
+                ProjectDropTarget(
+                  onDrop: (id) => scope?.areas.moveProject(id, null),
+                  child: const _SectionLabel('Projects'),
+                ),
 
-                for (final project in projects)
-                  _SidebarRow(
-                    glyph: project.icon,
-                    label: project.name,
-                    tint: project.colour == null
-                        ? AppColour.purple
-                        : Color(project.colour!),
-                    badge: openIn(project.id),
-                    selected:
-                        current is ProjectDestination &&
-                        current.projectId == project.id,
-                    onTap: () => go(ProjectDestination(project.id)),
+                for (final project in groups.first.projects) projectRow(project),
+
+                for (final ProjectGroup(area: area!, projects: inArea) in groups.skip(1)) ...[
+                  ProjectDropTarget(
+                    key: ValueKey('area-${area.id}'),
+                    onDrop: (id) => scope?.areas.moveProject(id, area.id),
+                    child: AreaHeader(
+                      area: area,
+                      count: inArea.length,
+                      collapsed: collapsed.contains(area.id),
+                      onToggle: () => scope?.preferences.setAreaCollapsed(
+                        area.id,
+                        collapsed: !collapsed.contains(area.id),
+                      ),
+                      onEdit: () => _editArea(context, ref, area),
+                    ),
                   ),
+                  AnimatedSize(
+                    duration: AppMotion.of(context, AppMotion.medium),
+                    curve: AppMotion.standard,
+                    alignment: Alignment.topCenter,
+                    child: collapsed.contains(area.id)
+                        ? const SizedBox(width: double.infinity)
+                        : Padding(
+                            padding: const EdgeInsets.only(left: AppSpace.md),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (inArea.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      AppSpace.md,
+                                      AppSpace.xs,
+                                      AppSpace.md,
+                                      AppSpace.sm,
+                                    ),
+                                    child: Text(
+                                      AppLayout.touch
+                                          ? 'Hold a project and drag it here'
+                                          : 'Drag a project here',
+                                      style: AppText.footnote.copyWith(
+                                        color: AppColour.labelTertiary,
+                                      ),
+                                    ),
+                                  ),
+                                for (final project in inArea) projectRow(project),
+                              ],
+                            ),
+                          ),
+                  ),
+                ],
 
                 _SidebarRow(
                   icon: Icons.add_rounded,
@@ -466,6 +528,14 @@ class _Sidebar extends ConsumerWidget {
                     ref.read(newProjectOpenProvider.notifier).open();
                     onNavigate?.call();
                   },
+                ),
+                _SidebarRow(
+                  icon: Icons.create_new_folder_outlined,
+                  label: 'New area',
+                  tint: AppColour.labelTertiary,
+                  muted: true,
+                  selected: false,
+                  onTap: () => _newArea(context, ref),
                 ),
 
                 const _SectionLabel('Planning'),
@@ -497,6 +567,29 @@ class _Sidebar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _newArea(BuildContext context, WidgetRef ref) async {
+    final choice = await showAreaDialog(context);
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null || choice is! AreaNamed) return;
+    await scope.areas.create(workspaceId: scope.workspace.id, name: choice.name);
+  }
+
+  Future<void> _editArea(BuildContext context, WidgetRef ref, Area area) async {
+    final choice = await showAreaDialog(context, area: area);
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+    switch (choice) {
+      case AreaNamed(:final name) when name != area.name:
+        await scope.areas.rename(area.id, name);
+      case AreaDeleted():
+        await scope.areas.softDelete(area.id);
+        ref
+            .read(undoProvider.notifier)
+            .offer('Deleted area "${area.name}"', () => scope.areas.restore(area.id));
+      case AreaNamed() || null:
+    }
   }
 }
 

@@ -13,6 +13,7 @@ part 'database.g.dart';
 @DriftDatabase(
   tables: [
     Workspaces,
+    Areas,
     Boards,
     Lists,
     Tasks,
@@ -48,7 +49,7 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   /// The weekday names the per-day sleep columns are named with, Monday first.
   static const sleepDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -103,6 +104,12 @@ class AppDatabase extends _$AppDatabase {
         );
 
         await m.addColumn(tasks, tasks.remindAt);
+      }
+
+      // v6: areas, grouping projects.
+      if (from < 6) {
+        await m.createTable(areas);
+        await m.addColumn(boards, boards.areaId);
       }
     },
     beforeOpen: (details) async {

@@ -47,6 +47,16 @@ class Workspaces extends Table with SyncColumns {
   TextColumn get name => text()();
 }
 
+/// A group of projects, named by the person: a course, a job, a part of life. The sidebar
+/// lists each area's projects under its name.
+@TableIndex(name: 'area_workspace', columns: {#workspaceId})
+class Areas extends Table with SyncColumns, WorkspaceScoped {
+  TextColumn get name => text()();
+
+  /// Fractional index. Never an int, never a reindex loop.
+  TextColumn get orderKey => text()();
+}
+
 @TableIndex(name: 'board_workspace', columns: {#workspaceId})
 class Boards extends Table with SyncColumns, WorkspaceScoped {
   TextColumn get name => text()();
@@ -65,6 +75,10 @@ class Boards extends Table with SyncColumns, WorkspaceScoped {
 
   /// Fractional index. Never an int, never a reindex loop.
   TextColumn get orderKey => text()();
+
+  /// The area the project is listed under. Null, or an area since deleted, lists it with
+  /// the projects in no area.
+  TextColumn get areaId => text().nullable().references(Areas, #id)();
 }
 
 // Without this, drift singularises `Lists` into a row class called `List`, which shadows

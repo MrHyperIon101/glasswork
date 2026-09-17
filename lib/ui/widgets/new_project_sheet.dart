@@ -8,8 +8,9 @@ import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../sheet.dart';
-import 'project_icon_picker.dart';
 import '../surface.dart';
+import 'field_controls.dart';
+import 'project_icon_picker.dart';
 
 /// Creating a project, starting from what kind of work it is.
 ///
@@ -54,6 +55,9 @@ class _BodyState extends ConsumerState<_Body> {
   /// An icon chosen here, which outlasts changing the template.
   String? _icon;
 
+  /// The area to list it under, if any.
+  String? _areaId;
+
   @override
   void dispose() {
     _name.dispose();
@@ -84,6 +88,7 @@ class _BodyState extends ConsumerState<_Body> {
       purpose: _purpose.text.trim().isEmpty ? null : _purpose.text.trim(),
       icon: _icon ?? _template.icon,
       colour: _template.colour,
+      areaId: _areaId,
       sections: _template.sections,
       fields: _template.fields,
     );
@@ -161,6 +166,29 @@ class _BodyState extends ConsumerState<_Body> {
                     ),
                   ],
                 ),
+
+                if (ref.watch(areasProvider).value case final areas? when areas.isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.lg),
+                  Text('Area', style: AppText.caption),
+                  const SizedBox(height: AppSpace.sm),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: [
+                      ComposerChip(
+                        label: 'None',
+                        selected: _areaId == null,
+                        onTap: () => setState(() => _areaId = null),
+                      ),
+                      for (final area in areas)
+                        ComposerChip(
+                          label: area.name,
+                          selected: _areaId == area.id,
+                          onTap: () => setState(() => _areaId = area.id),
+                        ),
+                    ],
+                  ),
+                ],
 
                 const SizedBox(height: AppSpace.lg),
                 Text('What it is for', style: AppText.caption),

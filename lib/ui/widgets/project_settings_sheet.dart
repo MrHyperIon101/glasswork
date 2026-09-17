@@ -13,6 +13,7 @@ import '../motion.dart';
 import '../sheet.dart';
 import '../surface.dart';
 import 'confirm_dialog.dart';
+import 'area_widgets.dart';
 import 'field_controls.dart';
 import 'project_icon_picker.dart';
 
@@ -86,6 +87,8 @@ class _BodyState extends ConsumerState<_Body> {
     final fields =
         ref.watch(fieldsProvider(widget.projectId)).value ?? const [];
     final labels = ref.watch(labelsProvider).value ?? const <Label>[];
+    final areas = ref.watch(areasProvider).value ?? const <Area>[];
+    final inArea = areas.any((a) => a.id == project.areaId);
 
     return CallbackShortcuts(
       bindings: {
@@ -162,6 +165,34 @@ class _BodyState extends ConsumerState<_Body> {
                       onChosen: (icon) =>
                           _scope?.projects.updateProject(project.id, icon: icon),
                     ),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.lg),
+                FieldRow(
+                  label: 'Area',
+                  hint: 'Where the sidebar lists it',
+                  child: Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: [
+                      ComposerChip(
+                        label: 'None',
+                        selected: !inArea,
+                        onTap: () => _scope?.areas.moveProject(project.id, null),
+                      ),
+                      for (final area in areas)
+                        ComposerChip(
+                          key: ValueKey('project-area-${area.id}'),
+                          label: area.name,
+                          selected: project.areaId == area.id,
+                          onTap: () => _scope?.areas.moveProject(project.id, area.id),
+                        ),
+                      ComposerChip(
+                        label: 'New area…',
+                        selected: false,
+                        onTap: () => _newArea(project),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),
@@ -283,6 +314,18 @@ class _BodyState extends ConsumerState<_Body> {
         ],
       ),
     );
+  }
+
+  /// Names a new area and puts this project in it.
+  Future<void> _newArea(Board project) async {
+    final choice = await showAreaDialog(context);
+    final scope = _scope;
+    if (scope == null || choice is! AreaNamed) return;
+    final area = await scope.areas.create(
+      workspaceId: project.workspaceId,
+      name: choice.name,
+    );
+    await scope.areas.moveProject(project.id, area.id);
   }
 
   static const _palette = [

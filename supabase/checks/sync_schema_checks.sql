@@ -155,6 +155,26 @@ select private.check(
    from public.capacity_profiles where id = 'aaaaaaaa-0000-4000-8000-000000000007'),
   'fractions arrive intact, and fields not sent take their defaults');
 
+-- A project moved into an area in the same batch that creates the area, the move first.
+select public.merge_rows(jsonb_build_array(
+  private.check_change('boards', 'aaaaaaaa-0000-4000-8000-000000000002',
+    '{"area_id": "aaaaaaaa-0000-4000-8000-000000000010"}',
+    '001757000000500:00000:laptop'),
+  private.check_change('areas', 'aaaaaaaa-0000-4000-8000-000000000010',
+    '{"workspace_id": "aaaaaaaa-0000-4000-8000-000000000001", "name": "University",
+      "order_key": "a0"}',
+    '001757000000500:00000:laptop')
+));
+
+set constraints all immediate;
+set constraints all deferred;
+
+select private.check(
+  (select a.name = 'University' and b.name = 'Sem V'
+   from public.boards b join public.areas a on a.id = b.area_id
+   where b.id = 'aaaaaaaa-0000-4000-8000-000000000002'),
+  'an area and the project moved into it merge in one batch, in either order');
+
 -- --- merging ----------------------------------------------------------------------------
 
 do $$

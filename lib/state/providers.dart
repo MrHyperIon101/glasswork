@@ -6,6 +6,7 @@ import '../capacity/ledger.dart';
 import '../capacity/scheduler.dart';
 import '../capacity/setting_effects.dart';
 import '../capacity/timetable.dart' as tt;
+import '../data/repository/area_repository.dart';
 import '../data/repository/capacity_repository.dart';
 import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
@@ -34,6 +35,7 @@ class AppScope {
     required this.projects,
     required this.labels,
     required this.notes,
+    required this.areas,
     required this.preferences,
     required this.workspace,
   });
@@ -51,6 +53,7 @@ class AppScope {
   final ProjectRepository projects;
   final LabelRepository labels;
   final NoteRepository notes;
+  final AreaRepository areas;
   final PreferencesRepository preferences;
   final Workspace workspace;
 }
@@ -88,6 +91,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     projects: ProjectRepository(writer),
     labels: LabelRepository(writer),
     notes: NoteRepository(writer),
+    areas: AreaRepository(writer),
     preferences: PreferencesRepository(db),
     workspace: workspace,
   );
@@ -181,6 +185,17 @@ final destinationProvider =
 final projectsProvider = StreamProvider<List<Board>>((ref) async* {
   final scope = await ref.watch(appScopeProvider.future);
   yield* scope.projects.watchProjects(scope.workspace.id);
+});
+
+final areasProvider = StreamProvider<List<Area>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.areas.watchAll(scope.workspace.id);
+});
+
+/// The areas the sidebar shows closed on this device.
+final collapsedAreasProvider = StreamProvider<Set<String>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.preferences.watchCollapsedAreas();
 });
 
 /// Every section in the workspace, so task rows can name their column without a
