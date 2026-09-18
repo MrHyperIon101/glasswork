@@ -54,8 +54,12 @@ fi
 if [[ "$build" == 1 ]]; then
   # The Supabase project to sync with, where this clone has one. Without it the app builds
   # fine and keeps everything on the device: see backend.example.json and the README.
+  # GLASSWORK_NO_BACKEND=1 leaves it out deliberately: that is how the binaries on the
+  # releases page are built, since they are nobody's project to sync with but their own.
   backend=()
-  if [[ -f "$root/backend.json" ]]; then
+  if [[ -n "${GLASSWORK_NO_BACKEND:-}" ]]; then
+    echo "GLASSWORK_NO_BACKEND: building an app that keeps everything on this device." >&2
+  elif [[ -f "$root/backend.json" ]]; then
     backend=(--dart-define-from-file=backend.json)
   else
     echo "No backend.json: building an app that keeps everything on this device." >&2
