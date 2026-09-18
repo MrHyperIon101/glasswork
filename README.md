@@ -1,5 +1,7 @@
 # Glasswork
 
+[![Checks](https://github.com/MrHyperIon101/glasswork/actions/workflows/checks.yml/badge.svg)](https://github.com/MrHyperIon101/glasswork/actions/workflows/checks.yml)
+
 A task app I wrote for myself, because every other one let me plan a week that did not fit
 into the hours I actually had.
 
