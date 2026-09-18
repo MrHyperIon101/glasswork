@@ -61,8 +61,9 @@ uninstalls it from the app entry's menu.
 **Android** — download the `arm64-v8a` APK from the same release and open it. It is signed
 with a debug key, so Android will ask you to allow installing from an unknown source.
 
-Builds from Releases sync with **my** project only if you build with your own configuration —
-the published binaries carry none, so out of the box they keep everything on the device.
+The binaries on the releases page are built without any server configuration, so they keep
+everything on the device and nothing of yours goes anywhere. Sync needs a Supabase project
+of your own — see below.
 
 ## Building it yourself
 
@@ -80,6 +81,9 @@ To package the Linux installer, which builds the release app first:
 linux/packaging/build_installer.sh
 # → build/linux/installer/Glasswork-Setup-<version>-x86_64
 ```
+
+It picks up `backend.json` if you have one; `GLASSWORK_NO_BACKEND=1` leaves it out, which is
+how the released file is built.
 
 For the phone:
 
