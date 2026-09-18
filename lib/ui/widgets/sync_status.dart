@@ -19,6 +19,7 @@ Color syncToneColour(SyncTone tone) => switch (tone) {
 /// The glyph for where sync stands.
 IconData syncIcon(SyncState state) => switch (state) {
   SyncStarting() => Icons.cloud_outlined,
+  SyncUnconfigured() => Icons.cloud_off_outlined,
   SyncSignedOut() => Icons.cloud_off_outlined,
   SyncLinking() => Icons.cloud_sync_outlined,
   SyncChoosing() => Icons.call_split_rounded,

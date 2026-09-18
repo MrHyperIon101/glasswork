@@ -32,6 +32,11 @@ final class SyncStarting extends SyncState {
   const SyncStarting();
 }
 
+/// This build has no project to sync with. Everything else works; nothing leaves the device.
+final class SyncUnconfigured extends SyncState {
+  const SyncUnconfigured();
+}
+
 /// Not signed in. Everything works; nothing leaves this device.
 final class SyncSignedOut extends SyncState {
   const SyncSignedOut({this.notice});
@@ -124,7 +129,15 @@ final class SyncOn extends SyncState {
 
 // --- providers --------------------------------------------------------------------------
 
+/// Whether this build was given a project to sync with.
+///
+/// A provider rather than the constant itself, so a test that supplies its own client is a
+/// build with a project, whatever the constants say.
+final backendConfiguredProvider = Provider<bool>((ref) => BackendConfig.configured);
+
 /// The Supabase client. One for the app's lifetime, because it holds the session.
+///
+/// Only ever read where [backendConfiguredProvider] says there is a project to talk to.
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   final client = SupabaseClient(
     BackendConfig.url,
@@ -234,6 +247,9 @@ class SyncController extends Notifier<SyncState> {
   @override
   SyncState build() {
     ref.onDispose(_stop);
+    // A build given no project keeps everything on this device, and says so rather than
+    // offering a sign-in that could not work.
+    if (!ref.watch(backendConfiguredProvider)) return const SyncUnconfigured();
     _auth = ref.watch(syncAuthProvider);
     _feed = ref.watch(changeFeedProvider);
 

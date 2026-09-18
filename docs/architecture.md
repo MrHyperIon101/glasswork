@@ -1,4 +1,7 @@
-# Glasswork
+# How Glasswork is built
+
+The decisions behind the app, and the rules I hold it to. Read this before changing anything
+in `lib/sync` or `lib/capacity`.
 
 Personal task app. Local-first, cloud-synced. Linux + Android for v1 (web is post-v1, do not add it).
 

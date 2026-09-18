@@ -77,6 +77,11 @@ void main() {
 
   test('before syncing, each step reads as itself', () {
     expect(summarizeSync(const SyncSignedOut(), now).title, 'Sync is off');
+    // A build with no project behind it says why, rather than offering a sign-in.
+    expect(
+      summarizeSync(const SyncUnconfigured(), now).detail,
+      'This build has no server set up',
+    );
     expect(summarizeSync(const SyncLinking(account: account), now).tone, SyncTone.active);
     expect(
       summarizeSync(const SyncLinking(account: account, error: 'offline'), now).tone,

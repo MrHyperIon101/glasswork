@@ -52,7 +52,15 @@ if ! pkg-config --exists gtk+-3.0; then
 fi
 
 if [[ "$build" == 1 ]]; then
-  (cd "$root" && flutter build linux --release)
+  # The Supabase project to sync with, where this clone has one. Without it the app builds
+  # fine and keeps everything on the device: see backend.example.json and the README.
+  backend=()
+  if [[ -f "$root/backend.json" ]]; then
+    backend=(--dart-define-from-file=backend.json)
+  else
+    echo "No backend.json: building an app that keeps everything on this device." >&2
+  fi
+  (cd "$root" && flutter build linux --release "${backend[@]}")
 fi
 if [[ ! -x "$bundle/glasswork" ]]; then
   echo "There is no app to package at $bundle." >&2

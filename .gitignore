@@ -46,3 +46,21 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# The Supabase project this clone syncs with. Copy backend.example.json to backend.json
+# and put your own project's URL and publishable key in it.
+/backend.json
+
+# Signing
+*.jks
+*.keystore
+/android/key.properties
+
+# Environments
+.env
+.env.*
+!.env.example
+
+# Working notes and scratch images that belong to me, not to the repository.
+/CLAUDE.md
+/Gemini_Generated_Image_*.png

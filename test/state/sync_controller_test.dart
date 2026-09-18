@@ -40,6 +40,8 @@ void main() {
       overrides: [
         databaseProvider.overrideWith((ref) => db),
         changeFeedProvider.overrideWith((ref) => feed),
+        // A build with a project behind it, which the client below stands in for.
+        backendConfiguredProvider.overrideWithValue(true),
         supabaseClientProvider.overrideWith((ref) {
           final client = SupabaseClient(
             'https://project.supabase.co',
