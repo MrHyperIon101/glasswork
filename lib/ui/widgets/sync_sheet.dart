@@ -54,6 +54,7 @@ class _Body extends ConsumerWidget {
       alignment: Alignment.topCenter,
       child: switch (state) {
         SyncStarting() => _Checking(onClose: onClose),
+        SyncUnconfigured() => _Unconfigured(onClose: onClose),
         final SyncSignedOut s => _AccountStep(notice: s.notice, onClose: onClose),
         final SyncLinking s => _LinkingStep(state: s, onClose: onClose),
         final SyncChoosing s => _ChoiceStep(state: s),
@@ -164,6 +165,22 @@ class _Checking extends StatelessWidget {
   Widget build(BuildContext context) => _Frame(
     title: 'Sync',
     subtitle: 'Checking whether this device is signed in…',
+    actions: [PrimaryButton(label: 'Done', enabled: true, onTap: onClose)],
+  );
+}
+
+/// A build with no Supabase project behind it: everything works, on this device alone.
+class _Unconfigured extends StatelessWidget {
+  const _Unconfigured({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) => _Frame(
+    title: 'Sync is off',
+    subtitle:
+        'This build has no server set up, so your work stays on this device. '
+        'Building it with a Supabase project of your own turns sync on — the README says how.',
     actions: [PrimaryButton(label: 'Done', enabled: true, onTap: onClose)],
   );
 }

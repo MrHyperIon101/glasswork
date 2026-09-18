@@ -34,6 +34,12 @@ SyncSummary summarizeSync(SyncState state, DateTime now) {
         detail: 'Checking…',
         tone: SyncTone.quiet,
       );
+    case SyncUnconfigured():
+      return const SyncSummary(
+        title: 'Sync is off',
+        detail: 'This build has no server set up',
+        tone: SyncTone.quiet,
+      );
     case SyncSignedOut():
       return const SyncSummary(
         title: 'Sync is off',

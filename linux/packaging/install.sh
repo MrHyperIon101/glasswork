@@ -2,7 +2,7 @@
 # Installs the Linux release build for this user, or updates an earlier install, through the
 # same installer anyone else would open. See build_installer.sh to make that installer.
 #
-#   flutter build linux --release
+#   flutter build linux --release --dart-define-from-file=backend.json
 #   linux/packaging/install.sh               install, or update an earlier install
 #   linux/packaging/install.sh --uninstall   remove it again, keeping your tasks
 #
