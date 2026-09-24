@@ -189,6 +189,20 @@ final _states = <_State>[
       app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
       app.read(projectViewModeProvider.notifier).set(data.courseworkId, view);
     }),
+  // Finished work folded away: on a board the column shrinks to a strip with its name on
+  // its side, which is a layout of its own and worth rendering at every size.
+  _State('project, completed folded', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
+    app.read(projectViewModeProvider.notifier).set(data.courseworkId, BoardView.board);
+    // Set rather than tapped: on a phone the column it folds is off the side of the
+    // board until you swipe to it, and this is about how it draws, not how it is asked.
+    await tester.runAsync(
+      () => app.read(appScopeProvider).value!.preferences.setCompletedCollapsed(
+        data.courseworkId,
+        collapsed: true,
+      ),
+    );
+  }),
   _State('project, filtered', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
     app.read(projectViewModeProvider.notifier).set(data.courseworkId, BoardView.list);

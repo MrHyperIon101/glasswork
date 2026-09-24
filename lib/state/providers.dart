@@ -17,7 +17,9 @@ import '../data/repository/project_repository.dart';
 import '../data/repository/subtask_repository.dart';
 import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
+import '../data/completed.dart';
 import '../data/project_filter.dart';
+import '../data/task_order.dart';
 import '../data/task_slots.dart';
 import '../data/task_stats.dart';
 import '../images/image_store.dart';
@@ -234,6 +236,29 @@ final sectionsProvider = StreamProvider.family<List<BoardList>, String>((
   yield* scope.projects.watchSections(projectId);
 });
 
+/// The section a project draws its finished work under, where it has one. Null means the
+/// board adds a completed column of its own rather than borrowing a section.
+final completedSectionProvider = Provider.family<BoardList?, String>((
+  ref,
+  projectId,
+) {
+  final sections = ref.watch(sectionsProvider(projectId)).value ?? const [];
+  return CompletedSection.of(sections);
+});
+
+/// The projects showing their completed work folded away on this device.
+final collapsedCompletedProvider = StreamProvider<Set<String>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.preferences.watchCollapsedCompleted();
+});
+
+/// Whether [ownerId] — a project, or [CollapsedCompleted.smartViews] — has its completed
+/// work folded away here.
+final completedCollapsedProvider = Provider.family<bool, String>(
+  (ref, ownerId) =>
+      (ref.watch(collapsedCompletedProvider).value ?? const <String>{}).contains(ownerId),
+);
+
 final fieldsProvider = StreamProvider.family<List<FieldDef>, String>((
   ref,
   projectId,
@@ -297,14 +322,20 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
   final all = ref.watch(allTasksProvider).value ?? const <Task>[];
   final query = ref.watch(searchQueryProvider).trim().toLowerCase();
 
+  // A collection drawn from several sections has no manual order to respect: order keys
+  // only compare within one section, so left as they are these views would come out in
+  // an order nobody chose. Newest added first, everywhere one of them is shown.
   if (query.isNotEmpty) {
-    return all
-        .where(
-          (t) =>
-              t.title.toLowerCase().contains(query) ||
-              (t.notesMd?.toLowerCase().contains(query) ?? false),
-        )
-        .toList();
+    return TaskOrder.by(
+      TaskSort.added,
+      all
+          .where(
+            (t) =>
+                t.title.toLowerCase().contains(query) ||
+                (t.notesMd?.toLowerCase().contains(query) ?? false),
+          )
+          .toList(),
+    );
   }
 
   final today = DateTime.now();
@@ -315,16 +346,24 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
     CapacityDestination() ||
     NotesDestination() ||
     SettingsDestination() => const <Task>[],
-    DoneDestination() =>
+    DoneDestination() => TaskOrder.by(
+      TaskSort.added,
       all.where((t) => t.status == TaskStatus.done).toList(),
-    AllDestination() => all.where((t) => t.status != TaskStatus.done).toList(),
-    UpcomingDestination() => all.where((t) {
-      if (t.status == TaskStatus.done) return false;
-      final due = TaskStats.dueDayOf(t);
-      if (due == null) return false;
-      return !due.isBefore(startOfToday) &&
-          due.isBefore(startOfToday.add(const Duration(days: 8)));
-    }).toList(),
+    ),
+    AllDestination() => TaskOrder.by(
+      TaskSort.added,
+      all.where((t) => t.status != TaskStatus.done).toList(),
+    ),
+    UpcomingDestination() => TaskOrder.by(
+      TaskSort.added,
+      all.where((t) {
+        if (t.status == TaskStatus.done) return false;
+        final due = TaskStats.dueDayOf(t);
+        if (due == null) return false;
+        return !due.isBefore(startOfToday) &&
+            due.isBefore(startOfToday.add(const Duration(days: 8)));
+      }).toList(),
+    ),
     ProjectDestination(:final projectId) => _tasksInProject(ref, all, projectId),
   };
 });
@@ -662,7 +701,10 @@ class ProjectFilterState extends Notifier<ProjectFilter> {
 
   void setHideCompleted(bool v) => state = state.copyWith(hideCompleted: v);
   void setOnlyAtRisk(bool v) => state = state.copyWith(onlyAtRisk: v);
-  void clear() => state = ProjectFilter.empty;
+  /// Clears what is hidden. The sort is not a filter, so it stays.
+  void clear() => state = ProjectFilter(sort: state.sort);
+
+  void setSort(TaskSort sort) => state = state.copyWith(sort: sort);
 
   /// Applies a saved view's filter wholesale.
   void replace(ProjectFilter filter) => state = filter;
@@ -690,14 +732,15 @@ final effectiveProjectFilterProvider = Provider<ProjectFilter>((ref) {
 final filteredProjectTasksProvider = Provider<List<Task>>((ref) {
   final tasks = ref.watch(visibleTasksProvider);
   final filter = ref.watch(effectiveProjectFilterProvider);
-  if (filter.isEmpty) return tasks;
+  // Manual is the order the rows already carry, so it costs nothing to ask for.
+  if (filter.isEmpty) return TaskOrder.by(filter.sort, tasks);
 
   final assignments = ref.watch(labelAssignmentsProvider).value ?? const {};
   final atRisk = {
     for (final s in ref.watch(scheduleProvider).impossible) s.task.id,
   };
 
-  return tasks.where((t) {
+  final kept = tasks.where((t) {
     if (filter.hideCompleted && t.status == TaskStatus.done) return false;
     if (filter.onlyAtRisk && !atRisk.contains(t.id)) return false;
     if (filter.priorities.isNotEmpty &&
@@ -710,6 +753,8 @@ final filteredProjectTasksProvider = Provider<List<Task>>((ref) {
     }
     return true;
   }).toList();
+
+  return TaskOrder.by(filter.sort, kept);
 });
 
 /// Which timetable set the Time budget screen is editing.

@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/scheduler.dart';
+import '../../data/completed.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../data/task_order.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
 import '../layout.dart';
+import '../motion.dart';
+import '../task_actions.dart';
+import 'completed_group.dart';
 import 'task_chips.dart';
 
 /// Kanban board for a project.
@@ -16,6 +21,11 @@ import 'task_chips.dart';
 /// parallel concept. Dragging a card writes exactly one row: the section change and the
 /// new fractional order key are a single update, so a cross-column move never loses the
 /// task's identity, its steps or its history.
+///
+/// The last column is finished work, wherever it is filed: the section the project calls
+/// Done, or one the board adds when it has none. Dropping a card there ticks it off and
+/// dragging it out again reopens it, and because ticking moves nothing, a card reopened
+/// anywhere else goes back to the section it always had.
 class BoardKanban extends ConsumerWidget {
   const BoardKanban({required this.projectId, super.key});
 
@@ -34,6 +44,12 @@ class BoardKanban extends ConsumerWidget {
       );
     }
 
+    final completedSection = ref.watch(completedSectionProvider(projectId));
+    final completed = TaskOrder.collected(
+      ref.watch(effectiveProjectFilterProvider).sort,
+      CompletedSection.done(tasks),
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Where a full-width column would fill the view, a column leaves the next one
@@ -47,18 +63,179 @@ class BoardKanban extends ConsumerWidget {
           scrollDirection: Axis.horizontal,
           children: [
             for (final section in sections)
-              _Column(
-                projectId: projectId,
-                section: section,
-                width: width,
-                tasks: tasks.where((t) => t.listId == section.id).toList(),
-              ),
+              if (section.id != completedSection?.id)
+                _Column(
+                  projectId: projectId,
+                  section: section,
+                  width: width,
+                  tasks: CompletedSection.openIn(tasks, section.id),
+                ),
+            _CompletedColumn(
+              projectId: projectId,
+              section: completedSection,
+              width: width,
+              // Anything open still filed under the section stays visible above the
+              // finished work rather than disappearing with it.
+              open: completedSection == null
+                  ? const []
+                  : CompletedSection.openIn(tasks, completedSection.id),
+              completed: completed,
+            ),
             const _AddSectionColumn(),
           ],
         );
       },
     );
   }
+}
+
+/// Finished work, drawn where a board expects it: the far end.
+class _CompletedColumn extends ConsumerStatefulWidget {
+  const _CompletedColumn({
+    required this.projectId,
+    required this.section,
+    required this.width,
+    required this.open,
+    required this.completed,
+  });
+
+  final String projectId;
+
+  /// The section the project files finished work under, where it has one. Without one
+  /// this column belongs to no section, and dropping on it only ticks the card off.
+  final BoardList? section;
+
+  final double width;
+  final List<Task> open;
+  final List<Task> completed;
+
+  @override
+  ConsumerState<_CompletedColumn> createState() => _CompletedColumnState();
+}
+
+class _CompletedColumnState extends ConsumerState<_CompletedColumn> {
+  bool _dragOver = false;
+
+  /// Folded, the column keeps its place on the board but gives its width back to the
+  /// work still open.
+  static const _foldedWidth = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final folded = ref.watch(completedCollapsedProvider(widget.projectId));
+
+    return DragTarget<Task>(
+      onWillAcceptWithDetails: (details) =>
+          details.data.status != TaskStatus.done,
+      onMove: (_) {
+        if (!_dragOver) setState(() => _dragOver = true);
+      },
+      onLeave: (_) => setState(() => _dragOver = false),
+      onAcceptWithDetails: (details) async {
+        setState(() => _dragOver = false);
+        await setTaskDone(ref, details.data, done: true);
+      },
+      builder: (context, candidate, rejected) => AnimatedContainer(
+        duration: AppMotion.of(context, AppMotion.quick),
+        curve: AppMotion.standard,
+        width: folded ? _foldedWidth : widget.width,
+        margin: const EdgeInsets.only(right: AppSpace.md),
+        padding: const EdgeInsets.all(AppSpace.sm),
+        decoration: BoxDecoration(
+          color: _dragOver ? AppColour.fillStrong : AppColour.surface,
+          borderRadius: AppRadius.largeAll,
+          border: Border.all(
+            color: _dragOver
+                ? AppColour.green.withValues(alpha: 0.6)
+                : const Color(0x00000000),
+          ),
+        ),
+        child: folded
+            ? _Folded(projectId: widget.projectId, count: widget.completed.length)
+            : Column(
+                children: [
+                  CompletedHeader(
+                    ownerId: widget.projectId,
+                    count: widget.completed.length,
+                    dense: true,
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(top: AppSpace.xs),
+                      children: [
+                        for (final task in widget.open)
+                          _CardSlot(
+                            task: task,
+                            section: widget.section!,
+                            above: null,
+                          ),
+                        for (final task in widget.completed) _Card(task: task),
+                        if (widget.open.isEmpty && widget.completed.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(AppSpace.lg),
+                            child: Text(
+                              'Drop here to tick it off',
+                              textAlign: TextAlign.center,
+                              style: AppText.footnote.copyWith(
+                                color: AppColour.labelQuaternary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// The folded column: its name on its side, and how much is in it.
+class _Folded extends ConsumerWidget {
+  const _Folded({required this.projectId, required this.count});
+
+  final String projectId;
+  final int count;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Pressable(
+    onTap: () {
+      final scope = ref.read(appScopeProvider).value;
+      scope?.preferences.setCompletedCollapsed(projectId, collapsed: false);
+    },
+    child: Tooltip(
+      message: 'Show completed',
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpace.sm),
+            child: Icon(
+              Icons.keyboard_arrow_right_rounded,
+              size: 16,
+              color: AppColour.labelTertiary,
+            ),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          AnimatedCount(count, style: AppText.numeric),
+          const SizedBox(height: AppSpace.sm),
+          Expanded(
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: Text(
+                'Completed',
+                textAlign: TextAlign.center,
+                style: AppText.caption,
+                overflow: TextOverflow.clip,
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Column extends ConsumerStatefulWidget {
@@ -94,8 +271,11 @@ class _ColumnState extends ConsumerState<_Column> {
     return DragTarget<Task>(
       onWillAcceptWithDetails: (details) {
         // Dropping into the column it already lives in is handled by the card-level
-        // targets, which know where in the order it went.
-        return details.data.listId != section.id;
+        // targets, which know where in the order it went — unless the card is finished,
+        // where the drop means "pick this up again" and the section it names is the one
+        // it never left.
+        return details.data.listId != section.id ||
+            details.data.status == TaskStatus.done;
       },
       onMove: (_) {
         if (!_dragOver) setState(() => _dragOver = true);
@@ -104,7 +284,13 @@ class _ColumnState extends ConsumerState<_Column> {
       onAcceptWithDetails: (details) async {
         setState(() => _dragOver = false);
         final scope = ref.read(appScopeProvider).value;
-        await scope?.tasks.moveToSection(details.data.id, section.id);
+        if (details.data.listId != section.id) {
+          await scope?.tasks.moveToSection(details.data.id, section.id);
+        }
+        // Dragged out of the completed column, a card is being picked up again.
+        if (details.data.status == TaskStatus.done) {
+          await setTaskDone(ref, details.data, done: false);
+        }
       },
       builder: (context, candidate, rejected) {
         return AnimatedContainer(
@@ -261,6 +447,10 @@ class _CardSlotState extends ConsumerState<_CardSlot> {
               afterId: widget.above?.id,
               beforeId: widget.task.id,
             );
+            if (details.data.status == TaskStatus.done &&
+                widget.task.status != TaskStatus.done) {
+              await setTaskDone(ref, details.data, done: false);
+            }
           },
           builder: (context, candidate, rejected) => AnimatedContainer(
             duration: AppMotion.quick,

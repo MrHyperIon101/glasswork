@@ -44,6 +44,14 @@ land a pixel or two apart.
 `(order_key, client_id)` — the client_id tiebreak is required, because two offline clients inserting
 between the same neighbours generate the identical key.
 
+**That order only means anything inside one section.** Order keys from different sections are not
+comparable, so anything that collects tasks from several — a smart view, a search, a project's
+completed work — orders them itself, newest added first, through `TaskOrder` (`lib/data/task_order.dart`).
+`created_at` is kept to the second, which a pasted list of tasks all share, so the order key breaks
+that tie (within a section it is the order they were appended in) and the id breaks the last one: the
+comparison is total, and every device lands on the same answer. A project view can ask for another
+order — added, due, priority — and a saved view keeps it.
+
 **Never hard-delete a synced row.** Set `deleted_at`.
 
 **Every destructive action is undoable for 5 seconds.**
@@ -279,6 +287,18 @@ list, one task a line, each line read the way a single title is.
 ---
 
 ## Projects and areas
+
+- **Finished work is shown in one place, not moved there.** Ticking a task off writes nothing but
+  its status: the row keeps the section it was filed under, and the views draw it under the project's
+  completed column instead — `CompletedSection.of` (`lib/data/completed.dart`) picks that column by
+  the `lists.is_done_column` flag, falling back to a section named for it, and the board adds a
+  column of its own where a project has neither. So reopening a task puts it straight back where it
+  came from with nothing remembered, and renaming or deleting a Done section loses no work. Dropping
+  a card on that column ticks it off; dragging one out reopens it. Every way of completing a task
+  goes through `setTaskDone` (`lib/ui/task_actions.dart`), which offers the same five seconds of undo
+  as a deletion — ticking the wrong line is as easy as deleting it, and on a board it happens with a
+  drag. Which projects show their completed work folded away is this device's own, kept in
+  `LocalSettings` beside the closed areas.
 
 - **A project's icon** is its `icon` text: `sym:` and a name for one of `ProjectIcon.symbols`, drawn
   in the project's colour, and anything else is an emoji or letters typed in, kept as the first two

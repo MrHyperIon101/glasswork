@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/completed.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../data/repository/project_repository.dart';
@@ -231,6 +232,7 @@ class _BodyState extends ConsumerState<_Body> {
                     canDelete: sections.length > 1,
                     onDelete: () => _deleteSection(section),
                   ),
+                if (sections.length > 1) _CompletedChoice(sections: sections),
 
                 const SizedBox(height: AppSpace.xxl),
                 _Heading(
@@ -586,6 +588,91 @@ class _SectionRowState extends ConsumerState<_SectionRow> {
       ),
     );
   }
+}
+
+/// Which section finished work is filed under.
+///
+/// Ticking a task off draws it here instead of in its own section, wherever it was — the
+/// row is not moved, so reopening it puts it straight back.
+class _CompletedChoice extends ConsumerWidget {
+  const _CompletedChoice({required this.sections});
+
+  final List<BoardList> sections;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chosen = CompletedSection.of(sections);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpace.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Completed work shows under',
+            style: AppText.footnote.copyWith(color: AppColour.labelSecondary),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.sm,
+            children: [
+              for (final section in sections)
+                _CompletedOption(
+                  section: section,
+                  selected: section.id == chosen?.id,
+                  onTap: () => ref
+                      .read(appScopeProvider)
+                      .value
+                      ?.projects
+                      .setCompletedSection(section.boardId, section.id),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletedOption extends StatelessWidget {
+  const _CompletedOption({
+    required this.section,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final BoardList section;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: Pressable(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.of(context, AppMotion.quick),
+        curve: AppMotion.standard,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.md,
+          vertical: AppSpace.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColour.accent.withValues(alpha: 0.18)
+              : AppColour.fill,
+          borderRadius: AppRadius.smallAll,
+        ),
+        child: Text(
+          section.name,
+          style: AppText.footnote.copyWith(
+            color: selected ? AppColour.accent : AppColour.labelSecondary,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _FieldDefRow extends StatelessWidget {

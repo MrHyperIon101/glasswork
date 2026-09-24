@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/completed.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
+import '../../data/task_order.dart';
 import '../../data/task_stats.dart';
 import '../../state/providers.dart';
 import '../../state/undo_controller.dart';
@@ -11,8 +13,10 @@ import '../format.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
+import '../task_actions.dart';
 import '../widgets/board_view.dart';
 import '../widgets/calendar_view.dart';
+import '../widgets/completed_group.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/content_header.dart';
 import '../widgets/filter_bar.dart';
@@ -533,7 +537,12 @@ class _ViewSwitcher extends ConsumerWidget {
   }
 }
 
-/// List view, grouped by section with headers.
+/// List view, grouped by section with headers, and finished work folded in under one of
+/// its own.
+///
+/// A section shows the work still open in it. Completed tasks are not taken out of their
+/// section — the row is untouched — they are simply drawn under Completed until they are
+/// reopened, which is what puts them straight back where they were.
 class _SectionedList extends ConsumerWidget {
   const _SectionedList({required this.projectId, required this.tasks});
 
@@ -546,62 +555,78 @@ class _SectionedList extends ConsumerWidget {
     final sections = ref.watch(sectionsProvider(projectId)).value ?? const [];
     if (scope == null) return const SizedBox.shrink();
 
+    final completedSection = ref.watch(completedSectionProvider(projectId));
+    final completed = TaskOrder.collected(
+      ref.watch(effectiveProjectFilterProvider).sort,
+      CompletedSection.done(tasks),
+    );
+    final folded = ref.watch(completedCollapsedProvider(projectId));
+
+    Widget row(Task task) => TaskRow(
+      task: task,
+      onToggle: () =>
+          setTaskDone(ref, task, done: task.status != TaskStatus.done),
+      onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
+      onDelete: () async {
+        await scope.tasks.softDelete(task.id);
+        ref
+            .read(undoProvider.notifier)
+            .offer(
+              'Deleted "${task.title}"',
+              () => scope.tasks.restore(task.id),
+            );
+      },
+    );
+
+    Widget rows(List<Task> tasks) => AnimatedItems<Task>(
+      items: tasks,
+      keyOf: (task) => task.id,
+      itemBuilder: (context, task) => row(task),
+    );
+
+    final children = <Widget>[];
+    for (final section in sections) {
+      final open = CompletedSection.openIn(tasks, section.id);
+      // A section for finished work has nothing of its own to show once the work in it
+      // is finished: Completed below is already that heading.
+      if (section.id == completedSection?.id && open.isEmpty) continue;
+
+      children
+        ..add(_SectionHeader(section: section, count: open.length))
+        ..add(rows(open));
+      if (open.isEmpty) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.md,
+              AppSpace.xs,
+              AppSpace.md,
+              AppSpace.md,
+            ),
+            child: Text(
+              'Nothing in ${section.name.toLowerCase()}',
+              style: AppText.footnote.copyWith(color: AppColour.labelQuaternary),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (completed.isNotEmpty) {
+      children.add(CompletedHeader(ownerId: projectId, count: completed.length));
+      if (!folded) children.add(rows(completed));
+    }
+
+    // Sections were only addable from the board. The same project cannot have
+    // different capabilities depending on which view you happen to be in.
+    children.add(_AddSectionRow(projectId: projectId));
+
     return AppSurface(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpace.md,
         vertical: AppSpace.md,
       ),
-      child: ListView(
-        children: [
-          for (final section in sections) ...[
-            _SectionHeader(
-              section: section,
-              count: tasks.where((t) => t.listId == section.id).length,
-            ),
-            for (final task in tasks.where((t) => t.listId == section.id))
-              FadeSlideIn(
-                key: ValueKey(task.id),
-                child: TaskRow(
-                  task: task,
-                  onToggle: () => scope.tasks.setDone(
-                    task.id,
-                    done: task.status != TaskStatus.done,
-                  ),
-                  onTap: () =>
-                      ref.read(openTaskProvider.notifier).open(task.id),
-                  onDelete: () async {
-                    await scope.tasks.softDelete(task.id);
-                    ref
-                        .read(undoProvider.notifier)
-                        .offer(
-                          'Deleted "${task.title}"',
-                          () => scope.tasks.restore(task.id),
-                        );
-                  },
-                ),
-              ),
-            if (tasks.where((t) => t.listId == section.id).isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpace.md,
-                  AppSpace.xs,
-                  AppSpace.md,
-                  AppSpace.md,
-                ),
-                child: Text(
-                  'Nothing in ${section.name.toLowerCase()}',
-                  style: AppText.footnote.copyWith(
-                    color: AppColour.labelQuaternary,
-                  ),
-                ),
-              ),
-          ],
-
-          // Sections were only addable from the board. The same project cannot have
-          // different capabilities depending on which view you happen to be in.
-          _AddSectionRow(projectId: projectId),
-        ],
-      ),
+      child: ListView(children: children),
     );
   }
 }

@@ -33,14 +33,22 @@ abstract final class ProjectGroups {
   }
 }
 
-/// Which areas the sidebar shows closed, as this device keeps them: area ids, separated.
-abstract final class CollapsedAreas {
-  static const key = 'sidebar.collapsed_areas';
-
+/// A set of ids kept in one `LocalSettings` row, separated by commas — how this device
+/// remembers what it has folded away.
+abstract final class IdSet {
   static Set<String> parse(String? stored) => {
     for (final id in (stored ?? '').split(','))
       if (id.trim().isNotEmpty) id.trim(),
   };
 
   static String format(Set<String> ids) => (ids.toList()..sort()).join(',');
+}
+
+/// Which areas the sidebar shows closed, as this device keeps them.
+abstract final class CollapsedAreas {
+  static const key = 'sidebar.collapsed_areas';
+
+  static Set<String> parse(String? stored) => IdSet.parse(stored);
+
+  static String format(Set<String> ids) => IdSet.format(ids);
 }

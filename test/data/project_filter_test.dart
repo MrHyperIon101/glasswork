@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/data/project_filter.dart';
+import 'package:glasswork/data/task_order.dart';
 
 void main() {
   test('an empty filter round-trips', () {
@@ -84,5 +85,21 @@ void main() {
   test('pruning returns the same instance when nothing changed', () {
     const filter = ProjectFilter(labelIds: {'a'});
     expect(filter.pruned({'a', 'b'}), same(filter));
+  });
+
+  test('a saved view keeps how it was ordered as well as what it hid', () {
+    const filter = ProjectFilter(sort: TaskSort.due, hideCompleted: true);
+    expect(ProjectFilter.decode(filter.encode()), filter);
+  });
+
+  test('the default order is not written, and an unknown one reads as the default', () {
+    expect(ProjectFilter.empty.encode(), '{}');
+    expect(ProjectFilter.decode('{"sort":"whatever-comes-next"}').sort, TaskSort.manual);
+  });
+
+  test('ordering hides nothing, so it is no part of what the bar counts', () {
+    const filter = ProjectFilter(sort: TaskSort.priority);
+    expect(filter.isEmpty, isTrue);
+    expect(filter.activeCount, 0);
   });
 }

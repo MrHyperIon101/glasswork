@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'task_order.dart';
+
 /// What is being hidden from the current project view.
 ///
 /// Kept out of the provider file and free of Flutter so it can be tested directly, and
@@ -11,12 +13,18 @@ class ProjectFilter {
     this.priorities = const {},
     this.hideCompleted = false,
     this.onlyAtRisk = false,
+    this.sort = TaskSort.manual,
   });
 
   final Set<String> labelIds;
   final Set<int> priorities;
   final bool hideCompleted;
   final bool onlyAtRisk;
+
+  /// How what is left is ordered. Not a filter — it hides nothing, so it is no part of
+  /// [isEmpty] and Clear leaves it alone — but it belongs to the view, and so is saved
+  /// and restored with one.
+  final TaskSort sort;
 
   static const empty = ProjectFilter();
 
@@ -34,11 +42,13 @@ class ProjectFilter {
     Set<int>? priorities,
     bool? hideCompleted,
     bool? onlyAtRisk,
+    TaskSort? sort,
   }) => ProjectFilter(
     labelIds: labelIds ?? this.labelIds,
     priorities: priorities ?? this.priorities,
     hideCompleted: hideCompleted ?? this.hideCompleted,
     onlyAtRisk: onlyAtRisk ?? this.onlyAtRisk,
+    sort: sort ?? this.sort,
   );
 
   /// Only non-default values are written, so a stored filter stays readable and adding a
@@ -49,6 +59,7 @@ class ProjectFilter {
       if (priorities.isNotEmpty) 'priorities': priorities.toList()..sort(),
       if (hideCompleted) 'hideCompleted': true,
       if (onlyAtRisk) 'onlyAtRisk': true,
+      if (sort != TaskSort.manual) 'sort': sort.name,
     };
     return jsonEncode(map);
   }
@@ -72,6 +83,7 @@ class ProjectFilter {
       priorities: _ints(raw['priorities']),
       hideCompleted: raw['hideCompleted'] == true,
       onlyAtRisk: raw['onlyAtRisk'] == true,
+      sort: TaskSort.named(raw['sort']) ?? TaskSort.manual,
     );
   }
 
@@ -95,6 +107,7 @@ class ProjectFilter {
       other is ProjectFilter &&
       other.hideCompleted == hideCompleted &&
       other.onlyAtRisk == onlyAtRisk &&
+      other.sort == sort &&
       _sameSet(other.labelIds, labelIds) &&
       _sameSet(other.priorities, priorities);
 
@@ -102,6 +115,7 @@ class ProjectFilter {
   int get hashCode => Object.hash(
     hideCompleted,
     onlyAtRisk,
+    sort,
     Object.hashAllUnordered(labelIds),
     Object.hashAllUnordered(priorities),
   );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/completed.dart';
 import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../state/providers.dart';
@@ -9,6 +10,8 @@ import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
 import '../surface.dart';
+import '../task_actions.dart';
+import '../widgets/completed_group.dart';
 import '../widgets/content_header.dart';
 import '../widgets/task_row.dart';
 
@@ -94,6 +97,10 @@ class _Rows extends ConsumerWidget {
     final open = tasks.where((t) => t.status != TaskStatus.done).toList();
     final done = tasks.where((t) => t.status == TaskStatus.done).toList();
 
+    final folded =
+        open.isNotEmpty &&
+        ref.watch(completedCollapsedProvider(CollapsedCompleted.smartViews));
+
     // Manual order only means something inside a project. Smart views are queries, and
     // letting you drag rows there would imply an ordering the app cannot store.
     final reorderable =
@@ -105,7 +112,7 @@ class _Rows extends ConsumerWidget {
       child: TaskRow(
       task: task,
       onToggle: () =>
-          scope.tasks.setDone(task.id, done: task.status != TaskStatus.done),
+          setTaskDone(ref, task, done: task.status != TaskStatus.done),
       onTap: () => ref.read(openTaskProvider.notifier).open(task.id),
       onDelete: () async {
         await scope.tasks.softDelete(task.id);
@@ -155,23 +162,21 @@ class _Rows extends ConsumerWidget {
             itemBuilder: (context, i) => row(open[i]),
           ),
 
+        // A heading only where there is open work to tell it apart from; the Completed
+        // view is already called that, and does not need saying twice.
         if (done.isNotEmpty && open.isNotEmpty)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.md,
-                AppSpace.lg,
-                AppSpace.md,
-                AppSpace.sm,
-              ),
-              child: Text('Completed', style: AppText.caption),
+            child: CompletedHeader(
+              ownerId: CollapsedCompleted.smartViews,
+              count: done.length,
             ),
           ),
 
-        SliverList.builder(
-          itemCount: done.length,
-          itemBuilder: (context, i) => row(done[i]),
-        ),
+        if (!folded)
+          SliverList.builder(
+            itemCount: done.length,
+            itemBuilder: (context, i) => row(done[i]),
+          ),
       ],
     );
   }

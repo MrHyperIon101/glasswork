@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
+import '../../data/task_order.dart';
 import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
@@ -47,10 +48,14 @@ class _FilterBarState extends ConsumerState<FilterBar> {
         setState(() => _open = false);
       },
     );
-    // Says what the filter is doing to the list, not just that one exists.
+    // Says what the filter is doing to the list, not just that one exists — and how the
+    // list is ordered, which is otherwise invisible once the panel is shut.
+    final ordered = filter.sort == TaskSort.manual
+        ? ''
+        : ', by ${filter.sort.label.toLowerCase()}';
     final count = Text(
       '${ref.watch(filteredProjectTasksProvider).length} of '
-      '${ref.watch(visibleTasksProvider).length} shown',
+      '${ref.watch(visibleTasksProvider).length} shown$ordered',
       style: AppText.numeric,
     );
     final summary = Row(children: [Expanded(child: count), clear]);
@@ -81,6 +86,35 @@ class _FilterBarState extends ConsumerState<FilterBar> {
           onTap: () => notifier.togglePriority(value),
         ),
     ];
+    // Sorting is not filtering — it hides nothing — but it is the other half of "show me
+    // this project like this", and a saved view keeps both. Manual is the order the cards
+    // are actually in, which is why it leads.
+    //
+    // Narrow, four pills would cost a line of their own on a panel that is already most
+    // of a phone screen, so there it is one pill that names the order and steps through
+    // them. It says where it is either way; only the number of taps differs.
+    final sorts = shared
+        ? [
+            _Pill(
+              label: 'Order: ${filter.sort.label.toLowerCase()}',
+              tint: AppColour.accent,
+              selected: filter.sort != TaskSort.manual,
+              onTap: () => notifier.setSort(
+                TaskSort.values[(filter.sort.index + 1) % TaskSort.values.length],
+              ),
+            ),
+          ]
+        : [
+            for (final sort in TaskSort.values)
+              _Pill(
+                label: sort == TaskSort.manual
+                    ? 'Manual order'
+                    : 'By ${sort.label.toLowerCase()}',
+                tint: AppColour.accent,
+                selected: filter.sort == sort,
+                onTap: () => notifier.setSort(sort),
+              ),
+          ];
     final tags = [
       for (final label in labels)
         _Pill(
@@ -98,6 +132,16 @@ class _FilterBarState extends ConsumerState<FilterBar> {
       children: children,
     );
 
+    // A panel is not allowed to push the work it is filtering off the screen. Past about
+    // a third of the height it scrolls inside itself instead — which is what a phone at
+    // the largest text size does once every group of pills is open.
+    Widget bounded(Widget child) => ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.32,
+      ),
+      child: SingleChildScrollView(child: child),
+    );
+
     final panel = AppSurface(
       padding: const EdgeInsets.all(AppSpace.md),
       child: shared
@@ -106,11 +150,13 @@ class _FilterBarState extends ConsumerState<FilterBar> {
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!filter.isEmpty) ...[
+                if (!filter.isEmpty || filter.sort != TaskSort.manual) ...[
                   summary,
                   const SizedBox(height: AppSpace.md),
                 ],
-                pills(status),
+                // The order joins the status pills rather than starting a line: it
+                // wraps onto one only where there is no room beside them.
+                pills([...status, ...sorts]),
                 const SizedBox(height: AppSpace.sm),
                 pills(priorities),
                 if (tags.isNotEmpty) ...[
@@ -125,16 +171,20 @@ class _FilterBarState extends ConsumerState<FilterBar> {
               ...priorities,
               if (tags.isNotEmpty) _Sep(),
               ...tags,
+              _Sep(),
+              ...sorts,
             ]),
     );
 
+    final plain = filter.isEmpty && filter.sort == TaskSort.manual;
+
     final Widget below;
-    if (_open || (!shared && !filter.isEmpty)) {
+    if (_open || (!shared && !plain)) {
       below = Padding(
         padding: const EdgeInsets.only(top: AppSpace.sm),
-        child: panel,
+        child: bounded(panel),
       );
-    } else if (!filter.isEmpty) {
+    } else if (!plain) {
       below = Padding(
         padding: const EdgeInsets.only(top: AppSpace.sm),
         child: summary,
@@ -157,7 +207,7 @@ class _FilterBarState extends ConsumerState<FilterBar> {
               iconOnly: shared,
               onTap: () => setState(() => _open = !_open),
             ),
-            if (!shared && !filter.isEmpty) ...[
+            if (!shared && !plain) ...[
               const SizedBox(width: AppSpace.sm),
               clear,
               const SizedBox(width: AppSpace.sm),

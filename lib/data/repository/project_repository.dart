@@ -231,6 +231,30 @@ class ProjectRepository {
   Future<void> setSectionWipLimit(String id, int? limit) =>
       _writer.update(_db.lists, id, ListsCompanion(wipLimit: Value(limit)));
 
+  /// Says which section a project draws its finished work under, clearing whichever held
+  /// it before — one board, one completed column.
+  ///
+  /// Both rows are written in the same transaction, and each is a field of its own, so a
+  /// device that chose a different section offline merges to one of the two rather than
+  /// to a board with none.
+  Future<void> setCompletedSection(String boardId, String sectionId) {
+    return _db.transaction(() async {
+      final sections =
+          await (_db.select(_db.lists)
+                ..where((l) => l.boardId.equals(boardId) & l.deletedAt.isNull()))
+              .get();
+      for (final section in sections) {
+        final wanted = section.id == sectionId;
+        if (section.isDoneColumn == wanted) continue;
+        await _writer.update(
+          _db.lists,
+          section.id,
+          ListsCompanion(isDoneColumn: Value(wanted)),
+        );
+      }
+    });
+  }
+
   /// Deletes a section, moving its tasks into the first section that remains.
   ///
   /// Why not just a tombstone: tasks point at a section. Removing one without moving its
