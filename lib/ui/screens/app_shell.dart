@@ -27,6 +27,7 @@ import '../widgets/sync_status.dart';
 import '../widgets/task_composer.dart';
 import '../widgets/task_detail_sheet.dart';
 import '../widgets/undo_toast.dart';
+import '../widgets/window_controls.dart';
 import 'capacity_screen.dart';
 import 'list_screen.dart';
 import 'notes_screen.dart';
@@ -149,12 +150,17 @@ class _ShellState extends ConsumerState<_Shell> {
       }
     }, fireImmediately: true);
     if (defaultTargetPlatform == TargetPlatform.linux) {
-      ref
-          .read(desktopShellProvider)
-          .listen(
-            onNewTask: () => ref.read(composerOpenProvider.notifier).open(),
-            onNewNote: () => ref.read(openNoteProvider.notifier).create(),
-          );
+      final shell = ref.read(desktopShellProvider);
+      shell.listen(
+        onNewTask: () => ref.read(composerOpenProvider.notifier).open(),
+        onNewNote: () => ref.read(openNoteProvider.notifier).create(),
+        onMaximized: (value) {
+          if (mounted) ref.read(windowMaximizedProvider.notifier).set(value);
+        },
+      );
+      shell.maximized().then((value) {
+        if (mounted) ref.read(windowMaximizedProvider.notifier).set(value);
+      });
     }
     _startReminders();
   }
@@ -226,7 +232,12 @@ class _ShellState extends ConsumerState<_Shell> {
                           0,
                           AppSpace.md,
                         ),
-                        child: SizedBox(width: _sidebarWidth, child: _Sidebar()),
+                        child: SizedBox(
+                          width: _sidebarWidth,
+                          // The window's own buttons live here while the sidebar is
+                          // pinned: the top-left corner of the window, as on a Mac.
+                          child: _Sidebar(windowControls: true),
+                        ),
                       ),
                     Expanded(
                       child: _Content(
@@ -356,9 +367,14 @@ class _BackCloses extends ConsumerWidget {
 }
 
 class _Sidebar extends ConsumerWidget {
-  const _Sidebar({this.onNavigate});
+  const _Sidebar({this.onNavigate, this.windowControls = false});
 
   final VoidCallback? onNavigate;
+
+  /// Whether this sidebar is the one pinned to the window's corner, and so the one that
+  /// draws the window's buttons. The drawer over a narrow window is not: the header keeps
+  /// them there, where they are always in view.
+  final bool windowControls;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -407,14 +423,31 @@ class _Sidebar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.lg,
-              AppSpace.xl,
-              AppSpace.lg,
-              AppSpace.lg,
+          WindowDrag(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                windowControls && WindowControls.available ? AppSpace.md : AppSpace.lg,
+                windowControls && WindowControls.available ? AppSpace.md : AppSpace.xl,
+                AppSpace.lg,
+                AppSpace.lg,
+              ),
+              child: Row(
+                children: [
+                  if (windowControls) ...[
+                    const WindowControls(),
+                    if (WindowControls.available) const SizedBox(width: AppSpace.sm),
+                  ],
+                  Flexible(
+                    child: Text(
+                      AppConfig.name,
+                      style: AppText.title3,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Text(AppConfig.name, style: AppText.title3),
           ),
           Expanded(
             child: ListView(

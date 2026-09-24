@@ -315,7 +315,19 @@ list, one task a line, each line read the way a single title is.
 
 ---
 
-## Desktop: the tray
+## Desktop: the window and the tray
+
+**The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in
+Apple's is exactly the seam the rest of the app avoids, so `my_application.cc` gives the window an
+empty title bar instead of a header bar — empty rather than undecorated, because that still asks GTK
+for client-side decorations and keeps the shadow, the resize edges and the desktop's snapping. Close,
+minimise and zoom are drawn in the app (`WindowControls`, in the sidebar's corner while it is pinned,
+in the header where it is not), the title and the space beside it are the handle the window is
+dragged by (`WindowDrag`), and a double click there maximises it. All of it goes over the same
+desktop channel; closing this way is `gtk_window_close`, so "Keep in the tray" still decides what
+closing means. The window's title is still set — it is what the switcher and the taskbar read — and
+`test/desktop/runner_order_test.dart` reads the runner to keep a header bar from coming back with a
+template update.
 
 The Linux runner is a single-instance GTK application, so launching Glasswork again brings its one
 window forward instead of starting a second copy beside it. `linux/runner/desktop_shell.cc` holds

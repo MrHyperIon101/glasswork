@@ -4,9 +4,11 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
-// The window's life outside Flutter: an icon in the tray, and whether closing the window
-// quits the app or leaves it running there. Dart turns it on and off over the
-// dev.mrhyperion.glasswork/desktop channel; the tray's menu answers over the same channel.
+// The window's life outside Flutter: an icon in the tray, whether closing the window quits
+// the app or leaves it running there, and the window's own buttons — the window has no bar
+// of its own, so minimise, maximise, close and dragging it about are asked for by the app's
+// header over the dev.mrhyperion.glasswork/desktop channel. The tray's menu and the
+// window's maximised state answer back over the same channel.
 typedef struct _DesktopShell DesktopShell;
 
 // Made before the window has a Flutter view, because it answers the window's close button

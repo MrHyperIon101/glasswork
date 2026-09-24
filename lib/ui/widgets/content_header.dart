@@ -5,6 +5,7 @@ import '../../state/providers.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
+import 'window_controls.dart';
 
 /// Title, subtitle, search and the primary action, shared by every content screen.
 ///
@@ -136,6 +137,11 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
               )
             : Row(
                 children: [
+                  if (widget.onMenu != null) ...[
+                    const WindowControls(),
+                    if (WindowControls.available)
+                      const SizedBox(width: AppSpace.xs),
+                  ],
                   if (widget.onMenu case final onMenu?)
                     _IconButton(
                       icon: Icons.menu_rounded,
@@ -167,6 +173,10 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
 
   List<Widget> _menu() => [
     if (widget.onMenu case final onMenu?) ...[
+      // Without a sidebar pinned open, there is no corner for the window's own buttons
+      // but this one.
+      const WindowControls(),
+      if (WindowControls.available) const SizedBox(width: AppSpace.sm),
       _IconButton(icon: Icons.menu_rounded, tooltip: 'Show the sidebar', onTap: onMenu),
       const SizedBox(width: AppSpace.md),
     ],
@@ -187,7 +197,13 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
   Widget? _primary() =>
       widget.primaryAction ?? (widget.showNewTask ? const NewTaskButton() : null);
 
-  Widget _titles({required int lines, bool dense = false}) => Column(
+  /// The title, and the space beside it, double as the window's handle: there is no title
+  /// bar to drag it by, and this is where one would have been. Only here — a drag over the
+  /// search field or a button belongs to that control, not to the window.
+  Widget _titles({required int lines, bool dense = false}) =>
+      WindowDrag(child: _titleLines(lines: lines, dense: dense));
+
+  Widget _titleLines({required int lines, bool dense = false}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [

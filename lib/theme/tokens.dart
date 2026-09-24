@@ -106,6 +106,10 @@ abstract final class AppSize {
   /// A dashboard card holding one figure.
   static const metricCard = 120.0;
 
+  /// One of the window's own buttons, drawn in the app because the window has no bar of
+  /// its own. The circle is small, as it is on a Mac; what it is hit with is [touch].
+  static const windowButton = 12.0;
+
   /// A day in a phone's month grid: seven of them across a 360-point screen, each still
   /// big enough to tap.
   static const dayCell = 36.0;

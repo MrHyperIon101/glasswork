@@ -86,6 +86,51 @@ static void tell_dart(DesktopShell* shell, const char* method) {
                                   nullptr, nullptr);
 }
 
+static void tell_dart_bool(DesktopShell* shell, const char* method, bool value) {
+  if (shell->channel == nullptr) return;
+  g_autoptr(FlValue) argument = fl_value_new_bool(value);
+  fl_method_channel_invoke_method(shell->channel, method, argument, nullptr,
+                                  nullptr, nullptr);
+}
+
+// The window has no bar of its own to drag, so the app's own header asks for the move.
+//
+// The pointer is where the drag started: on X11 that is what the window manager is told,
+// and on Wayland the compositor uses the last event's serial instead and ignores it.
+static void begin_move(DesktopShell* shell) {
+  GdkWindow* surface = gtk_widget_get_window(GTK_WIDGET(shell->window));
+  if (surface == nullptr) return;
+  GdkDisplay* display = gdk_window_get_display(surface);
+  GdkDevice* pointer = gdk_seat_get_pointer(gdk_display_get_default_seat(display));
+  int x = 0;
+  int y = 0;
+  if (pointer != nullptr) gdk_device_get_position(pointer, nullptr, &x, &y);
+  gtk_window_begin_move_drag(shell->window, GDK_BUTTON_PRIMARY, x, y,
+                             gtk_get_current_event_time());
+}
+
+static void toggle_maximized(DesktopShell* shell) {
+  if (gtk_window_is_maximized(shell->window)) {
+    gtk_window_unmaximize(shell->window);
+  } else {
+    gtk_window_maximize(shell->window);
+  }
+}
+
+// Maximised or not decides which glyph the app's own button draws, and the desktop can
+// change it without the app being asked — a double-click on the edge, a keyboard shortcut,
+// a tiling window manager.
+static gboolean on_window_state(GtkWidget* widget,
+                                GdkEventWindowState* event,
+                                gpointer data) {
+  DesktopShell* shell = static_cast<DesktopShell*>(data);
+  if (event->changed_mask & GDK_WINDOW_STATE_MAXIMIZED) {
+    tell_dart_bool(shell, "windowMaximized",
+                   (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) != 0);
+  }
+  return FALSE;
+}
+
 static void on_open(GtkMenuItem* item, gpointer data) {
   desktop_shell_present(static_cast<DesktopShell*>(data));
 }
@@ -192,6 +237,23 @@ static void on_method_call(FlMethodChannel* channel,
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(
         fl_value_new_bool(shell->tray != nullptr)));
+  } else if (strcmp(method, "windowMinimize") == 0) {
+    gtk_window_iconify(shell->window);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (strcmp(method, "windowToggleMaximize") == 0) {
+    toggle_maximized(shell);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(
+        fl_value_new_bool(gtk_window_is_maximized(shell->window))));
+  } else if (strcmp(method, "windowClose") == 0) {
+    // Through the window's own close, so "Keep in the tray" still decides what that means.
+    gtk_window_close(shell->window);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (strcmp(method, "windowDrag") == 0) {
+    begin_move(shell);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (strcmp(method, "windowMaximized") == 0) {
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(
+        fl_value_new_bool(gtk_window_is_maximized(shell->window))));
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
@@ -209,6 +271,7 @@ DesktopShell* desktop_shell_new(GtkApplication* application, GtkWindow* window) 
   shell->indicator_loaded = LoadIndicator(&shell->indicator);
   // First, before the Flutter view connects its own: see desktop_shell.h.
   g_signal_connect(window, "delete-event", G_CALLBACK(on_delete), shell);
+  g_signal_connect(window, "window-state-event", G_CALLBACK(on_window_state), shell);
   return shell;
 }
 
