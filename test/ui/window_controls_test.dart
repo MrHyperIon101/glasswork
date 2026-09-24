@@ -9,7 +9,6 @@ import 'package:glasswork/desktop/desktop_shell.dart';
 import 'package:glasswork/main.dart';
 import 'package:glasswork/state/providers.dart';
 import 'package:glasswork/state/sync_controller.dart';
-import 'package:glasswork/ui/screens/app_shell.dart';
 import 'package:glasswork/ui/widgets/window_controls.dart';
 
 /// The window's own buttons, drawn in the app because the Linux window has no bar of its
