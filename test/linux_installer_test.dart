@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/sleeper.dart';
+
 /// The Linux installer, built for real and run against a home folder of its own.
 ///
 /// It installs, updates and removes a stand-in for the app the way it does the real one,
@@ -133,9 +135,7 @@ void main() {
   test(
     'closes the app for an update only when asked to',
     () async {
-      final sleep =
-          (Process.runSync('sh', ['-c', 'command -v sleep']).stdout as String)
-              .trim();
+      final sleep = sleeper(root);
       final first = await build('0.1.0+1', program: sleep);
       expectOk(await run(first, ['--install']));
 

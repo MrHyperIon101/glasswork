@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/reminders/linux_reminder_files.dart';
 import 'package:glasswork/reminders/reminder_plan.dart';
 
+import '../support/sleeper.dart';
+
 PlannedReminder reminder(
   String taskId,
   DateTime at, {
@@ -101,7 +103,7 @@ void main() {
       ]);
       // A process the kernel names as the app does.
       final app = File('${dir.path}/${LinuxReminderFiles.processName}');
-      await File('/bin/sleep').copy(app.path);
+      await File(sleeper(dir)).copy(app.path);
       await Process.run('chmod', ['+x', app.path]);
       final running = await Process.start(app.path, ['30']);
       addTearDown(running.kill);
