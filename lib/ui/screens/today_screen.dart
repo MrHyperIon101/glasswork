@@ -18,6 +18,7 @@ import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../block_style.dart';
 import '../format.dart';
+import '../glass/glass_surface.dart';
 import '../home_text.dart';
 import '../layout.dart';
 import '../motion.dart';
@@ -261,30 +262,32 @@ class _CardState extends State<_Card> {
   @override
   Widget build(BuildContext context) {
     final glow = widget.glow;
-    final card = AnimatedContainer(
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.largeAll,
+        // A hint of the card's colour, gathered in its top corner and gone by the middle.
+        gradient: glow == null
+            ? null
+            : RadialGradient(
+                center: Alignment.topLeft,
+                radius: 1.1,
+                colors: [glow.withValues(alpha: 0.09), glow.withValues(alpha: 0)],
+              ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(AppLayout.compact(context) ? AppSpace.lg : AppSpace.xl),
+        child: widget.child,
+      ),
+    );
+    // Glass, lifting a shade under the pointer the way a lighter surface reads as nearer.
+    final card = TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: _hovered ? AppMaterial.cardHoverTint : AppMaterial.cardTint),
       duration: AppMotion.of(context, AppMotion.quick),
       curve: AppMotion.standard,
-      decoration: BoxDecoration(
-        color: _hovered ? AppColour.elevated : AppColour.surface,
-        borderRadius: AppRadius.largeAll,
-        border: Border.all(color: AppColour.separator.withValues(alpha: 0.4), width: 0.5),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.largeAll,
-          // A hint of the card's colour, gathered in its top corner and gone by the middle.
-          gradient: glow == null
-              ? null
-              : RadialGradient(
-                  center: Alignment.topLeft,
-                  radius: 1.1,
-                  colors: [glow.withValues(alpha: 0.075), glow.withValues(alpha: 0)],
-                ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(AppLayout.compact(context) ? AppSpace.lg : AppSpace.xl),
-          child: widget.child,
-        ),
+      builder: (context, tint, _) => GlassSurface(
+        tint: tint ?? AppMaterial.cardTint,
+        solid: _hovered ? AppColour.elevated : AppColour.surface,
+        child: content,
       ),
     );
 

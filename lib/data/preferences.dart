@@ -1,3 +1,24 @@
+/// How the app's surfaces are drawn on this device.
+///
+/// [liquid] bends what is behind each surface at its edges and catches the light along its
+/// rim; [frosted] only blurs it; [solid] draws plain opaque surfaces, which costs the GPU
+/// least. Liquid needs a renderer that runs shaders as filters, and reads as frosted where
+/// there is none.
+enum Glass {
+  liquid,
+  frosted,
+  solid;
+
+  /// The stored value, or null for anything unrecognised — a value written by a newer
+  /// version must not stop an older one opening.
+  static Glass? named(String? name) {
+    for (final glass in values) {
+      if (glass.name == name) return glass;
+    }
+    return null;
+  }
+}
+
 /// How Glasswork behaves on this device, as chosen in Settings.
 ///
 /// Choices about the app rather than the work, so they are kept on the device they were
@@ -13,6 +34,7 @@ class Preferences {
     this.snoozeMin = defaultSnoozeMin,
     this.captureProjectId,
     this.keepInTray = false,
+    this.glass,
   });
 
   /// When a "morning" reminder is: "Tomorrow morning", "The morning it is due", and a
@@ -31,6 +53,10 @@ class Preferences {
 
   /// On a desktop, whether closing the window leaves Glasswork running in the tray.
   final bool keepInTray;
+
+  /// How surfaces are drawn, as chosen here. Null until a choice is made, when the device's
+  /// own default applies — see `glassProvider`.
+  final Glass? glass;
 
   static const defaultMorningMin = 9 * 60;
   static const defaultEveningMin = 18 * 60;
@@ -87,6 +113,7 @@ class Preferences {
       snoozeMin: read(snoozeKey, defaultSnoozeMin, clampSnooze),
       captureProjectId: project == null || project.isEmpty ? null : project,
       keepInTray: stored[keepInTrayKey] == 'true',
+      glass: Glass.named(stored[glassKey]),
     );
   }
 
@@ -95,6 +122,7 @@ class Preferences {
   static const snoozeKey = 'pref.snooze_min';
   static const captureProjectKey = 'pref.capture_project_id';
   static const keepInTrayKey = 'pref.keep_in_tray';
+  static const glassKey = 'pref.glass';
 
   static const keys = {
     morningKey,
@@ -102,6 +130,7 @@ class Preferences {
     snoozeKey,
     captureProjectKey,
     keepInTrayKey,
+    glassKey,
   };
 
   @override
@@ -111,14 +140,15 @@ class Preferences {
       other.eveningMin == eveningMin &&
       other.snoozeMin == snoozeMin &&
       other.captureProjectId == captureProjectId &&
-      other.keepInTray == keepInTray;
+      other.keepInTray == keepInTray &&
+      other.glass == glass;
 
   @override
   int get hashCode =>
-      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId, keepInTray);
+      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId, keepInTray, glass);
 
   @override
   String toString() =>
       'Preferences(morning: $morningMin, evening: $eveningMin, snooze: $snoozeMin, '
-      'project: $captureProjectId, tray: $keepInTray)';
+      'project: $captureProjectId, tray: $keepInTray, glass: $glass)';
 }

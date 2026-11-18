@@ -29,6 +29,8 @@ class PreferencesRepository {
 
   Future<void> setKeepInTray(bool keep) => _put(Preferences.keepInTrayKey, keep);
 
+  Future<void> setGlass(Glass glass) => _put(Preferences.glassKey, glass.name);
+
   /// Null goes back to the first project.
   Future<void> setCaptureProject(String? projectId) async {
     if (projectId == null) {

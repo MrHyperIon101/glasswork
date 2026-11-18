@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glasswork/capacity/ledger.dart';
+import 'package:glasswork/data/preferences.dart';
 import 'package:glasswork/ui/settings_text.dart';
 
 void main() {
@@ -141,6 +142,31 @@ void main() {
     expect(
       SettingsText.dataLocation(platform: TargetPlatform.android, folder: '/data/x'),
       'Kept on this phone, inside Glasswork.',
+    );
+  });
+
+  test('each look says what it does and what it costs', () {
+    final liquid = SettingsText.glass(chosen: Glass.liquid, liquidRuns: true);
+    expect(liquid.explanation, contains('bends what is behind it'));
+    expect(liquid.effect, contains('Frosted is lighter'));
+
+    expect(
+      SettingsText.glass(chosen: Glass.frosted, liquidRuns: true).explanation,
+      contains('without bending it'),
+    );
+    expect(
+      SettingsText.glass(chosen: Glass.solid, liquidRuns: true).effect,
+      contains('most battery'),
+    );
+  });
+
+  test('where the shader cannot run, Liquid says it is drawn as Frosted', () {
+    final text = SettingsText.glass(chosen: Glass.liquid, liquidRuns: false);
+    expect(text.effect, 'Liquid is drawn as Frosted here.');
+    // The other looks do not depend on it.
+    expect(
+      SettingsText.glass(chosen: Glass.solid, liquidRuns: false),
+      SettingsText.glass(chosen: Glass.solid, liquidRuns: true),
     );
   });
 }

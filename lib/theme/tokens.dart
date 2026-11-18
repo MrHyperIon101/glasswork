@@ -15,6 +15,10 @@ abstract final class AppColour {
   /// invisible and the whole interface read as a void.
   static const base = Color(0xFF1C1C1E);
 
+  /// What the ambient backdrop's fields of colour are laid on, under the glass: deeper than
+  /// [base], so the colour reads as light in it rather than as a wash over grey.
+  static const ground = Color(0xFF101014);
+
   /// Cards and grouped content sitting on [base].
   static const surface = Color(0xFF2C2C2E);
 
@@ -310,15 +314,31 @@ abstract final class AppMotion {
       MediaQuery.maybeDisableAnimationsOf(context) ?? false ? Duration.zero : duration;
 }
 
-/// Vibrancy — the one place translucency is used.
+/// Glass — the one place anything behind a surface shows through. See `GlassSurface`.
 abstract final class AppMaterial {
+  /// A card's glass: no blur of its own, since all that lies behind a card is the ambient
+  /// backdrop, which is soft already — a blur there costs a pass per card and changes
+  /// nothing you can see. Surfaces that float over real content blur it ([sheetBlur]); the
+  /// tint is dark enough that text on a card never has to fight the colour beneath.
+  static const cardBlur = 0.0;
+  static const cardTint = Color(0x722C2C2E);
+
+  /// A card under the pointer: a shade lighter, as a nearer surface is.
+  static const cardHoverTint = Color(0x853A3A3C);
+
+  /// Liquid glass, in logical pixels: the band along the edge that bends what is behind,
+  /// and how far it is pulled at the very edge. The light is how bright the rim gets, 0..1.
+  static const liquidRim = 22.0;
+  static const liquidRefraction = 20.0;
+  static const liquidLight = 0.18;
+
   /// macOS sidebar material is a heavy blur with a tint, not a light frost.
   static const sidebarBlur = 30.0;
   static const sheetBlur = 40.0;
 
   /// Tint over the blur, so content behind never resolves into recognisable shapes.
-  static const sidebarTint = Color(0xCC1C1C1E);
-  static const sheetTint = Color(0xE62C2C2E);
+  static const sidebarTint = Color(0x8A1C1C1E);
+  static const sheetTint = Color(0xC42C2C2E);
 
   /// The window buttons' capsule: near-black and nearly opaque, so the three glyphs read
   /// against anything the header sits on.

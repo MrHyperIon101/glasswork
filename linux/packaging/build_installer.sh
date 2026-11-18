@@ -40,6 +40,9 @@ if [[ -z "$output" ]]; then
   output="$root/build/linux/installer/Glasswork-Setup-${version%%+*}-$(uname -m)"
 fi
 
+# The Flutter that builds the app: whichever is on the PATH, or FLUTTER=/path/to/bin/flutter.
+flutter="${FLUTTER:-flutter}"
+
 for tool in cc pkg-config tar gzip python3; do
   if ! command -v "$tool" >/dev/null; then
     echo "Building the installer needs $tool." >&2
@@ -52,6 +55,18 @@ if ! pkg-config --exists gtk+-3.0; then
 fi
 
 if [[ "$build" == 1 ]]; then
+  # Flutter 3.50.0 draws every frame half a window out of place on NVIDIA's drivers, which
+  # make it composite without glBlitFramebuffer (flutter/flutter#196083, fixed for 3.50.1).
+  # An installer built with it looks broken on exactly the laptops most likely to run it.
+  framework="$("$flutter" --version --machine 2>/dev/null |
+    python3 -c 'import json, sys; print(json.load(sys.stdin)["frameworkVersion"])' 2>/dev/null)"
+  if [[ "$framework" == "3.50.0" ]]; then
+    echo "Flutter 3.50.0 renders Linux windows out of place on NVIDIA GPUs." >&2
+    echo "Build with 3.47.4 or 3.50.1 and later, e.g." >&2
+    echo "  FLUTTER=~/.local/share/flutter-3.47.4/bin/flutter $0" >&2
+    exit 1
+  fi
+
   # The Supabase project to sync with, where this clone has one. Without it the app builds
   # fine and keeps everything on the device: see backend.example.json and the README.
   # GLASSWORK_NO_BACKEND=1 leaves it out deliberately: that is how the binaries on the
@@ -64,7 +79,7 @@ if [[ "$build" == 1 ]]; then
   else
     echo "No backend.json: building an app that keeps everything on this device." >&2
   fi
-  (cd "$root" && flutter build linux --release "${backend[@]}")
+  (cd "$root" && "$flutter" build linux --release "${backend[@]}")
 fi
 if [[ ! -x "$bundle/glasswork" ]]; then
   echo "There is no app to package at $bundle." >&2

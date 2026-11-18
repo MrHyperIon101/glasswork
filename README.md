@@ -92,9 +92,13 @@ failed update leaves the working app exactly where it was — and the same file 
 the app grid entry's own menu. Images are turned upright, downscaled and encoded in platform
 code, on both platforms, before Dart sees a byte of them.
 
-**Apple's dark palette, used honestly.** The real system colours rather than an approximation of
-them, depth from layered greys instead of shadow, two surface primitives and exactly one
-`BackdropFilter` in the whole tree, and every colour, space, radius and control height out of a
+**Liquid glass, with the numbers to back it.** Every card is a fragment shader run as a backdrop
+filter: it bends what is behind along its rim, splits the colours slightly there, and catches a
+light from the top left, over a slowly drifting backdrop painted rather than captured. The shader
+works in the window's pixels, so each surface tells it where it is as it paints; every surface on
+a screen shares one capture; and cards skip the blur that only floating surfaces need. That
+measures 3.4 ms of raster at p50 at 1080p on a 165 Hz screen. Under it, Apple's real dark palette
+rather than an approximation of it, and every colour, space, radius and control height out of a
 single tokens file.
 
 `docs/architecture.md` is the long version, including the rules I hold myself to.
@@ -121,8 +125,15 @@ of your own — see below.
 
 ## Building it yourself
 
-You need Flutter 3.47 or newer, and on Linux the GTK 3 development files
-(`gtk3` on Arch, `libgtk-3-dev` on Debian).
+You need Flutter 3.47, and on Linux the GTK 3 development files
+(`gtk3` on Arch, `libgtk-3-dev` on Debian). Not 3.50.0: on NVIDIA GPUs it draws every frame
+half a window out of place ([flutter/flutter#196083](https://github.com/flutter/flutter/pull/196083),
+fixed for 3.50.1), and the installer build refuses it. To build with a second SDK, put it in
+`FLUTTER`:
+
+```bash
+FLUTTER=~/.local/share/flutter-3.47.4/bin/flutter linux/packaging/build_installer.sh
+```
 
 ```bash
 flutter pub get
@@ -190,7 +201,7 @@ flutter analyze
 flutter test
 ```
 
-815 of them, and they are where the design is enforced rather than merely described: the
+826 of them, and they are where the design is enforced rather than merely described: the
 capacity arithmetic against golden schedules, the sync merge across two simulated devices and a
 fake server, the repositories, every pure text and layout function, and the harness above. The
 server has its own — `supabase/checks/sync_schema_checks.sql` asserts the tables, policies and

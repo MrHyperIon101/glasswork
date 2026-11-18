@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../capacity/ledger.dart';
+import '../data/preferences.dart';
 import 'format.dart';
 
 /// What each setting says about itself, worked out from the person's own figures.
@@ -101,6 +102,34 @@ abstract final class SettingsText {
           : 'Off: closing the window quits Glasswork. Reminders still come while it is closed.',
     );
   }
+
+  /// What the [chosen] look does, and what it costs. [liquidRuns] is whether this device's
+  /// renderer can bend light at all: where it cannot, Liquid is drawn as Frosted, and says so.
+  static ({String explanation, String effect}) glass({
+    required Glass chosen,
+    required bool liquidRuns,
+  }) => switch (chosen) {
+    Glass.liquid when !liquidRuns => (
+      explanation:
+          'Each card would bend what is behind it at its edges, but this device draws without '
+          'the shaders that needs.',
+      effect: 'Liquid is drawn as Frosted here.',
+    ),
+    Glass.liquid => (
+      explanation:
+          'Each card bends what is behind it at its edges and catches the light along its rim, '
+          'the way glass does.',
+      effect: 'The most the graphics card does for the look. Frosted is lighter on a battery.',
+    ),
+    Glass.frosted => (
+      explanation: 'Cards blur what is behind them, without bending it.',
+      effect: 'Lighter than Liquid, and still glass.',
+    ),
+    Glass.solid => (
+      explanation: 'Plain, opaque cards, with nothing showing through.',
+      effect: 'The least work for the graphics card, and the most battery on a phone.',
+    ),
+  };
 
   /// What became of a sample reminder.
   static String sampleResult({required bool shown}) => shown

@@ -1,14 +1,14 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/widgets.dart';
 
 import '../theme/tokens.dart';
+import 'glass/glass_surface.dart';
 
-/// An opaque card.
+/// A card.
 ///
-/// This is the default surface in the app and should be reached for first. Depth comes
-/// from the layered greys in [AppColour] — a lighter surface reads as nearer — not from
-/// shadow, which barely registers on a dark ground and tends to look like grime.
+/// The default surface in the app, and the one to reach for first. It is glass — see
+/// [GlassSurface] — over the ambient backdrop, or an opaque card in [colour] where Settings
+/// asks for solid. Depth comes from the layered greys in [AppColour] and the light along
+/// the rim, not from shadow, which barely registers on a dark ground.
 class AppSurface extends StatelessWidget {
   const AppSurface({
     required this.child,
@@ -22,76 +22,69 @@ class AppSurface extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
   final double radius;
+
+  /// The card's colour: opaque in the solid look, the tint of the glass otherwise.
   final Color colour;
 
-  /// A hairline. Worth it when two surfaces of similar lightness meet and the edge would
-  /// otherwise be ambiguous; noise everywhere else.
+  /// A clear edge rather than a faint one. Worth it when two surfaces of similar lightness
+  /// meet and the edge would otherwise be ambiguous; noise everywhere else.
   final bool border;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colour,
-        borderRadius: BorderRadius.all(Radius.circular(radius)),
-        // Always a faint edge, which lifts a card off the ground the way light catches the
-        // rim of a panel; a clear one where two surfaces of similar lightness meet.
-        border: Border.all(
-          color: border ? AppColour.separator : AppColour.separator.withValues(alpha: 0.4),
-          width: 0.5,
-        ),
-      ),
-      child: Padding(padding: padding, child: child),
-    );
-  }
+  Widget build(BuildContext context) => GlassSurface(
+    radius: radius,
+    padding: padding,
+    solid: colour,
+    tint: colour == AppColour.surface
+        ? AppMaterial.cardTint
+        : colour.withValues(alpha: AppMaterial.cardTint.a),
+    hairline: border,
+    child: child,
+  );
 }
 
-/// Blurred vibrancy, the way macOS does a sidebar or a sheet.
+/// A surface that floats over others, the way macOS does a sidebar or a sheet: more blur and
+/// a heavier tint than a card, so what scrolls beneath never resolves into shapes.
 ///
-/// This is the **only** translucency in the app and the only `BackdropFilter`. It is
-/// expensive — each one forces the compositor to capture and blur what is behind it — so
-/// it is reserved for surfaces that genuinely float above scrolling content. A card in a
-/// grid is not one of those; use [AppSurface].
+/// A sheet takes a capture of its own, since it lies over cards that are glass themselves
+/// and surfaces that overlap must not share one.
 class VibrancyMaterial extends StatelessWidget {
   const VibrancyMaterial.sidebar({
     required this.child,
     this.radius = AppRadius.large,
     super.key,
   }) : _blur = AppMaterial.sidebarBlur,
-       _tint = AppMaterial.sidebarTint;
+       _tint = AppMaterial.sidebarTint,
+       _solid = AppColour.base,
+       _floats = false;
 
   const VibrancyMaterial.sheet({
     required this.child,
     this.radius = AppRadius.xlarge,
     super.key,
   }) : _blur = AppMaterial.sheetBlur,
-       _tint = AppMaterial.sheetTint;
+       _tint = AppMaterial.sheetTint,
+       _solid = AppColour.surface,
+       _floats = true;
 
   final Widget child;
   final double radius;
   final double _blur;
   final Color _tint;
+  final Color _solid;
+  final bool _floats;
 
   @override
   Widget build(BuildContext context) {
-    final corners = BorderRadius.all(Radius.circular(radius));
-
-    return ClipRRect(
-      borderRadius: corners,
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: _blur, sigmaY: _blur),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            // The tint is not decoration. Without it the blur still resolves into
-            // recognisable shapes when something high-contrast scrolls behind.
-            color: _tint,
-            borderRadius: corners,
-            border: Border.all(color: AppColour.separator, width: 0.5),
-          ),
-          child: child,
-        ),
-      ),
+    final surface = GlassSurface(
+      radius: radius,
+      blur: _blur,
+      tint: _tint,
+      solid: _solid,
+      hairline: true,
+      child: child,
     );
+    return _floats ? BackdropGroup(child: surface) : surface;
   }
 }
 

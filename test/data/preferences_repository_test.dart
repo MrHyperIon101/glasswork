@@ -51,6 +51,17 @@ void main() {
     expect((await preferences.read()).captureProjectId, isNull);
   });
 
+  test('the glass chosen is kept, and an unknown one reads as no choice', () async {
+    expect((await preferences.read()).glass, isNull, reason: 'the device decides until then');
+
+    await preferences.setGlass(Glass.solid);
+    expect((await preferences.read()).glass, Glass.solid);
+
+    // A value a newer version wrote must not stop this one opening.
+    await store(Preferences.glassKey, 'holographic');
+    expect((await preferences.read()).glass, isNull);
+  });
+
   test('a value out of bounds is kept to the nearest one allowed', () async {
     await preferences.setMorning(20 * 60);
     await preferences.setEvening(9 * 60);

@@ -18,6 +18,7 @@ import '../../state/sync_summary.dart';
 import '../../sync/sync_auth.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
+import '../glass/liquid_glass.dart';
 import '../layout.dart';
 import '../project_icon.dart';
 import '../motion.dart';
@@ -81,15 +82,16 @@ class SettingsScreen extends ConsumerWidget {
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
                 // Groups placed so the columns come out about as tall as each other.
+                const appearance = _Appearance();
                 final columns = width >= _threeColumnsFrom
                     ? [
                         [account, newTasks, if (desktop) const _Desktop()],
-                        [reminders],
+                        [reminders, appearance],
                         [timeBudget, if (desktop) const _Shortcuts(), about],
                       ]
                     : width >= _twoColumnsFrom
                     ? [
-                        [account, reminders, if (desktop) const _Desktop()],
+                        [account, reminders, appearance, if (desktop) const _Desktop()],
                         [newTasks, timeBudget, if (desktop) const _Shortcuts(), about],
                       ]
                     : [
@@ -98,6 +100,7 @@ class SettingsScreen extends ConsumerWidget {
                           reminders,
                           newTasks,
                           timeBudget,
+                          appearance,
                           if (desktop) ...[const _Desktop(), const _Shortcuts()],
                           about,
                         ],
@@ -541,6 +544,87 @@ class _TimeBudget extends ConsumerWidget {
       ],
     );
   }
+}
+
+// --- appearance -----------------------------------------------------------------------
+
+class _Appearance extends ConsumerWidget {
+  const _Appearance();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(preferencesProvider).value ?? const Preferences();
+    final repo = ref.watch(appScopeProvider).value?.preferences;
+    final chosen = preferences.glass ?? Glass.liquid;
+    final text = SettingsText.glass(chosen: chosen, liquidRuns: LiquidGlass.runs);
+
+    return _Group(
+      title: 'Appearance',
+      about: 'How Glasswork looks on this device.',
+      children: [
+        _Setting(
+          label: 'Glass',
+          control: _GlassChoice(
+            chosen: chosen,
+            onChoose: (glass) => repo?.setGlass(glass),
+          ),
+          explanation: text.explanation,
+          effect: text.effect,
+        ),
+      ],
+    );
+  }
+}
+
+/// Liquid, Frosted or Solid, side by side, the chosen one filled.
+class _GlassChoice extends StatelessWidget {
+  const _GlassChoice({required this.chosen, required this.onChoose});
+
+  final Glass chosen;
+  final ValueChanged<Glass> onChoose;
+
+  static const _labels = {
+    Glass.liquid: 'Liquid',
+    Glass.frosted: 'Frosted',
+    Glass.solid: 'Solid',
+  };
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: AppSize.control,
+    padding: const EdgeInsets.all(2),
+    decoration: const BoxDecoration(color: AppColour.fill, borderRadius: AppRadius.mediumAll),
+    child: Row(
+      children: [
+        for (final glass in Glass.values)
+          Expanded(
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                key: ValueKey('glass-${glass.name}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onChoose(glass),
+                child: AnimatedContainer(
+                  duration: AppMotion.of(context, AppMotion.quick),
+                  curve: AppMotion.standard,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: glass == chosen ? AppColour.elevated : AppColour.fill.withValues(alpha: 0),
+                    borderRadius: AppRadius.smallAll,
+                  ),
+                  child: Text(
+                    _labels[glass]!,
+                    style: AppText.callout.copyWith(
+                      color: glass == chosen ? AppColour.label : AppColour.labelSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 // --- desktop --------------------------------------------------------------------------

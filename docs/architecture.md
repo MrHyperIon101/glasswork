@@ -31,8 +31,9 @@ what tells an update from a reinstall, and Android refuses a build whose number 
 immediately, then queues in the outbox. If a repository method can throw on network failure, it's
 wrong.
 
-**Two surface primitives only** — `AppSurface` and `VibrancyMaterial`. No ad-hoc `BackdropFilter`
-anywhere else in the tree. See Materials below.
+**One surface, `GlassSurface`.** `AppSurface` (a card) and `VibrancyMaterial` (a sidebar or a sheet)
+draw through it, and it is the only `BackdropFilter` in the tree. No ad-hoc blur or filter anywhere
+else. See Materials below.
 
 **All colours, spacing, radii and control heights come from `lib/theme/tokens.dart`.** No literal
 hex, no magic padding numbers, no bare pixel heights in widget files. Controls that sit side by side
@@ -67,22 +68,46 @@ dashboard. RLS is enabled on every table in the same migration that creates it.
 
 ## Materials and surfaces
 
-The design language is **Apple's, dark**. The palette in `theme/tokens.dart` is Apple's real
-dark-mode system palette, not an approximation of it — people have seen `#0A84FF` ten thousand
-times, and an *almost* right version of it reads as wrong in a way nobody can name.
+The design language is **Apple's, dark, in liquid glass**. The palette in `theme/tokens.dart` is
+Apple's real dark-mode system palette, not an approximation of it — people have seen `#0A84FF` ten
+thousand times, and an *almost* right version of it reads as wrong in a way nobody can name.
 
-Depth comes from **layered greys**, not shadow. `base` → `surface` → `elevated`; a lighter
-surface reads as nearer. Shadow barely registers on a dark ground and mostly looks like grime.
+Every screen is laid on the **ambient backdrop** (`lib/ui/glass/ambient_backdrop.dart`): a few large,
+dim fields of Apple's hues on `AppColour.ground`, drifting slowly. Glass over a flat colour shows
+nothing, so this is what gives every surface something to catch. It is painted, never captured, and
+it steps at 15 a second on a `Timer` — a `Ticker` would ask for a frame on every vsync whether or not
+anything moved, keeping the GPU awake for nothing. It stops while the window is in the background,
+stands still under reduce-motion, and holds still under the solid look.
 
-Two primitives, and reach for the first one:
+Surfaces are **`GlassSurface`** (`lib/ui/glass/glass_surface.dart`), in one of three looks, a
+device-local preference (Settings → Appearance), Liquid by default:
 
-- `AppSurface` — an opaque card. The default. Almost everything is this.
-- `VibrancyMaterial` — blurred translucency, as macOS does a sidebar or a sheet. **The only
-  `BackdropFilter` in the app.** Each one forces the compositor to capture and blur what is
-  behind it, so it is reserved for surfaces that genuinely float above scrolling content. A
-  card in a grid is not one of those.
+- **Liquid** runs `shaders/liquid_glass.frag` as a backdrop filter: what is behind is pulled in from
+  further inside along a band at the edge, the way a lens's rim bends it, with the three colours
+  bending slightly apart there; its colour is lifted a little; the tint is laid over; the rim
+  catches a light from the top left. Only Impeller runs shader filters, so `LiquidGlass.load()`
+  happens before the first frame, and where it cannot run Liquid is drawn as Frosted, and says so.
+- **Frosted** is the blur and the tint, and a drawn rim.
+- **Solid** is an opaque card.
 
-Rows are never vibrancy. A list has dozens of them; hover fill gives the depth instead.
+What the shader is given was found by measuring, not from the documentation, and both facts matter:
+
+- Its coordinates are **the window's pixels**, not the surface's, and the backdrop it samples is the
+  whole window. So each surface tells it where it is (`_RenderLiquid` sets its rect, radius and tint
+  each time it paints, from its transform to the screen), and anything that can move a surface
+  without repainting it — the scroll views it is in — makes it paint again, or the bend would be
+  drawn where the surface used to be.
+- The backdrop arrives **the right way up** on OpenGL ES. The documented flip for that backend
+  mirrors it: the top of the window appears at the bottom of every surface.
+
+All the glass on a screen shares **one capture**: `BackdropFilter.grouped` under the `BackdropGroup`
+at the root. A sheet takes its own group, since surfaces that overlap must not share one. Cards have
+**no blur**: all that lies behind a card is the backdrop, which is soft already, and a blur per card
+was most of the cost while changing nothing visible. Surfaces that float over real content — sheets,
+the drawer — blur it. Measured in profile mode at 1920×1048 on a 165 Hz monitor with every home card
+glass: raster p50 3.4 ms, p95 5.0–5.7 ms against a 6.1 ms budget.
+
+Rows are never glass. A list has dozens of them; hover fill gives the depth instead.
 
 Every sheet is a `ModalSheet`, which gives it its own focus scope and moves keyboard focus into it
 as it opens. Without that, the screen behind kept focus: a field's `autofocus` was refused, and Esc
@@ -103,16 +128,22 @@ motion. Things arrive fast and land softly (`AppMotion.enter`) and leave faster 
   animate what arrives and leaves (`AnimatedItems`); a task's circle fills and draws its tick
   (`AnimatedCheck`).
 
-### What replaced the glass shader
+### The two glass shaders
 
-An earlier version used a procedural mesh gradient with a refraction shader. It was retired
-when the design moved to Apple's language: Apple's materials are a **blur of real content**,
-not a refraction of a decorative gradient, and against a calm neutral ground there is nothing
-worth refracting. The shader is in git history if it is ever wanted.
+The first version refracted a procedural mesh gradient. It was retired when the design moved to
+Apple's language, whose materials are a blur of real content rather than a refraction of a decorative
+gradient; that version is in git history. Liquid glass came back in Apple's own form — a filter over
+whatever really is behind — once there was a backdrop worth bending and a way to afford it on every
+card. The radius scale stayed: Apple uses a considered one, and matching it matters more than a
+simpler rule — see `AppRadius`. Those are the only values, and each has a fixed job.
 
-That change also retired the "two radii only" rule. Apple uses a considered radius scale
-instead, and matching it matters more than the simpler constraint — see `AppRadius`. The
-discipline is that those are the only values and each has a fixed job.
+### Building for Linux: Flutter 3.47.4 until 3.50.1
+
+Flutter 3.50.0 draws every frame half a window out of place on NVIDIA's Linux drivers: they make the
+engine composite without `glBlitFramebuffer`, and its fallback quad was offset by a whole extra
+viewport (flutter/flutter#196083, cherry-picked for 3.50.1). Linux builds are made with 3.47.4 —
+the version CI uses — from `~/.local/share/flutter-3.47.4`; `build_installer.sh` takes it as
+`FLUTTER=…/bin/flutter` and refuses 3.50.0 outright.
 
 ## Sync (phase 4 — read this before writing any of it)
 
@@ -320,9 +351,9 @@ list, one task a line, each line read the way a single title is.
 **The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in
 Apple's is exactly the seam the rest of the app avoids, so `my_application.cc` gives the window an
 empty title bar instead of a header bar — empty rather than undecorated, because that still asks GTK
-for client-side decorations and keeps the shadow, the resize edges and the desktop's snapping. Close,
-minimise and zoom are drawn in the app (`WindowControls`, in the sidebar's corner while it is pinned,
-in the header where it is not), the title and the space beside it are the handle the window is
+for client-side decorations and keeps the shadow, the resize edges and the desktop's snapping. Minimise,
+maximise and close are drawn in the app (`WindowControls`, one capsule at the top-right of every
+header, the same pill Voxtrona draws), the title and the space beside it are the handle the window is
 dragged by (`WindowDrag`), and a double click there maximises it. All of it goes over the same
 desktop channel; closing this way is `gtk_window_close`, so "Keep in the tray" still decides what
 closing means. The window's title is still set — it is what the switcher and the taskbar read — and
