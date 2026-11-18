@@ -101,7 +101,7 @@ void main() {
   testWidgets('a phone has no window to control, so draws nothing', (tester) async {
     await start(tester);
     try {
-      expect(find.byType(WindowControls), findsWidgets);
+      expect(find.byType(WindowControls), findsNothing);
       expect(find.byKey(const ValueKey('window-close')), findsNothing);
       expect(calls.where((c) => c.method.startsWith('window')), isEmpty);
     } finally {

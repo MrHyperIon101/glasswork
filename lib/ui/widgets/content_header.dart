@@ -137,11 +137,6 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
               )
             : Row(
                 children: [
-                  if (widget.onMenu != null) ...[
-                    const WindowControls(),
-                    if (WindowControls.available)
-                      const SizedBox(width: AppSpace.xs),
-                  ],
                   if (widget.onMenu case final onMenu?)
                     _IconButton(
                       icon: Icons.menu_rounded,
@@ -159,6 +154,7 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
                     const SizedBox(width: AppSpace.xs),
                     primary,
                   ],
+                  ..._window(),
                 ],
               ),
       ),
@@ -173,10 +169,6 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
 
   List<Widget> _menu() => [
     if (widget.onMenu case final onMenu?) ...[
-      // Without a sidebar pinned open, there is no corner for the window's own buttons
-      // but this one.
-      const WindowControls(),
-      if (WindowControls.available) const SizedBox(width: AppSpace.sm),
       _IconButton(icon: Icons.menu_rounded, tooltip: 'Show the sidebar', onTap: onMenu),
       const SizedBox(width: AppSpace.md),
     ],
@@ -191,6 +183,16 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
     if (_primary() case final primary?) ...[
       const SizedBox(width: AppSpace.md),
       primary,
+    ],
+    ..._window(),
+  ];
+
+  /// The window's own buttons, last on the line: the top-right corner of every screen is
+  /// where a window's controls are looked for.
+  List<Widget> _window() => [
+    if (WindowControls.available) ...[
+      const SizedBox(width: AppSpace.md),
+      const WindowControls(),
     ],
   ];
 

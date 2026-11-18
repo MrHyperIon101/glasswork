@@ -106,9 +106,13 @@ abstract final class AppSize {
   /// A dashboard card holding one figure.
   static const metricCard = 120.0;
 
-  /// One of the window's own buttons, drawn in the app because the window has no bar of
-  /// its own. The circle is small, as it is on a Mac; what it is hit with is [touch].
-  static const windowButton = 12.0;
+  /// The capsule holding the window's own buttons, drawn in the app because the window has
+  /// no bar of its own. Taller than [control], so the three buttons inside it are each a
+  /// comfortable target; it sits centred on the toolbar's line.
+  static const windowPill = 40.0;
+
+  /// One of the buttons in [windowPill]: a circle, filled only under the pointer.
+  static const windowButton = 34.0;
 
   /// A day in a phone's month grid: seven of them across a 360-point screen, each still
   /// big enough to tap.
@@ -315,4 +319,8 @@ abstract final class AppMaterial {
   /// Tint over the blur, so content behind never resolves into recognisable shapes.
   static const sidebarTint = Color(0xCC1C1C1E);
   static const sheetTint = Color(0xE62C2C2E);
+
+  /// The window buttons' capsule: near-black and nearly opaque, so the three glyphs read
+  /// against anything the header sits on.
+  static const windowPillTint = Color(0xDB1C1C1E);
 }

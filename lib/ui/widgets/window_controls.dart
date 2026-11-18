@@ -9,66 +9,59 @@ import '../motion.dart';
 /// The window's own buttons, in the app rather than in a bar above it.
 ///
 /// The Linux window is built without a title bar (`linux/runner/my_application.cc`): a
-/// strip in the desktop's theme sitting on top of a window in Apple's is exactly the seam
-/// the rest of the app is drawn to avoid. So close, minimise and zoom are drawn here, in
-/// the corner of the app's own header, and ask the runner over the desktop channel.
+/// strip in the desktop's theme sitting on top of a window drawn in this one is exactly the
+/// seam the rest of the app avoids. So minimise, maximise and close are one capsule at the
+/// top-right of the app's own header — the same pill Voxtrona draws — and ask the runner
+/// over the desktop channel.
 ///
 /// Where there is no window to control — Android, a test with no runner answering —
 /// [available] is false and nothing is drawn.
-class WindowControls extends ConsumerStatefulWidget {
+class WindowControls extends ConsumerWidget {
   const WindowControls({super.key});
 
   /// Whether this build has a window of its own to control.
   static bool get available => defaultTargetPlatform == TargetPlatform.linux;
 
   @override
-  ConsumerState<WindowControls> createState() => _WindowControlsState();
-}
-
-class _WindowControlsState extends ConsumerState<WindowControls> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!WindowControls.available) return const SizedBox.shrink();
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!available) return const SizedBox.shrink();
     final shell = ref.watch(desktopShellProvider);
     final maximized = ref.watch(windowMaximizedProvider);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+    return Container(
+      height: AppSize.windowPill,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
+      decoration: const BoxDecoration(
+        color: AppMaterial.windowPillTint,
+        borderRadius: AppRadius.roundAll,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _Button(
-            key: const ValueKey('window-close'),
-            tooltip: 'Close',
-            colour: AppColour.red,
-            glyph: Icons.close_rounded,
-            lit: _hovered,
-            onTap: shell.closeWindow,
-          ),
-          const SizedBox(width: AppSpace.sm),
-          _Button(
             key: const ValueKey('window-minimize'),
             tooltip: 'Minimise',
-            colour: AppColour.yellow,
             glyph: Icons.remove_rounded,
-            lit: _hovered,
             onTap: shell.minimize,
           ),
-          const SizedBox(width: AppSpace.sm),
+          const SizedBox(width: AppSpace.xs),
           _Button(
             key: const ValueKey('window-zoom'),
             tooltip: maximized ? 'Restore' : 'Maximise',
-            colour: AppColour.green,
-            glyph: maximized
-                ? Icons.close_fullscreen_rounded
-                : Icons.open_in_full_rounded,
-            lit: _hovered,
+            glyph: maximized ? Icons.filter_none_rounded : Icons.crop_square_rounded,
+            // The square is drawn smaller than the other two, so the three read as one size.
+            glyphSize: _Button.squareGlyph,
             onTap: () async => ref
                 .read(windowMaximizedProvider.notifier)
                 .set(await shell.toggleMaximize()),
+          ),
+          const SizedBox(width: AppSpace.xs),
+          _Button(
+            key: const ValueKey('window-close'),
+            tooltip: 'Close',
+            glyph: Icons.close_rounded,
+            danger: true,
+            onTap: shell.closeWindow,
           ),
         ],
       ),
@@ -76,58 +69,68 @@ class _WindowControlsState extends ConsumerState<WindowControls> {
   }
 }
 
-/// One button: a coloured circle that shows what it does once the pointer is anywhere
-/// near the three of them, which is how a Mac does it — three dots at rest, three buttons
-/// when you go for one.
-class _Button extends StatelessWidget {
+/// One button in the pill: a glyph, and a circle that fills only under the pointer — red
+/// for close, the way a window's close button warns before it is pressed.
+class _Button extends StatefulWidget {
   const _Button({
     required this.tooltip,
-    required this.colour,
     required this.glyph,
-    required this.lit,
     required this.onTap,
+    this.glyphSize = standardGlyph,
+    this.danger = false,
     super.key,
   });
 
+  static const standardGlyph = 18.0;
+  static const squareGlyph = 15.0;
+
   final String tooltip;
-  final Color colour;
   final IconData glyph;
-  final bool lit;
+  final double glyphSize;
+  final bool danger;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    waitDuration: const Duration(milliseconds: 600),
-    child: MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Pressable(
-        onTap: onTap,
-        pressedScale: 0.88,
-        // The circle is small; what a pointer has to hit is not.
-        child: SizedBox(
-          width: AppSize.windowButton + AppSpace.sm,
-          height: AppSize.touch,
-          child: Center(
-            child: Container(
-              width: AppSize.windowButton,
-              height: AppSize.windowButton,
-              decoration: BoxDecoration(
-                color: colour,
-                borderRadius: AppRadius.roundAll,
-              ),
-              child: AnimatedOpacity(
-                duration: AppMotion.of(context, AppMotion.quick),
-                curve: AppMotion.standard,
-                opacity: lit ? 1 : 0,
-                child: Icon(glyph, size: 9, color: AppColour.base),
-              ),
+  State<_Button> createState() => _ButtonState();
+}
+
+class _ButtonState extends State<_Button> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = !_hovered
+        ? AppColour.fill.withValues(alpha: 0)
+        : widget.danger
+        ? AppColour.red
+        : AppColour.fill;
+
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 600),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Pressable(
+          onTap: widget.onTap,
+          pressedScale: 0.92,
+          child: AnimatedContainer(
+            duration: AppMotion.of(context, AppMotion.quick),
+            curve: AppMotion.standard,
+            width: AppSize.windowButton,
+            height: AppSize.windowButton,
+            decoration: BoxDecoration(color: fill, borderRadius: AppRadius.roundAll),
+            child: Icon(
+              widget.glyph,
+              size: widget.glyphSize,
+              color: AppColour.label.withValues(alpha: _hovered ? 1 : 0.86),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Makes [child] the window's handle: dragging it moves the window, and a double click

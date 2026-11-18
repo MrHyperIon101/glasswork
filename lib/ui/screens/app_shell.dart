@@ -232,12 +232,7 @@ class _ShellState extends ConsumerState<_Shell> {
                           0,
                           AppSpace.md,
                         ),
-                        child: SizedBox(
-                          width: _sidebarWidth,
-                          // The window's own buttons live here while the sidebar is
-                          // pinned: the top-left corner of the window, as on a Mac.
-                          child: _Sidebar(windowControls: true),
-                        ),
+                        child: SizedBox(width: _sidebarWidth, child: _Sidebar()),
                       ),
                     Expanded(
                       child: _Content(
@@ -367,14 +362,9 @@ class _BackCloses extends ConsumerWidget {
 }
 
 class _Sidebar extends ConsumerWidget {
-  const _Sidebar({this.onNavigate, this.windowControls = false});
+  const _Sidebar({this.onNavigate});
 
   final VoidCallback? onNavigate;
-
-  /// Whether this sidebar is the one pinned to the window's corner, and so the one that
-  /// draws the window's buttons. The drawer over a narrow window is not: the header keeps
-  /// them there, where they are always in view.
-  final bool windowControls;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -423,30 +413,17 @@ class _Sidebar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The sidebar's top is the window's top-left corner, so it is also somewhere to
+          // drag the window by.
           WindowDrag(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                windowControls && WindowControls.available ? AppSpace.md : AppSpace.lg,
-                windowControls && WindowControls.available ? AppSpace.md : AppSpace.xl,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg,
+                AppSpace.xl,
                 AppSpace.lg,
                 AppSpace.lg,
               ),
-              child: Row(
-                children: [
-                  if (windowControls) ...[
-                    const WindowControls(),
-                    if (WindowControls.available) const SizedBox(width: AppSpace.sm),
-                  ],
-                  Flexible(
-                    child: Text(
-                      AppConfig.name,
-                      style: AppText.title3,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+              child: Text(AppConfig.name, style: AppText.title3),
             ),
           ),
           Expanded(
