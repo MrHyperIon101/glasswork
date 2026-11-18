@@ -72,9 +72,14 @@ struct _DesktopShell {
 
   // Whether closing the window leaves the app running in the tray.
   bool keep_in_tray;
+
+  // Whether the window is hidden because it was closed into the tray — not because it was
+  // never shown, as when the OS Spotlight wakes the app in the background.
+  bool in_tray;
 };
 
 void desktop_shell_present(DesktopShell* shell) {
+  shell->in_tray = false;
   gtk_widget_show(GTK_WIDGET(shell->window));
   // The time of the click that asked for it, so the desktop lets the window come forward.
   gtk_window_present_with_time(shell->window, gtk_get_current_event_time());
@@ -207,6 +212,7 @@ static gboolean on_delete(GtkWidget* window, GdkEvent* event, gpointer data) {
   if (!shell->keep_in_tray || shell->tray == nullptr) return FALSE;
   // Kept running, and reachable from the tray icon.
   gtk_widget_hide(window);
+  shell->in_tray = true;
   return TRUE;
 }
 
@@ -230,8 +236,9 @@ static void on_method_call(FlMethodChannel* channel,
       show_tray(shell);
     } else {
       hide_tray(shell);
-      // Closing it would now quit, so a window waiting in the tray comes back.
-      if (!gtk_widget_get_visible(GTK_WIDGET(shell->window))) {
+      // Closing it would now quit, so a window waiting in the tray comes back. One that
+      // was never shown stays as it is: it is serving the OS Spotlight in the background.
+      if (shell->in_tray) {
         desktop_shell_present(shell);
       }
     }

@@ -12,6 +12,7 @@ add_executable(${BINARY_NAME}
   "image_prep.cc"
   "images_channel.cc"
   "my_application.cc"
+  "spotlight_service.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 

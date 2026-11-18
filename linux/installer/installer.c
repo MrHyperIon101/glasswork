@@ -11,6 +11,7 @@
  *   ~/.local/opt/dev.mrhyperion.glasswork            the app, its VERSION and `uninstall`
  *   ~/.local/share/applications/<id>.desktop          its entry among the apps
  *   ~/.local/share/icons/hicolor/<size>/apps/<id>.png
+ *   ~/.local/share/dbus-1/services/<id>.service       how the OS Spotlight wakes it
  * Tasks and the sign-in live in ~/.local/share/dev.mrhyperion.glasswork, which installing
  * and updating never touch.
  *
@@ -74,6 +75,12 @@ static char *install_dir(void) {
 
 static char *desktop_entry(void) {
   return g_build_filename(g_get_user_data_dir(), "applications", APP_ID ".desktop", NULL);
+}
+
+/* Lets the OS Spotlight wake Glasswork in the background when it is not running: a call to
+ * its bus name starts it with --background, and the call waits until it can answer. */
+static char *dbus_service(void) {
+  return g_build_filename(g_get_user_data_dir(), "dbus-1", "services", APP_ID ".service", NULL);
 }
 
 static char *icon_path(int size) {
@@ -356,6 +363,21 @@ static gboolean write_desktop_entry(const char *staging, GError **error) {
   return g_file_set_contents(path, entry, -1, error);
 }
 
+static gboolean write_dbus_service(GError **error) {
+  g_autofree char *dir = install_dir();
+  g_autofree char *binary = g_build_filename(dir, BINARY, NULL);
+  g_autofree char *exec = exec_argument(binary);
+  g_autofree char *service =
+      g_strdup_printf("[D-BUS Service]\nName=%s\nExec=%s --background\n", APP_ID, exec);
+
+  g_autofree char *path = dbus_service();
+  g_autofree char *parent = g_path_get_dirname(path);
+  if (g_mkdir_with_parents(parent, 0755) != 0) {
+    return fail(error, "Could not create %s: %s", parent, g_strerror(errno));
+  }
+  return g_file_set_contents(path, service, -1, error);
+}
+
 /* Tells the desktop about the new entry and icons, where it keeps caches of them. */
 static void refresh_desktop(void) {
   g_autofree char *hicolor = g_build_filename(g_get_user_data_dir(), "icons", "hicolor", NULL);
@@ -477,7 +499,8 @@ static gboolean install(const Payload *payload, gboolean may_close, Report repor
   }
   if (ok) {
     report("Adding Glasswork to your apps…", data);
-    ok = install_icons(staging, error) && write_desktop_entry(staging, error);
+    ok = install_icons(staging, error) && write_desktop_entry(staging, error) &&
+         write_dbus_service(error);
     if (ok) refresh_desktop();
   }
 
@@ -514,6 +537,8 @@ static gboolean uninstall(gboolean remove_data, Report report, gpointer data, GE
 
   g_autofree char *entry = desktop_entry();
   g_unlink(entry);
+  g_autofree char *service = dbus_service();
+  g_unlink(service);
   for (size_t i = 0; i < G_N_ELEMENTS(kIconSizes); i++) {
     g_autofree char *icon = icon_path(kIconSizes[i]);
     g_unlink(icon);

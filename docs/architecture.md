@@ -346,6 +346,39 @@ list, one task a line, each line read the way a single title is.
 
 ---
 
+## Spotlight
+
+Glasswork can be searched from outside itself. The runner serves `dev.mrhyperion.glasswork.Spotlight`
+at `/dev/mrhyperion/glasswork/Spotlight` on the app's own bus name (`linux/runner/spotlight_service.cc`):
+`Query`, `Recents`, `PreviewAdd`, `AddTask` and `Activate`. Each call goes to Dart over the
+`dev.mrhyperion.glasswork/spotlight` channel (`SpotlightChannel`) and is answered when Dart replies; the
+phone's Spotlight asks the same `SpotlightService` directly.
+
+- **What it finds** is ranked by `SpotlightIndex` (`lib/search/spotlight_index.dart`, pure and total):
+  the whole title, then a title starting with the query, then a word in it, then every word of the query
+  starting a word, then the query anywhere, then its letters in order; finished work below what is
+  still to do, and what was opened lately nudged up — never past a better kind of match.
+- **Recents** are the last 20 tasks, notes and projects opened on this device (`lib/data/recents.dart`,
+  in `LocalSettings`), recorded where the task sheet, the note editor and a project open.
+- **Adding from it** goes through `addTaskFromLine` (`lib/state/quick_add.dart`), the one way a typed
+  line becomes a task, shared with the composer's list of several.
+- **Waking it.** The installer writes `~/.local/share/dbus-1/services/dev.mrhyperion.glasswork.service`,
+  so a call to the bus name when Glasswork is not running starts it with `--background`: it serves the
+  call and keeps its window hidden. The interface is exported from `dbus_register`, before the app owns
+  its name, and calls that arrive before Dart can answer wait in the runner until Dart says `ready`, up
+  to eight seconds. The tray's "a hidden window comes back when the tray is turned off" only means a
+  window closed into the tray (`in_tray`), not one that was never shown.
+
+Two things about Riverpod 3 this rests on, both found the hard way:
+
+- **A provider nothing listens to is paused**, and so is everything it listens to. The shell holds a
+  subscription to `spotlightServiceProvider` (`listenManual`, not `read`), and the service keeps its
+  data providers listened for as long as it exists. Read alone, Recents answered with what it held
+  before the last task was opened.
+- **A stream provider's `.future` answers with the first value it ever had** until the provider
+  rebuilds. The service reads each provider's current value instead (`_load`), waiting only when there
+  is none yet.
+
 ## Desktop: the window and the tray
 
 **The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in

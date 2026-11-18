@@ -9,6 +9,8 @@ import '../../data/db/database.dart';
 import '../../data/db/tables.dart';
 import '../../data/project_groups.dart';
 import '../../reminders/reminders.dart';
+import '../../search/spotlight_channel.dart';
+import '../../search/spotlight_service.dart';
 import '../../state/providers.dart';
 import '../../state/reminders_controller.dart';
 import '../../state/sync_controller.dart';
@@ -161,6 +163,9 @@ class _ShellState extends ConsumerState<_Shell> {
       shell.maximized().then((value) {
         if (mounted) ref.read(windowMaximizedProvider.notifier).set(value);
       });
+      // What the OS Spotlight asks Glasswork, over the runner's D-Bus service. Listened to,
+      // not read: a provider nothing listens to is paused, and the service's data with it.
+      SpotlightChannel.listen(ref.listenManual(spotlightServiceProvider, (_, _) {}).read());
     }
     _startReminders();
   }

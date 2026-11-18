@@ -19,6 +19,7 @@ import '../data/repository/task_repository.dart';
 import '../data/repository/workspace_repository.dart';
 import '../data/completed.dart';
 import '../data/project_filter.dart';
+import '../data/recents.dart';
 import '../data/task_order.dart';
 import '../data/task_slots.dart';
 import '../data/task_stats.dart';
@@ -177,6 +178,9 @@ class SelectedDestination extends Notifier<Destination> {
       _beforeSettings = state;
     }
     state = destination;
+    if (destination case ProjectDestination(:final projectId)) {
+      _opened(ref, RecentKind.project, projectId);
+    }
   }
 
   /// Leaves Settings for wherever it was opened from.
@@ -405,11 +409,26 @@ class OpenTask extends Notifier<String?> {
   @override
   String? build() => null;
 
-  void open(String taskId) => state = taskId;
+  void open(String taskId) {
+    state = taskId;
+    _opened(ref, RecentKind.task, taskId);
+  }
   void close() => state = null;
 }
 
 final openTaskProvider = NotifierProvider<OpenTask, String?>(OpenTask.new);
+
+/// Notes in Recents that something was opened. Not awaited: it is a convenience, written
+/// on this device alone, and opening never waits on it.
+void _opened(Ref ref, RecentKind kind, String id) {
+  ref.read(appScopeProvider).value?.preferences.recordOpened(kind, id, DateTime.now());
+}
+
+/// What was opened most recently on this device, newest first.
+final recentsProvider = StreamProvider<List<Recent>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.preferences.watchRecents();
+});
 
 /// Live view of the task the sheet is showing, so edits reflect immediately.
 final openTaskDetailProvider = StreamProvider<Task?>((ref) async* {
@@ -643,7 +662,10 @@ class OpenNote extends Notifier<NoteEditing?> {
   @override
   NoteEditing? build() => null;
 
-  void edit(Note note) => state = NoteEditing(++_serial, note: note);
+  void edit(Note note) {
+    state = NoteEditing(++_serial, note: note);
+    _opened(ref, RecentKind.note, note.id);
+  }
   void create() => state = NoteEditing(++_serial);
   void close() => state = null;
 }

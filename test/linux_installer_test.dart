@@ -102,6 +102,11 @@ void main() {
           .readAsStringSync();
       expect(entry, contains('\nExec="$app/glasswork"\n'));
       expect(entry, contains('\nExec="$app/uninstall" --uninstall\n'));
+      // How the OS Spotlight wakes the app when it is not running.
+      expect(
+        File(inHome('.local/share/dbus-1/services/$id.service')).readAsStringSync(),
+        '[D-BUS Service]\nName=$id\nExec="$app/glasswork" --background\n',
+      );
       expect(
         File(inHome('.local/share/icons/hicolor/256x256/apps/$id.png'))
             .existsSync(),
@@ -184,6 +189,11 @@ void main() {
       expect(
         File(inHome('.local/share/applications/$id.desktop')).existsSync(),
         isFalse,
+      );
+      expect(
+        File(inHome('.local/share/dbus-1/services/$id.service')).existsSync(),
+        isFalse,
+        reason: 'nothing left that could wake an app no longer there',
       );
       expect(
         File(inHome('.local/share/icons/hicolor/256x256/apps/$id.png'))

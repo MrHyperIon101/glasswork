@@ -7,6 +7,7 @@ import '../../data/db/database.dart';
 import '../../data/preferences.dart';
 import '../../data/quick_add_parser.dart';
 import '../../state/providers.dart';
+import '../../state/quick_add.dart';
 import '../../state/reminders_controller.dart';
 import '../../theme/tokens.dart';
 import '../format.dart';
@@ -243,37 +244,14 @@ class _FormState extends ConsumerState<_Form> {
 
     var reminded = false;
     for (final line in lines) {
-      final parsed = QuickAddParser.parse(
+      final created = await addTaskFromLine(
+        scope,
         line,
+        sectionId: sectionId,
         now: DateTime.now(),
         morningMin: _morningMin,
       );
-      if (parsed.title.isEmpty) continue;
-
-      final created = await scope.tasks.create(
-        listId: sectionId,
-        workspaceId: scope.workspace.id,
-        title: parsed.title,
-        dueAt: parsed.dueAt,
-        dueDate: parsed.dueDate,
-        priority: parsed.priority,
-        estimateMin: parsed.estimateMin,
-        remindAt: parsed.remindAt,
-        startAt: parsed.startAt,
-      );
-      reminded |= parsed.remindAt != null;
-
-      for (final name in parsed.labels) {
-        final label = await scope.labels.ensure(
-          workspaceId: scope.workspace.id,
-          name: name,
-        );
-        await scope.labels.attach(
-          workspaceId: scope.workspace.id,
-          taskId: created.id,
-          labelId: label.id,
-        );
-      }
+      reminded |= created?.remindAt != null;
     }
 
     if (reminded) await _askToNotify(container);

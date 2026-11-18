@@ -4,6 +4,7 @@
 
 #include "desktop_shell.h"
 #include "images_channel.h"
+#include "spotlight_service.h"
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
@@ -12,12 +13,18 @@ struct _MyApplication {
   GtkWindow* window;
   DesktopShell* shell;
   ImagesChannel* images;
+  SpotlightService* spotlight;
+
+  // Started with --background: by D-Bus activation, for the OS Spotlight. The window stays
+  // hidden until something asks for it — a launch, the tray, a result opened.
+  gboolean background;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
+  if (self->background) return;
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
@@ -89,6 +96,7 @@ static void my_application_activate(GApplication* application) {
 
   desktop_shell_attach(self->shell, view);
   self->images = images_channel_new(window, view);
+  spotlight_service_attach(self->spotlight, view, self->shell);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -98,8 +106,19 @@ static gboolean my_application_local_command_line(GApplication* application,
                                                   gchar*** arguments,
                                                   int* exit_status) {
   MyApplication* self = MY_APPLICATION(application);
-  // Strip out the first argument as it is the binary name.
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  // Strip out the first argument as it is the binary name, and --background, which is the
+  // runner's own.
+  GPtrArray* dart_arguments = g_ptr_array_new();
+  for (gchar** argument = *arguments + 1; *argument != nullptr; argument++) {
+    if (g_strcmp0(*argument, "--background") == 0) {
+      self->background = TRUE;
+    } else {
+      g_ptr_array_add(dart_arguments, g_strdup(*argument));
+    }
+  }
+  g_ptr_array_add(dart_arguments, nullptr);
+  self->dart_entrypoint_arguments =
+      reinterpret_cast<gchar**>(g_ptr_array_free(dart_arguments, FALSE));
 
   g_autoptr(GError) error = nullptr;
   if (!g_application_register(application, nullptr, &error)) {
@@ -112,6 +131,28 @@ static gboolean my_application_local_command_line(GApplication* application,
   *exit_status = 0;
 
   return TRUE;
+}
+
+// Implements GApplication::dbus_register: what the OS Spotlight asks Glasswork, exported
+// before the app owns its name so a call that woke it can be delivered.
+static gboolean my_application_dbus_register(GApplication* application,
+                                             GDBusConnection* connection,
+                                             const gchar* object_path,
+                                             GError** error) {
+  MyApplication* self = MY_APPLICATION(application);
+  if (!G_APPLICATION_CLASS(my_application_parent_class)
+           ->dbus_register(application, connection, object_path, error)) {
+    return FALSE;
+  }
+  return spotlight_service_register(self->spotlight, connection, error);
+}
+
+static void my_application_dbus_unregister(GApplication* application,
+                                           GDBusConnection* connection,
+                                           const gchar* object_path) {
+  spotlight_service_unregister(MY_APPLICATION(application)->spotlight);
+  G_APPLICATION_CLASS(my_application_parent_class)
+      ->dbus_unregister(application, connection, object_path);
 }
 
 // Implements GApplication::startup.
@@ -138,6 +179,7 @@ static void my_application_dispose(GObject* object) {
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->shell, desktop_shell_free);
   g_clear_pointer(&self->images, images_channel_free);
+  g_clear_pointer(&self->spotlight, spotlight_service_free);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
@@ -146,11 +188,15 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->local_command_line =
       my_application_local_command_line;
   G_APPLICATION_CLASS(klass)->startup = my_application_startup;
+  G_APPLICATION_CLASS(klass)->dbus_register = my_application_dbus_register;
+  G_APPLICATION_CLASS(klass)->dbus_unregister = my_application_dbus_unregister;
   G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
-static void my_application_init(MyApplication* self) {}
+static void my_application_init(MyApplication* self) {
+  self->spotlight = spotlight_service_new();
+}
 
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems

@@ -4,6 +4,7 @@ import '../db/database.dart';
 import '../completed.dart';
 import '../preferences.dart';
 import '../project_groups.dart';
+import '../recents.dart';
 
 /// Reads and writes [Preferences], in `LocalSettings`.
 ///
@@ -58,6 +59,20 @@ class PreferencesRepository {
     String projectId, {
     required bool collapsed,
   }) => _toggleId(CollapsedCompleted.key, projectId, on: collapsed);
+
+  /// What was opened most recently on this device, newest first.
+  Stream<List<Recent>> watchRecents() =>
+      (_db.select(_db.localSettings)..where((s) => s.key.equals(Recents.key)))
+          .watchSingleOrNull()
+          .map((row) => Recents.parse(row?.value));
+
+  Future<void> recordOpened(RecentKind kind, String id, DateTime at) => _db.transaction(() async {
+    final row =
+        await (_db.select(_db.localSettings)..where((s) => s.key.equals(Recents.key)))
+            .getSingleOrNull();
+    final recents = Recents.record(Recents.parse(row?.value), Recent(kind, id, at));
+    await _put(Recents.key, Recents.format(recents));
+  });
 
   Stream<Set<String>> _watchIds(String key) =>
       (_db.select(_db.localSettings)..where((s) => s.key.equals(key)))

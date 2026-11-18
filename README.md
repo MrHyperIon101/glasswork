@@ -201,7 +201,7 @@ flutter analyze
 flutter test
 ```
 
-826 of them, and they are where the design is enforced rather than merely described: the
+847 of them, and they are where the design is enforced rather than merely described: the
 capacity arithmetic against golden schedules, the sync merge across two simulated devices and a
 fake server, the repositories, every pure text and layout function, and the harness above. The
 server has its own — `supabase/checks/sync_schema_checks.sql` asserts the tables, policies and

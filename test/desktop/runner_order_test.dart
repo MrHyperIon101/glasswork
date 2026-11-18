@@ -37,4 +37,20 @@ void main() {
     // The switcher and the taskbar still read the title.
     expect(source, contains('gtk_window_set_title('));
   });
+
+  test('the OS Spotlight can reach Glasswork, and wake it without a window', () {
+    final app = File('linux/runner/my_application.cc').readAsStringSync();
+    final service = File('linux/runner/spotlight_service.cc').readAsStringSync();
+
+    // Exported from dbus_register, which runs before the app owns its bus name, so a call
+    // that woke it through D-Bus activation has somewhere to be delivered.
+    expect(app, contains('->dbus_register = my_application_dbus_register'));
+    expect(app, contains('spotlight_service_register('));
+    expect(service, contains("interface name='dev.mrhyperion.glasswork.Spotlight'"));
+    expect(service, contains('/dev/mrhyperion/glasswork/Spotlight'));
+
+    // Woken by D-Bus activation, it serves the call and keeps its window out of sight.
+    expect(app, contains('"--background"'));
+    expect(app, contains('if (self->background) return;'));
+  });
 }
