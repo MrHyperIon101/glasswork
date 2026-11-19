@@ -68,15 +68,21 @@ export class WindowGlass {
         }));
         global.window_group.insert_child_below(frost, actor);
 
-        const ids = [
-            window.connect('position-changed', () => this._place(window, frost)),
-            window.connect('size-changed', () => this._place(window, frost)),
-            window.connect('notify::minimized', () => this._show(window, actor, frost)),
-            window.connect('unmanaged', () => this._remove(window)),
-            actor.connect('notify::visible', () => this._show(window, actor, frost)),
-            actor.connect('notify::opacity', () => (frost.opacity = actor.opacity)),
-        ];
-        this._frosts.set(window, {frost, actor, ids});
+        // Tied to the frost: destroying it lets go of all of these, and never touches a
+        // window or actor that is already gone — a closed window's actor often is, by the
+        // time its window says it has been unmanaged.
+        window.connectObject(
+            'position-changed', () => this._place(window, frost),
+            'size-changed', () => this._place(window, frost),
+            'notify::minimized', () => this._show(window, actor, frost),
+            'unmanaged', () => this._remove(window),
+            frost);
+        actor.connectObject(
+            'notify::visible', () => this._show(window, actor, frost),
+            'notify::opacity', () => (frost.opacity = actor.opacity),
+            'destroy', () => this._remove(window),
+            frost);
+        this._frosts.set(window, {frost, actor});
         this._place(window, frost);
         this._show(window, actor, frost);
         this._tell();
@@ -95,7 +101,7 @@ export class WindowGlass {
 
     _restack() {
         for (const {frost, actor} of this._frosts.values()) {
-            if (frost.get_parent() === actor.get_parent())
+            if (actor.get_parent() && frost.get_parent() === actor.get_parent())
                 global.window_group.set_child_below_sibling(frost, actor);
         }
     }
@@ -104,12 +110,8 @@ export class WindowGlass {
         const entry = this._frosts.get(window);
         if (!entry)
             return;
-        for (const id of entry.ids.slice(0, 4))
-            window.disconnect(id);
-        for (const id of entry.ids.slice(4))
-            entry.actor.disconnect(id);
-        entry.frost.destroy();
         this._frosts.delete(window);
+        entry.frost.destroy();
         this._tell();
     }
 

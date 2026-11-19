@@ -26,6 +26,14 @@ home="$(mktemp -d)"
 runtime="$(mktemp -d /tmp/gw-nested.XXXX)"
 chmod 700 "$runtime"
 cleanup() {
+  # What the session's bus started — portals, the calendar, the file index — outlives the bus.
+  # Closed here, from outside the session, and only what has this session's runtime directory,
+  # so nothing of the real session is ever touched.
+  for p in $(pgrep -u "$(id -u)" . 2>/dev/null); do
+    { tr '\0' '\n' < "/proc/$p/environ"; } 2>/dev/null | grep -qx "XDG_RUNTIME_DIR=$runtime" &&
+      kill "$p" 2>/dev/null
+  done
+  sleep 0.5
   # The session's portals mount these, and the mounts outlive it by a moment.
   for mount in doc gvfs; do fusermount3 -u -z "$runtime/$mount" 2>/dev/null; done
   rm -rf "$home" "$runtime" 2>/dev/null
