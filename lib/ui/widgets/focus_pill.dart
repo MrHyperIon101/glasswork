@@ -35,12 +35,17 @@ class _FocusPillState extends ConsumerState<FocusPill> {
   /// How long a finished session goes on being offered a next step.
   static const _offerFor = Duration(minutes: 10);
 
-  @override
-  void initState() {
-    super.initState();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
+  /// Ticks each second while there is a session to show, and not otherwise: an idle app is
+  /// never drawn again for nothing.
+  void _keepTicking(bool needed) {
+    if (needed && _tick == null) {
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!needed && _tick != null) {
+      _tick!.cancel();
+      _tick = null;
+    }
   }
 
   @override
@@ -55,6 +60,8 @@ class _FocusPillState extends ConsumerState<FocusPill> {
     final latest = sessions.firstOrNull;
     final now = DateTime.now();
     final state = latest == null ? null : _stateOf(latest, now);
+    // A session that has not started yet, or one on the edge of ending, still needs the tick.
+    _keepTicking(state != null || (latest != null && latest.endedAt == null));
 
     return Presence(
       visible: state != null,

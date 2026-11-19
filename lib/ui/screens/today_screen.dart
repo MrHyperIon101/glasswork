@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/day_agenda.dart';
+import '../../capacity/day_plan.dart';
+import '../widgets/field_controls.dart';
+import '../../data/recents.dart';
+import '../../data/preferences.dart';
+import '../../capacity/scheduler.dart';
 import '../../capacity/day_now.dart';
 import '../../capacity/ledger.dart';
 import '../../capacity/task_slot.dart';
@@ -27,6 +32,8 @@ import '../widgets/content_header.dart';
 import '../widgets/note_widgets.dart';
 import '../widgets/task_row.dart';
 import '../widgets/week_load_strip.dart';
+
+part 'today_more.dart';
 
 /// The Today dashboard: the few figures worth a glance, what is due today and coming up,
 /// the day's timetable against now, the week's load, and a place to jot a note.
@@ -108,12 +115,13 @@ enum _Shape {
   /// One column, and the page scrolls.
   narrow(double.infinity),
 
-  /// The figures in a row; under them today, and beside it the day above the week and notes.
-  medium(720),
+  /// The figures in a row; under them today, beside it the day above focus; under those the
+  /// deadline radar, beside it where to jump back in above notes.
+  medium(900),
 
   /// The figures in a row; under them today across two of their widths, then the day, then
-  /// the week above notes.
-  wide(640);
+  /// focus above notes; under those the deadline radar, the week, and where to jump back in.
+  wide(820);
 
   const _Shape(this.fillFrom);
 
@@ -162,69 +170,70 @@ class _Dashboard extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _staggered(0, _TodayCard(stats: stats, fill: false)),
+          _staggered(0, const _FocusCard(fill: false)),
           between,
-          _staggered(1, const _DayCard(fill: false)),
+          _staggered(1, _TodayCard(stats: stats, fill: false)),
           between,
-          _staggered(2, _Tiles(stats: stats, perRow: 2)),
+          _staggered(2, const _DayCard(fill: false)),
           between,
-          _staggered(3, const _NotesCard(fill: false)),
+          _staggered(3, const _RadarCard(fill: false)),
           between,
-          _staggered(4, const _WeekCard(fill: false)),
+          _staggered(4, _Tiles(stats: stats, perRow: 2)),
+          between,
+          _staggered(5, const _NotesCard(fill: false)),
+          between,
+          _staggered(6, const _WeekCard(fill: false)),
+          between,
+          _staggered(7, const _JumpBackCard(fill: false)),
         ],
       );
     }
 
     // Every column lines up with the edges of the four figures above it.
     final tile = (width - 3 * _gap) / 4;
+    final double twoTiles = 2 * tile + _gap;
     final today = SizedBox(
-      width: 2 * tile + _gap,
+      width: twoTiles,
       child: _staggered(1, _TodayCard(stats: stats, fill: fill)),
     );
     final day = _staggered(2, _DayCard(fill: fill));
-    final week = _staggered(3, _WeekCard(fill: fill));
-    final notes = _staggered(4, _NotesCard(fill: fill));
+    final focus = _staggered(3, _FocusCard(fill: fill));
+    final radar = SizedBox(width: twoTiles, child: _staggered(4, _RadarCard(fill: fill)));
+    final week = _staggered(5, _WeekCard(fill: fill));
+    final notes = _staggered(6, _NotesCard(fill: fill));
+    final jump = _staggered(7, _JumpBackCard(fill: fill));
 
-    final columns = switch (shape) {
-      _Shape.medium => [
-        today,
-        gap,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: fill
-                ? [
-                    Expanded(flex: 11, child: day),
-                    gap,
-                    // The week and notes side by side, each a figure wide.
-                    Expanded(
-                      flex: 6,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(width: tile, child: week),
-                          gap,
-                          Expanded(child: notes),
-                        ],
-                      ),
-                    ),
-                  ]
-                : [day, gap, notes, gap, week],
-          ),
-        ),
+    Widget column(List<(Widget, int)> cards) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, (card, flex)) in cards.indexed) ...[
+          if (i > 0) gap,
+          grow(card, flex: flex),
+        ],
       ],
-      _ => [
-        today,
-        gap,
-        SizedBox(width: tile, child: day),
-        gap,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [grow(week, flex: 2), gap, grow(notes, flex: 3)],
-          ),
-        ),
-      ],
+    );
+    Widget row(List<Widget> children) => Row(
+      crossAxisAlignment: fill ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+      children: children,
+    );
+
+    // The day's work and its time on top; below, the fortnight ahead, the week, and where to
+    // go back to.
+    final (top, bottom) = switch (shape) {
+      _Shape.medium => (
+        row([today, gap, Expanded(child: column([(day, 3), (focus, 2)]))]),
+        row([radar, gap, Expanded(child: column([(jump, 3), (notes, 2)]))]),
+      ),
+      _ => (
+        row([
+          today,
+          gap,
+          SizedBox(width: tile, child: day),
+          gap,
+          Expanded(child: column([(focus, 4), (notes, 5)])),
+        ]),
+        row([radar, gap, SizedBox(width: tile, child: week), gap, Expanded(child: jump)]),
+      ),
     };
 
     return Column(
@@ -232,12 +241,9 @@ class _Dashboard extends StatelessWidget {
       children: [
         _staggered(0, _Tiles(stats: stats, perRow: 4)),
         gap,
-        grow(
-          Row(
-            crossAxisAlignment: fill ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
-            children: columns,
-          ),
-        ),
+        grow(top, flex: 5),
+        gap,
+        grow(bottom, flex: 3),
       ],
     );
   }
@@ -673,6 +679,106 @@ class _DayCardState extends ConsumerState<_DayCard> {
   /// The stretch of the day happening now.
   final _now = GlobalKey();
 
+  /// Showing Plan my day's plan, to accept or leave.
+  bool _planning = false;
+
+  /// Gives each planned task its time, as one change that one Undo takes back.
+  Future<void> _accept(DayPlan plan, DateTime day) async {
+    final scope = ref.read(appScopeProvider).value;
+    if (scope == null) return;
+    final tasks = {for (final t in ref.read(allTasksProvider).value ?? const <Task>[]) t.id: t};
+    for (final slot in plan.slots) {
+      await scope.tasks.setTime(
+        slot.taskId,
+        DateTime(day.year, day.month, day.day).add(Duration(minutes: slot.startMin)),
+        // A task with no estimate takes the length it was planned for as one.
+        lengthMin: tasks[slot.taskId]?.estimateMin == null ? slot.lengthMin : null,
+      );
+    }
+    setState(() => _planning = false);
+    final n = plan.slots.length;
+    ref.read(undoProvider.notifier).offer(
+      'Planned $n ${n == 1 ? 'task' : 'tasks'} into today',
+      () async {
+        for (final slot in plan.slots) {
+          await scope.tasks.setTime(slot.taskId, null);
+        }
+      },
+    );
+  }
+
+  Widget _planBar(DayPlan plan, DateTime day) {
+    final n = plan.slots.length;
+    if (!_planning) {
+      return Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded, size: 15, color: AppColour.accent),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Text(
+              n == 0
+                  ? "Today's work doesn't fit the free time that is left."
+                  : 'Plan my day: $n ${n == 1 ? 'task' : 'tasks'}, ${Format.estimate(plan.plannedMin)}, '
+                        'into your free time',
+              style: AppText.footnote.copyWith(color: AppColour.labelSecondary),
+            ),
+          ),
+          if (n > 0) _TextLink(label: 'Preview', onTap: () => setState(() => _planning = true)),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'The plan, before anything changes: $n ${n == 1 ? 'task' : 'tasks'} given a time.',
+            style: AppText.footnote.copyWith(color: AppColour.labelSecondary),
+          ),
+        ),
+        GhostButton(label: 'Cancel', onTap: () => setState(() => _planning = false)),
+        const SizedBox(width: AppSpace.xs),
+        GhostButton(label: 'Accept plan', onTap: () => _accept(plan, day)),
+      ],
+    );
+  }
+
+  /// The plan as the agenda would show it: each task at its time, dashed until accepted.
+  Widget _planList(DayPlan plan) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final slot in plan.slots)
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.mediumAll,
+            border: Border.all(color: AppColour.accent.withValues(alpha: 0.6)),
+            color: AppColour.accent.withValues(alpha: 0.08),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 92,
+                child: Text(Format.clockRange(slot.startMin, slot.endMin),
+                    style: AppText.footnote.copyWith(color: AppColour.accent)),
+              ),
+              Expanded(
+                child: Text(slot.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.callout),
+              ),
+            ],
+          ),
+        ),
+      for (final task in plan.unplaced)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpace.xs, horizontal: AppSpace.sm),
+          child: Text(
+            "Doesn't fit today whole: ${task.title} (${Format.estimate(task.minutes)})",
+            style: AppText.footnote.copyWith(color: AppColour.orange),
+          ),
+        ),
+    ],
+  );
+
   @override
   void initState() {
     super.initState();
@@ -722,6 +828,7 @@ class _DayCardState extends ConsumerState<_DayCard> {
         : ref.watch(taskSlotsProvider(tomorrow.date));
 
     final entries = DayAgenda.of(today, nowMin, tasks: tasksToday);
+    final plan = ref.watch(dayPlanProvider);
     // Blocks that overlap can both be on now; the key goes to the first.
     final current = entries.where((e) => e.when == AgendaTime.now).firstOrNull;
 
@@ -799,10 +906,17 @@ class _DayCardState extends ConsumerState<_DayCard> {
           ),
           const SizedBox(height: AppSpace.lg),
           _DayStrip(day: today, nowMin: nowMin, colours: colours, tasks: tasksToday),
+          if (!plan.isEmpty) ...[
+            const SizedBox(height: AppSpace.md),
+            _planBar(plan, today.date),
+          ],
           const SizedBox(height: AppSpace.md),
           const AppDivider(),
           const SizedBox(height: AppSpace.sm),
-          if (widget.fill) Expanded(child: _CardScroll(child: agenda)) else agenda,
+          if (widget.fill)
+            Expanded(child: _CardScroll(child: _planning ? _planList(plan) : agenda))
+          else
+            _planning ? _planList(plan) : agenda,
         ],
       ),
     );

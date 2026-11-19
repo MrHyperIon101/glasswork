@@ -67,6 +67,15 @@ abstract final class Format {
   static String _lateLabel(int daysLate) =>
       daysLate == 1 ? 'Overdue by a day' : 'Overdue by $daysLate days';
 
+  /// A day as the home page names one: "Today", "Tomorrow", a weekday within the week, or the
+  /// date; one already gone is "Overdue by a day".
+  static String dueDay(DateTime day, DateTime now) {
+    final days = DateTime.utc(day.year, day.month, day.day)
+        .difference(DateTime.utc(now.year, now.month, now.day))
+        .inDays;
+    return days < 0 ? _lateLabel(-days) : _dayWord(days, day);
+  }
+
   static String _dayWord(int days, DateTime day) {
     if (days == 0) return 'Today';
     if (days == 1) return 'Tomorrow';

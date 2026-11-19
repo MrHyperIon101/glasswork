@@ -12,6 +12,12 @@ import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
 import '../data/repository/note_image_repository.dart';
 import '../intel/focus_stats.dart';
+import '../intel/up_next.dart';
+import '../capacity/deadline_radar.dart';
+import '../capacity/day_plan.dart';
+import '../capacity/day_agenda.dart';
+import '../capacity/day_now.dart';
+import '../capacity/daily_review.dart';
 import '../data/repository/focus_repository.dart';
 import '../data/repository/note_repository.dart';
 import '../data/repository/preferences_repository.dart';
@@ -943,3 +949,121 @@ class FocusController {
 }
 
 final focusControllerProvider = Provider<FocusController>(FocusController.new);
+
+// --- the home page: up next, plan my day, the radar, the review ---------------
+
+/// Open tasks with what the scheduler made of them, for Up next and Plan my day.
+final _openPlannedProvider = Provider<List<(Task, ScheduledTask?)>>((ref) {
+  final tasks = ref.watch(allTasksProvider).value ?? const <Task>[];
+  final byId = {for (final t in ref.watch(scheduleProvider).tasks) t.task.id: t};
+  return [
+    for (final t in tasks)
+      if (t.status != TaskStatus.done) (t, byId[t.id]),
+  ];
+});
+
+/// The one task to start now.
+final upNextProvider = Provider<UpNextCandidate?>((ref) {
+  final days = ref.watch(dayCapacityProvider);
+  final now = DateTime.now();
+  final nowMin = now.hour * 60 + now.minute;
+  int? freeMin;
+  if (days.isNotEmpty) {
+    final today = days.first;
+    final dayNow = DayNow.of(today, nowMin, tasks: ref.watch(taskSlotsProvider(today.date)));
+    if (dayNow.current == null) freeMin = dayNow.untilMin;
+  }
+  return UpNext.pick([
+    for (final (task, plan) in ref.watch(_openPlannedProvider))
+      UpNextCandidate(
+        id: task.id,
+        title: task.title,
+        minutes: task.estimateMin ?? CapacityScheduler.assumedEstimateMin,
+        dueDay: TaskStats.dueDayOf(task),
+        priority: task.priority,
+        startDay: plan?.startDay,
+      ),
+  ], today: now, freeMin: freeMin);
+});
+
+/// Plan my day: today's work, not yet given a time, laid into what is left of today's free
+/// time, in the scheduler's order. A preview until accepted.
+final dayPlanProvider = Provider<DayPlan>((ref) {
+  final days = ref.watch(dayCapacityProvider);
+  if (days.isEmpty) return DayPlan.empty;
+  final today = days.first;
+  final now = DateTime.now();
+  final nowMin = now.hour * 60 + now.minute;
+  final slots = ref.watch(taskSlotsProvider(today.date));
+  final timed = {for (final s in slots) s.taskId};
+  final day = DateTime(now.year, now.month, now.day);
+  bool onToday(DateTime? d) => d != null && !DateTime(d.year, d.month, d.day).isAfter(day);
+  final scheduleOrder = {
+    for (final (i, t) in ref.watch(scheduleProvider).tasks.indexed) t.task.id: i,
+  };
+  final candidates = [
+    for (final (task, plan) in ref.watch(_openPlannedProvider))
+      if (!timed.contains(task.id) && task.startAt == null &&
+          (onToday(plan?.startDay) || onToday(TaskStats.dueDayOf(task))))
+        (task, scheduleOrder[task.id] ?? 1 << 20),
+  ]..sort((a, b) => a.$2.compareTo(b.$2));
+  return DayPlanner.plan(
+    agenda: DayAgenda.of(today, nowMin, tasks: slots),
+    candidates: [
+      for (final (task, _) in candidates)
+        PlanCandidate(
+          taskId: task.id,
+          title: task.title,
+          minutes: task.estimateMin ?? CapacityScheduler.assumedEstimateMin,
+        ),
+    ],
+    nowMin: nowMin,
+  );
+});
+
+/// The next fortnight: each day's load against its time, its deadlines, and what is at risk.
+final radarProvider = Provider<Radar>((ref) {
+  return DeadlineRadar.of(ref.watch(scheduleProvider), ref.watch(dayCapacityProvider));
+});
+
+/// The day looked back on.
+final dailyReviewProvider = Provider<DailyReview>((ref) {
+  final tasks = ref.watch(allTasksProvider).value ?? const <Task>[];
+  final now = DateTime.now();
+  return DailyReviewer.of(
+    tasks: [
+      for (final t in tasks)
+        ReviewTask(
+          id: t.id,
+          title: t.title,
+          done: t.status == TaskStatus.done,
+          completedAt: t.completedAt,
+          dueDay: TaskStats.dueDayOf(t),
+        ),
+    ],
+    today: now,
+    focusMin: ref.watch(focusStatsProvider).todayMin,
+    plannedMin: ref.watch(scheduleProvider).allocatedOn(now),
+  );
+});
+
+/// Each project's pulse: what is open in it, how much is done, and what is at risk.
+final projectPulseProvider = Provider<List<({Board project, int open, int done, int atRisk})>>((ref) {
+  final projects = ref.watch(projectsProvider).value ?? const <Board>[];
+  final sections = {
+    for (final s in ref.watch(allSectionsProvider).value ?? const <BoardList>[]) s.id: s.boardId,
+  };
+  final risky = {for (final t in ref.watch(scheduleProvider).impossible) t.task.id};
+  final counts = <String, (int, int, int)>{};
+  for (final t in ref.watch(allTasksProvider).value ?? const <Task>[]) {
+    final board = sections[t.listId];
+    if (board == null) continue;
+    final (open, done, atRisk) = counts[board] ?? (0, 0, 0);
+    final isDone = t.status == TaskStatus.done;
+    counts[board] = (open + (isDone ? 0 : 1), done + (isDone ? 1 : 0), atRisk + (risky.contains(t.id) ? 1 : 0));
+  }
+  return [
+    for (final p in projects)
+      (project: p, open: counts[p.id]?.$1 ?? 0, done: counts[p.id]?.$2 ?? 0, atRisk: counts[p.id]?.$3 ?? 0),
+  ];
+});

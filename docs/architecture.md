@@ -519,6 +519,30 @@ so it survives screens, restarts and devices, and one started on the phone shows
   lets members read their workspace's rows, no direct writes, the pull index, the update trigger
   and realtime. Applied to the linked project on 19 November 2026.
 
+## The home page: up next, plan my day, the radar, the review
+
+Today is laid out as before — the figures, then cards sharing the window's height where it is
+tall enough, the page scrolling where not — with the newer cards in `today_more.dart`. Each is a
+view of a pure engine through its provider, tested on fixed days:
+
+- **Focus** (`FocusStats`, `UpNext` in `lib/intel/up_next.dart`): time focused today and this
+  week, the streak, and Up next — of what the scheduler puts on today, overdue first, then the
+  soonest due, the more important first; the first of those that fits before the next fixed
+  thing in the day — with Start focus. In the evening (after `Preferences.evening`), Review the
+  day in its heading.
+- **Plan my day** (`DayPlanner` in `lib/capacity/day_plan.dart`), on the day's card: today's work
+  not yet given a time, each task whole into the first stretch of the agenda's free time that
+  holds it, from the next five minutes, in the scheduler's order — so never into sleep, a class,
+  a meal or the past. What fits nowhere whole is said so, not cut up. Previewed dashed; Accept
+  gives each its time (`setTime`, the planned length becoming the estimate of a task without
+  one) as one change that one Undo takes back.
+- **Deadline radar** (`DeadlineRadar`): the next fourteen days, each day's planned load against
+  its usable time, its deadlines as marks (red where one is at risk), and what will not fit, then
+  what will only just — straight from the scheduler's own plan, so never at odds with a badge.
+- **Jump back in**: Recents, and each project at a glance — open, done, at risk.
+- **Daily review** (`DailyReviewer`): what got done today, what is due and still open — each to
+  move to tomorrow, mark done or drop (with Undo) — and focus against what was planned.
+
 ## Desktop: the window and the tray
 
 **The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in
