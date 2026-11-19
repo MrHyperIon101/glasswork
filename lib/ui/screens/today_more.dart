@@ -416,6 +416,18 @@ class _DailyReviewDialog extends ConsumerWidget {
                                   onTap: () => scope?.tasks.setDue(task.id, dueDate: iso(tomorrow)),
                                 ),
                                 GhostButton(
+                                  label: 'Pick a day',
+                                  onTap: () async {
+                                    final day = await showDatePicker(
+                                      context: context,
+                                      initialDate: tomorrow,
+                                      firstDate: DateTime(now.year, now.month, now.day),
+                                      lastDate: DateTime(now.year + 1, now.month, now.day),
+                                    );
+                                    if (day != null) await scope?.tasks.setDue(task.id, dueDate: iso(day));
+                                  },
+                                ),
+                                GhostButton(
                                   label: 'Done',
                                   onTap: () => scope?.tasks.setDone(task.id, done: true),
                                 ),
@@ -434,6 +446,8 @@ class _DailyReviewDialog extends ConsumerWidget {
                           ),
                         const SizedBox(height: AppSpace.lg),
                       ],
+                      const _PlanTomorrow(),
+                      const SizedBox(height: AppSpace.lg),
                       Text('Done today', style: AppText.caption),
                       const SizedBox(height: AppSpace.xs),
                       if (review.done.isEmpty)
@@ -463,6 +477,79 @@ class _DailyReviewDialog extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Plan tomorrow, at the end of the day's review: tomorrow's work laid into tomorrow's free
+/// time, shown before anything changes, and accepted as one change that one Undo takes back.
+class _PlanTomorrow extends ConsumerWidget {
+  const _PlanTomorrow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(planForProvider(1));
+    final days = ref.watch(dayCapacityProvider);
+    if (days.length < 2) return const SizedBox.shrink();
+    final tomorrow = days[1].date;
+    final n = plan.slots.length;
+
+    Future<void> accept() async {
+      final scope = ref.read(appScopeProvider).value;
+      if (scope == null) return;
+      final tasks = {for (final t in ref.read(allTasksProvider).value ?? const <Task>[]) t.id: t};
+      final day = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+      for (final slot in plan.slots) {
+        await scope.tasks.setTime(
+          slot.taskId,
+          day.add(Duration(minutes: slot.startMin)),
+          lengthMin: tasks[slot.taskId]?.estimateMin == null ? slot.lengthMin : null,
+        );
+      }
+      ref.read(undoProvider.notifier).offer('Planned $n ${n == 1 ? 'task' : 'tasks'} into tomorrow', () async {
+        for (final slot in plan.slots) {
+          await scope.tasks.setTime(slot.taskId, null);
+        }
+      });
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Tomorrow', style: AppText.caption),
+        const SizedBox(height: AppSpace.xs),
+        if (plan.isEmpty)
+          Text('Nothing to plan into tomorrow yet.', style: AppText.footnote)
+        else ...[
+          for (final slot in plan.slots)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 92,
+                    child: Text(Format.clockRange(slot.startMin, slot.endMin),
+                        style: AppText.footnote.copyWith(color: AppColour.accent)),
+                  ),
+                  Expanded(child: Text(slot.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.callout)),
+                ],
+              ),
+            ),
+          for (final task in plan.unplaced)
+            Text("Doesn't fit tomorrow whole: ${task.title} (${Format.estimate(task.minutes)})",
+                style: AppText.footnote.copyWith(color: AppColour.orange)),
+          if (n > 0) ...[
+            const SizedBox(height: AppSpace.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GhostButton(
+                label: 'Plan tomorrow · $n ${n == 1 ? 'task' : 'tasks'}, ${Format.estimate(plan.plannedMin)}',
+                onTap: accept,
+              ),
+            ),
+          ],
+        ],
+      ],
     );
   }
 }

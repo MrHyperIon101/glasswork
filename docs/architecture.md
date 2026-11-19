@@ -505,6 +505,11 @@ model or leaves the device.
   everything planned, and the result said in a sentence — "Fits — done by Tuesday, 2 days to
   spare", "Won't fit by Thursday — 1h 30m short. Start today." The composer shows it for every
   task with a deadline, green when it fits; Spotlight's Add says it after where the task goes.
+- **Find a time** (`lib/capacity/find_time.dart`), under the composer's Time: the first stretch of
+  the agenda's free time, from now until the day it is due, that holds the task whole — never in
+  sleep, a class, a meal or another task's time. Where none does, it says so.
+- Suggested estimates prefer **tracked time**: the minutes the focus timer recorded on the alike
+  tasks, over what they were estimated at.
 
 ## Focus timer and time tracking
 
@@ -551,7 +556,9 @@ view of a pure engine through its provider, tested on fixed days:
   what will only just — straight from the scheduler's own plan, so never at odds with a badge.
 - **Jump back in**: Recents, and each project at a glance — open, done, at risk.
 - **Daily review** (`DailyReviewer`): what got done today, what is due and still open — each to
-  move to tomorrow, mark done or drop (with Undo) — and focus against what was planned.
+  move to tomorrow, to a day picked, mark done or drop (with Undo) — focus against what was
+  planned, and **Plan tomorrow**: the same planner over tomorrow's free time, taking what is still
+  open with it, shown before it is accepted as one change that one Undo takes back.
 
 ## Desktop: the window and the tray
 

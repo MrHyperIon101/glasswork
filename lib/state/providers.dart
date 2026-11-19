@@ -988,27 +988,35 @@ final upNextProvider = Provider<UpNextCandidate?>((ref) {
 
 /// Plan my day: today's work, not yet given a time, laid into what is left of today's free
 /// time, in the scheduler's order. A preview until accepted.
-final dayPlanProvider = Provider<DayPlan>((ref) {
+final dayPlanProvider = Provider<DayPlan>((ref) => ref.watch(planForProvider(0)));
+
+/// The plan for the day [offset] days from today: its work, not yet given a time, laid into its
+/// free time — from now, today; from the start of the day, after. Tomorrow's also takes what is
+/// still open from today and before, since that is what a review moves on to it.
+final planForProvider = Provider.family<DayPlan, int>((ref, offset) {
   final days = ref.watch(dayCapacityProvider);
-  if (days.isEmpty) return DayPlan.empty;
-  final today = days.first;
+  if (days.length <= offset) return DayPlan.empty;
+  final day = days[offset];
   final now = DateTime.now();
-  final nowMin = now.hour * 60 + now.minute;
-  final slots = ref.watch(taskSlotsProvider(today.date));
+  final nowMin = offset == 0 ? now.hour * 60 + now.minute : -1;
+  final slots = ref.watch(taskSlotsProvider(day.date));
   final timed = {for (final s in slots) s.taskId};
-  final day = DateTime(now.year, now.month, now.day);
-  bool onToday(DateTime? d) => d != null && !DateTime(d.year, d.month, d.day).isAfter(day);
+  final date = DateTime(day.date.year, day.date.month, day.date.day);
+  bool by(DateTime? d) => d != null && !DateTime(d.year, d.month, d.day).isAfter(date);
+  bool on(DateTime? d) => d != null && DateTime(d.year, d.month, d.day) == date;
   final scheduleOrder = {
     for (final (i, t) in ref.watch(scheduleProvider).tasks.indexed) t.task.id: i,
   };
   final candidates = [
     for (final (task, plan) in ref.watch(_openPlannedProvider))
       if (!timed.contains(task.id) && task.startAt == null &&
-          (onToday(plan?.startDay) || onToday(TaskStats.dueDayOf(task))))
+          (offset == 0
+              ? by(plan?.startDay) || by(TaskStats.dueDayOf(task))
+              : on(plan?.startDay) || by(TaskStats.dueDayOf(task))))
         (task, scheduleOrder[task.id] ?? 1 << 20),
   ]..sort((a, b) => a.$2.compareTo(b.$2));
   return DayPlanner.plan(
-    agenda: DayAgenda.of(today, nowMin, tasks: slots),
+    agenda: DayAgenda.of(day, nowMin, tasks: slots),
     candidates: [
       for (final (task, _) in candidates)
         PlanCandidate(

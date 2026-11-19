@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../capacity/find_time.dart';
 import '../../capacity/scheduler.dart';
 import '../../data/db/database.dart';
 import '../../data/preferences.dart';
@@ -158,6 +159,36 @@ class _FormState extends ConsumerState<_Form> {
     });
   }
 
+  /// What Find a time would say: there is no free time that holds it before it is due.
+  bool _noTime = false;
+
+  String get _findTimeLabel => _noTime
+      ? 'No free time holds ${Format.estimate(_estimateMin ?? CapacityScheduler.assumedEstimateMin)} '
+            'before it is due'
+      : 'Find a time';
+
+  /// The first free time, from now until it is due, that holds it whole.
+  void _findTime() {
+    final minutes = _estimateMin ?? CapacityScheduler.assumedEstimateMin;
+    final found = FindTime.next(
+      days: ref.read(dayCapacityProvider),
+      slotsOn: (day) => ref.read(taskSlotsProvider(day)),
+      minutes: minutes,
+      now: DateTime.now(),
+      dueDay: _effectiveDueDay,
+    );
+    setState(() {
+      _noTime = found == null;
+      if (found == null) return;
+      _touched.add(_Touched.time);
+      _startAt = found;
+      if (_estimateMin == null) {
+        _touched.add(_Touched.estimate);
+        _estimateMin = minutes;
+      }
+    });
+  }
+
   /// What the past tasks most like this one suggest, less what is already set.
   TaskSuggestion get _suggestion {
     final title = _cleanTitle;
@@ -170,6 +201,7 @@ class _FormState extends ConsumerState<_Form> {
       for (final l in ref.read(labelsProvider).value ?? const <Label>[]) l.id: l.name,
     };
     final assigned = ref.read(labelAssignmentsProvider).value ?? const <String, Set<String>>{};
+    final tracked = ref.read(focusStatsProvider).byTask;
     final found = TaskSuggest.suggest(title, [
       for (final t in tasks.reversed)
         PastTask(
@@ -177,6 +209,8 @@ class _FormState extends ConsumerState<_Form> {
           projectId: sections[t.listId],
           labels: [for (final id in assigned[t.id] ?? const <String>{}) ?labelNames[id]],
           estimateMin: t.estimateMin,
+          // How long it really took, where the focus timer tracked it.
+          trackedMin: tracked[t.id],
         ),
     ]);
     final projectId = _projectId ?? ref.read(captureProjectIdProvider);
@@ -551,18 +585,27 @@ class _FormState extends ConsumerState<_Form> {
                   FieldRow(
                     label: 'Time',
                     hint: 'On your time budget, "plan fri 4pm" in the title',
-                    child: TaskTimePicker(
-                      title: _cleanTitle.isEmpty ? 'this task' : _cleanTitle,
-                      start: _startAt,
-                      lengthMin: _estimateMin,
-                      onChanged: (start, lengthMin) => setState(() {
-                        _touched.add(_Touched.time);
-                        _startAt = start;
-                        if (lengthMin != null) {
-                          _touched.add(_Touched.estimate);
-                          _estimateMin = lengthMin;
-                        }
-                      }),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TaskTimePicker(
+                          title: _cleanTitle.isEmpty ? 'this task' : _cleanTitle,
+                          start: _startAt,
+                          lengthMin: _estimateMin,
+                          onChanged: (start, lengthMin) => setState(() {
+                            _touched.add(_Touched.time);
+                            _startAt = start;
+                            if (lengthMin != null) {
+                              _touched.add(_Touched.estimate);
+                              _estimateMin = lengthMin;
+                            }
+                          }),
+                        ),
+                        if (_startAt == null) ...[
+                          const SizedBox(height: AppSpace.sm),
+                          _TextAction(label: _findTimeLabel, onTap: _findTime),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(height: AppSpace.lg),
