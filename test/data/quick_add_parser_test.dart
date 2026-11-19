@@ -99,6 +99,60 @@ void main() {
     });
   });
 
+  group('everyday phrases', () {
+    test('next week is its Monday; the weekend is Saturday', () {
+      expect(parse('plan trip next week').dueDate, '2026-09-14');
+      expect(parse('plan trip next week').title, 'plan trip');
+      expect(parse('clean room this weekend').dueDate, '2026-09-12');
+      expect(parse('clean room this weekend').title, 'clean room');
+      expect(parse('laundry weekend').dueDate, '2026-09-12');
+      // On the weekend itself, it is today.
+      final saturday = QuickAddParser.parse('laundry this weekend', now: DateTime(2026, 9, 12, 10));
+      expect(saturday.dueDate, '2026-09-12');
+    });
+
+    test('the end of the day, the week and the month', () {
+      expect(parse('reply to sir eod').dueDate, '2026-09-11');
+      expect(parse('reply to sir by end of day').title, 'reply to sir', reason: 'its "by" goes with it');
+      expect(parse('report end of week').dueDate, '2026-09-11', reason: 'a Friday is its own week\'s end');
+      expect(parse('report eow').dueDate, '2026-09-11');
+      expect(parse('fees end of the month').dueDate, '2026-09-30');
+      expect(parse('fees eom').dueDate, '2026-09-30');
+      final sunday = QuickAddParser.parse('report end of week', now: DateTime(2026, 9, 13, 10));
+      expect(sunday.dueDate, '2026-09-18', reason: 'from a weekend, the coming Friday');
+    });
+
+    test('a date by its month, either way round, this year or next', () {
+      expect(parse('exam 5 dec').dueDate, '2026-12-05');
+      expect(parse('exam dec 5').dueDate, '2026-12-05');
+      expect(parse('exam december 5th').dueDate, '2026-12-05');
+      expect(parse('exam 5 dec').title, 'exam');
+      expect(parse('renew 3 jan').dueDate, '2027-01-03', reason: 'already past this year');
+      expect(parse('today sep 11').dueDate, '2026-09-11');
+      expect(parse('exam 5 dec 3pm').dueAt, DateTime(2026, 12, 5, 15));
+      expect(parse('exam 31 feb').dueDate, isNull, reason: 'no such day');
+      expect(parse('exam 31 feb').title, 'exam 31 feb');
+    });
+
+    test('how long it takes, in words', () {
+      expect(parse('read chapter for 2h').estimateMin, 120);
+      expect(parse('read chapter for 2h').title, 'read chapter');
+      expect(parse('read for 30 min').estimateMin, 30);
+      expect(parse('read for 90 minutes').estimateMin, 90);
+      expect(parse('read for 1.5h').estimateMin, 90);
+      expect(parse('read for 2 hours').estimateMin, 120);
+      expect(parse('waiting for 2 days').estimateMin, isNull, reason: 'days are not a length of work');
+    });
+
+    test('@ names a project, and is shown as one', () {
+      final r = parse('fix the bug @glasswork tmrw');
+      expect(r.projectHint, 'glasswork');
+      expect(r.title, 'fix the bug');
+      expect(r.spans.where((s) => s.kind == ParseKind.project).single.label, 'glasswork');
+      expect(parse('mail me at a@b.com').projectHint, isNull, reason: 'an address is not a project');
+    });
+  });
+
   test('a pasted list splits into one task a line, without its bullets', () {
     expect(
       QuickAddParser.splitLines(

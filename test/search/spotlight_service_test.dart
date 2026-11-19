@@ -44,8 +44,31 @@ void main() {
     final preview = await spotlight.previewAdd('read chapter 7 fri !high');
     expect(preview['title'], 'read chapter 7');
     expect(preview['chips'], containsAll(['high']));
-    expect(preview['sentence'], 'Adds “read chapter 7” to Personal');
+    expect(preview['sentence'], startsWith('Adds “read chapter 7” to Personal. '));
+    expect(preview['sentence'], anyOf(contains('Fits'), contains('Tight'), contains("Won't fit")),
+        reason: 'and whether it fits before Friday');
     expect(await db.select(db.tasks).get(), isEmpty);
+  });
+
+  test('@ sends a task to the project it names, in the preview and when added', () async {
+    final scope = await app.read(appScopeProvider.future);
+    final glasswork = await scope.projects.createProject(
+      workspaceId: scope.workspace.id,
+      name: 'Glasswork',
+      sections: const ['Backlog', 'Shipped'],
+    );
+    await settle();
+
+    final preview = await spotlight.previewAdd('fix the bug @glass');
+    expect(preview['title'], 'fix the bug');
+    expect(preview['sentence'], 'Adds “fix the bug” to Glasswork');
+
+    final id = await spotlight.addTask('fix the bug @glass');
+    await settle();
+    final task = (await db.select(db.tasks).get()).singleWhere((t) => t.id == id);
+    final backlog = (await db.select(db.lists).get())
+        .singleWhere((l) => l.boardId == glasswork.id && l.name == 'Backlog');
+    expect(task.listId, backlog.id, reason: 'its first section');
   });
 
   test('opening something puts it in Recents, and Recents answers the empty query', () async {

@@ -473,6 +473,29 @@ away again on uninstall — only where GNOME Shell is. GNOME on Wayland loads an
 updated, only as a session starts, so the installer says to log out once. It takes Super+Space,
 which GNOME otherwise gives to switching keyboard layouts; the shortcut is in its settings.
 
+## Adding a task, smarter — offline
+
+Everything here is pure, tested against fixed dates, and shown before it is saved; nothing is a
+model or leaves the device.
+
+- **The parser** (`lib/data/quick_add_parser.dart`) reads, beside its older grammar, "next week"
+  (its Monday), "this weekend" (Saturday, or today on the weekend), "eod", "end of week" (Friday,
+  or the coming one from a weekend), "end of month", "5 dec" / "dec 5" / "december 5th" (this year,
+  or next once it has passed), "for 2h" / "for 30 min" as the estimate, and "@glasswork" as the
+  project. Each is a chip like everything else it reads. A "by" in front goes with the phrase.
+- **`@project`** is resolved by `ProjectMatch` (`lib/intel/project_match.dart`) with Spotlight's own
+  ranking, and only when it comes close: the composer moves to that project unless one was chosen
+  by hand, and Spotlight's Add adds there.
+- **Suggestions** (`lib/intel/task_suggest.dart`): the past tasks whose titles share at least a
+  third of their words with this one suggest a project (when most of them share it), labels (on at
+  least half of them) and an estimate (the middle of theirs, tracked time first). One task alone
+  counts only when it is very alike. The composer offers each as a chip — "Like 3 earlier tasks:
+  takes 1h 30m · #dbms · in Uni" — and applies nothing until it is tapped.
+- **Will it fit** (`lib/intel/add_preview.dart`): the scheduler is run with the task among
+  everything planned, and the result said in a sentence — "Fits — done by Tuesday, 2 days to
+  spare", "Won't fit by Thursday — 1h 30m short. Start today." The composer shows it for every
+  task with a deadline, green when it fits; Spotlight's Add says it after where the task goes.
+
 ## Desktop: the window and the tray
 
 **The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in

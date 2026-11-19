@@ -25,7 +25,7 @@ class ParseSpan {
   final String label;
 }
 
-enum ParseKind { due, priority, label, estimate, reminder, plan }
+enum ParseKind { due, priority, label, estimate, reminder, plan, project }
 
 class ParsedQuickAdd {
   const ParsedQuickAdd({
@@ -38,6 +38,7 @@ class ParsedQuickAdd {
     this.estimateMin,
     this.remindAt,
     this.startAt,
+    this.projectHint,
   });
 
   /// The input with every recognised fragment removed.
@@ -61,6 +62,10 @@ class ParsedQuickAdd {
   /// When the task has been given time to be done in, in local time: "plan fri 4pm". It
   /// lasts as long as the estimate.
   final DateTime? startAt;
+
+  /// The project "@glasswork" names, as typed. Which project that is, if any, is for the
+  /// caller to work out against the projects there are (`ProjectMatch`).
+  final String? projectHint;
 }
 
 abstract final class QuickAddParser {
@@ -214,12 +219,50 @@ abstract final class QuickAddParser {
       );
     }
 
+    // --- @project ---
+    String? projectHint;
+    final at = RegExp(r'(?:^|\s)(@[\p{L}\p{N}_-]+)', unicode: true).firstMatch(rest);
+    if (at != null) {
+      projectHint = at.group(1)!.substring(1);
+      spans.add(
+        ParseSpan(
+          start: at.start + at.group(0)!.indexOf('@'),
+          end: at.end,
+          kind: ParseKind.project,
+          label: projectHint,
+        ),
+      );
+    }
+
+    // --- for 2h, for 30 min ---
+    final lasting = RegExp(
+      r'(?:^|\s)(for\s+(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?)\b)',
+      caseSensitive: false,
+    ).firstMatch(rest);
+    if (lasting != null) {
+      final n = double.parse(lasting.group(2)!);
+      final hours = lasting.group(3)!.toLowerCase().startsWith('h');
+      estimateMin = (hours ? n * 60 : n).round();
+      if (estimateMin > 0) {
+        spans.add(
+          ParseSpan(
+            start: lasting.start + lasting.group(0)!.indexOf(lasting.group(1)!),
+            end: lasting.end,
+            kind: ParseKind.estimate,
+            label: _lengthLabel(estimateMin),
+          ),
+        );
+      } else {
+        estimateMin = null;
+      }
+    }
+
     // --- ~estimate ---
     final est = RegExp(
       r'(?:^|\s)~(\d+)\s*(m|min|mins|h|hr|hrs)\b',
       caseSensitive: false,
     ).firstMatch(rest);
-    if (est != null) {
+    if (est != null && estimateMin == null) {
       final n = int.parse(est.group(1)!);
       final unit = est.group(2)!.toLowerCase();
       estimateMin = unit.startsWith('h') ? n * 60 : n;
@@ -257,6 +300,49 @@ abstract final class QuickAddParser {
           label: _dateLabel(date, today),
         ),
       );
+    }
+
+    // --- next week, the weekend, the end of the day, week or month ---
+    if (date == null) {
+      final phrase = RegExp(
+        r'\b(?:by\s+)?(next\s+week|(?:this\s+|the\s+)?weekend|end\s+of\s+(?:the\s+)?(?:day|week|month)|eod|eow|eom)\b',
+        caseSensitive: false,
+      ).firstMatch(rest);
+      if (phrase != null) {
+        date = _phraseDay(phrase.group(1)!.toLowerCase().replaceAll(RegExp(r'\s+'), ' '), today);
+        spans.add(
+          ParseSpan(
+            start: phrase.start,
+            end: phrase.end,
+            kind: ParseKind.due,
+            label: _dateLabel(date, today),
+          ),
+        );
+      }
+    }
+
+    // --- 5 dec, dec 5, december 5th ---
+    if (date == null) {
+      final dayMonth = RegExp(
+        '\\b(?:by\\s+)?(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+($_monthPattern)|($_monthPattern)\\s+(\\d{1,2})(?:st|nd|rd|th)?)\\b',
+        caseSensitive: false,
+      );
+      for (final m in dayMonth.allMatches(rest)) {
+        final day = int.parse(m.group(1) ?? m.group(4)!);
+        final month = _months[(m.group(2) ?? m.group(3)!).toLowerCase()]!;
+        final found = _nextDate(month, day, today);
+        if (found == null) continue;
+        date = found;
+        spans.add(
+          ParseSpan(
+            start: m.start,
+            end: m.end,
+            kind: ParseKind.due,
+            label: _dateLabel(found, today),
+          ),
+        );
+        break;
+      }
     }
 
     // --- weekday, optionally "next" ---
@@ -353,7 +439,56 @@ abstract final class QuickAddParser {
       estimateMin: estimateMin,
       remindAt: remindAt,
       startAt: startAt,
+      projectHint: projectHint,
     );
+  }
+
+  static const _months = {
+    'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6, 'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8, 'sep': 9, 'sept': 9, 'september': 9, 'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11, 'dec': 12, 'december': 12,
+  };
+
+  /// Month names longest first, so "september" is never read as "sep" and a stray "tember".
+  static final _monthPattern =
+      (_months.keys.toList()..sort((a, b) => b.length.compareTo(a.length))).join('|');
+
+  /// [day] of [month] next to come: this year's, unless it has already passed. Null for a day
+  /// that month does not have.
+  static DateTime? _nextDate(int month, int day, DateTime today) {
+    for (final year in [today.year, today.year + 1]) {
+      final date = DateTime(year, month, day);
+      if (date.month != month || date.day != day) return null;
+      if (!date.isBefore(today)) return date;
+    }
+    return null;
+  }
+
+  /// The day an everyday phrase means. "End of week" is Friday, as work weeks end; from a
+  /// weekend, the coming one. "The weekend" is Saturday, or today on the weekend itself.
+  static DateTime _phraseDay(String phrase, DateTime today) {
+    DateTime plus(int days) => DateTime(today.year, today.month, today.day + days);
+    final weekday = today.weekday;
+    switch (phrase.replaceFirst(RegExp(r'^(this|the) '), '')) {
+      case 'next week':
+        return plus(8 - weekday);
+      case 'weekend':
+        return weekday >= DateTime.saturday ? today : plus(DateTime.saturday - weekday);
+      case 'end of week' || 'end of the week' || 'eow':
+        return plus((DateTime.friday - weekday) % 7);
+      case 'end of month' || 'end of the month' || 'eom':
+        return DateTime(today.year, today.month + 1, 0);
+      default: // the end of the day, eod
+        return today;
+    }
+  }
+
+  static String _lengthLabel(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '${m}m';
+    return m == 0 ? '${h}h' : '${h}h ${m}m';
   }
 
   /// The moment a "remind" or "plan" phrase means, or null when it names no day and no time.

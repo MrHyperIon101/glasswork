@@ -8,7 +8,10 @@ import '../data/db/tables.dart';
 import '../data/note_text.dart';
 import '../data/preferences.dart';
 import '../data/quick_add_parser.dart';
+import '../capacity/scheduler.dart';
 import '../data/recents.dart';
+import '../intel/add_preview.dart';
+import '../intel/project_match.dart';
 import '../state/providers.dart';
 import '../state/quick_add.dart';
 import '../ui/format.dart';
@@ -166,25 +169,61 @@ class SpotlightService {
   List<SpotlightResult> actionResults() => [for (final action in actions) _result(action)];
 
   /// What adding [text] as a task would do: its title, what was read out of it as chips,
-  /// and a sentence saying when.
+  /// and a sentence saying where it goes and whether it fits before it is due.
   Future<SpotlightResult> previewAdd(String text, {DateTime? now}) async {
-    final parsed = QuickAddParser.parse(
-      text,
-      now: now ?? DateTime.now(),
-      morningMin: await _morning(),
-    );
+    final at = now ?? DateTime.now();
+    final parsed = QuickAddParser.parse(text, now: at, morningMin: await _morning());
+    if (parsed.title.isEmpty) return {'title': '', 'chips': const <String>[], 'sentence': ''};
+    final project = await _projectFor(parsed);
+    final fit = AddPreview.sentence(_fit(parsed, at), today: at);
     return {
       'title': parsed.title,
       'chips': [for (final span in parsed.spans) span.label],
-      'sentence': parsed.title.isEmpty ? '' : 'Adds “${parsed.title}” to ${await _captureName()}',
+      'sentence': [
+        'Adds “${parsed.title}” to ${project?.name ?? 'your first project'}',
+        ?fit,
+      ].join('. '),
     };
+  }
+
+  /// Where [parsed] goes and when it would be done, worked out as the composer works it out:
+  /// the scheduler run with it among everything already planned.
+  ScheduledTask? _fit(ParsedQuickAdd parsed, DateTime now) {
+    final due = parsed.dueAt ?? (parsed.dueDate == null ? null : DateTime.parse(parsed.dueDate!));
+    if (due == null) return null;
+    const id = '__spotlight__';
+    final schedule = CapacityScheduler.run([
+      ..._ref.read(plannedTasksProvider),
+      PlannedTask(
+        id: id,
+        title: parsed.title,
+        dueDay: DateTime(due.year, due.month, due.day),
+        estimateMin: parsed.estimateMin ?? CapacityScheduler.assumedEstimateMin,
+        priority: parsed.priority,
+        estimateAssumed: parsed.estimateMin == null,
+      ),
+    ], _ref.read(dayCapacityProvider));
+    return schedule.tasks.where((t) => t.task.id == id).firstOrNull;
+  }
+
+  /// The project "@name" names in [parsed], or else the one new tasks go to.
+  Future<Board?> _projectFor(ParsedQuickAdd parsed) async {
+    final projects = await _load<List<Board>>(projectsProvider);
+    final named = ProjectMatch.best(
+      parsed.projectHint,
+      [for (final p in projects) (id: p.id, name: p.name)],
+      now: DateTime.now(),
+    );
+    return projects.where((p) => p.id == named).firstOrNull ?? await _captureProject();
   }
 
   /// Adds [text] as a task, read as the composer reads a line. Returns its id, or null when
   /// nothing was left to call it.
   Future<String?> addTask(String text) async {
     final scope = await _load<AppScope>(appScopeProvider);
-    final project = await _captureProject();
+    final project = await _projectFor(
+      QuickAddParser.parse(text, now: DateTime.now(), morningMin: await _morning()),
+    );
     if (project == null) return null;
     final sections = [
       for (final section in await _load<List<BoardList>>(allSectionsProvider))
@@ -281,9 +320,6 @@ class SpotlightService {
     return projects.where((p) => p.id == chosen).firstOrNull ?? projects.firstOrNull;
   }
 
-  Future<String> _captureName() async =>
-      (await _captureProject())?.name ?? 'your first project';
-
   static SpotlightKind _kind(RecentKind kind) => switch (kind) {
     RecentKind.task => SpotlightKind.task,
     RecentKind.note => SpotlightKind.note,
@@ -325,5 +361,8 @@ final spotlightServiceProvider = Provider<SpotlightService>((ref) {
   keep(notesProvider);
   keep(recentsProvider);
   keep(preferencesProvider);
+  // What "will it fit" is worked out from, so a preview never reads a paused plan.
+  keep(plannedTasksProvider);
+  keep(dayCapacityProvider);
   return SpotlightService(ref);
 });

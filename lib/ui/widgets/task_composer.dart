@@ -6,6 +6,9 @@ import '../../capacity/scheduler.dart';
 import '../../data/db/database.dart';
 import '../../data/preferences.dart';
 import '../../data/quick_add_parser.dart';
+import '../../intel/add_preview.dart';
+import '../../intel/project_match.dart';
+import '../../intel/task_suggest.dart';
 import '../../state/providers.dart';
 import '../../state/quick_add.dart';
 import '../../state/reminders_controller.dart';
@@ -59,7 +62,7 @@ class _Form extends ConsumerStatefulWidget {
 }
 
 /// Which fields the user has set by hand, so a later parse does not clobber them.
-enum _Touched { due, priority, estimate, labels, reminder, time }
+enum _Touched { due, priority, estimate, labels, reminder, time, project }
 
 class _FormState extends ConsumerState<_Form> {
   final _title = TextEditingController();
@@ -138,7 +141,58 @@ class _FormState extends ConsumerState<_Form> {
       if (!_touched.contains(_Touched.time)) {
         _startAt = parsed.startAt;
       }
+      // "@glasswork" moves the task to that project, unless one has been chosen by hand.
+      if (!_touched.contains(_Touched.project)) {
+        final projects = ref.read(projectsProvider).value ?? const <Board>[];
+        final named = ProjectMatch.best(
+          parsed.projectHint,
+          [for (final p in projects) (id: p.id, name: p.name)],
+          now: DateTime.now(),
+        );
+        if (named != null && named != _projectId) {
+          _projectId = named;
+          _sectionId = null;
+          _fieldValues.clear();
+        }
+      }
     });
+  }
+
+  /// What the past tasks most like this one suggest, less what is already set.
+  TaskSuggestion get _suggestion {
+    final title = _cleanTitle;
+    if (title.length < 3) return TaskSuggestion.none;
+    final tasks = ref.read(allTasksProvider).value ?? const <Task>[];
+    final sections = {
+      for (final s in ref.read(allSectionsProvider).value ?? const <BoardList>[]) s.id: s.boardId,
+    };
+    final labelNames = {
+      for (final l in ref.read(labelsProvider).value ?? const <Label>[]) l.id: l.name,
+    };
+    final assigned = ref.read(labelAssignmentsProvider).value ?? const <String, Set<String>>{};
+    final found = TaskSuggest.suggest(title, [
+      for (final t in tasks.reversed)
+        PastTask(
+          title: t.title,
+          projectId: sections[t.listId],
+          labels: [for (final id in assigned[t.id] ?? const <String>{}) ?labelNames[id]],
+          estimateMin: t.estimateMin,
+        ),
+    ]);
+    final projectId = _projectId ?? ref.read(captureProjectIdProvider);
+    return TaskSuggestion(
+      projectId: _touched.contains(_Touched.project) || found.projectId == projectId
+          ? null
+          : found.projectId,
+      labels: [
+        for (final l in found.labels)
+          if (!_labelNames.contains(l)) l,
+      ],
+      estimateMin: _touched.contains(_Touched.estimate) || _estimateMin != null
+          ? null
+          : found.estimateMin,
+      basedOn: found.basedOn,
+    );
   }
 
   DateTime? get _effectiveDueDay {
@@ -320,6 +374,7 @@ class _FormState extends ConsumerState<_Form> {
                   selected: p.id == projectId,
                   tint: p.colour == null ? null : Color(p.colour!),
                   onTap: () => setState(() {
+                    _touched.add(_Touched.project);
                     _projectId = p.id;
                     // Section belongs to the old project; clear so the
                     // resolver above picks the new project's first.
@@ -424,6 +479,30 @@ class _FormState extends ConsumerState<_Form> {
                       style: AppText.footnote.copyWith(
                         color: AppColour.labelTertiary,
                       ),
+                    ),
+                  ],
+                  if (_suggestion case final suggestion when !suggestion.isEmpty) ...[
+                    const SizedBox(height: AppSpace.sm),
+                    _Suggestions(
+                      suggestion: suggestion,
+                      projectName: (ref.watch(projectsProvider).value ?? const <Board>[])
+                          .where((p) => p.id == suggestion.projectId)
+                          .firstOrNull
+                          ?.name,
+                      onEstimate: (minutes) => setState(() {
+                        _touched.add(_Touched.estimate);
+                        _estimateMin = minutes;
+                      }),
+                      onLabel: (name) => setState(() {
+                        _touched.add(_Touched.labels);
+                        _labelNames.add(name);
+                      }),
+                      onProject: (id) => setState(() {
+                        _touched.add(_Touched.project);
+                        _projectId = id;
+                        _sectionId = null;
+                        _fieldValues.clear();
+                      }),
                     ),
                   ],
                 ],
@@ -609,7 +688,7 @@ class _FormState extends ConsumerState<_Form> {
             duration: AppMotion.medium,
             curve: AppMotion.standard,
             alignment: Alignment.topCenter,
-            child: preview == null || preview.state == Feasibility.fine
+            child: preview == null
                 ? const SizedBox(width: double.infinity)
                 : _FeasibilityNote(plan: preview),
           ),
@@ -775,7 +854,8 @@ class _TextAction extends StatelessWidget {
   );
 }
 
-/// Live push-back while composing, rather than a report afterwards.
+/// Live push-back while composing, rather than a report afterwards: whether it fits before it
+/// is due, in a sentence (AddPreview), worked out with it among everything already planned.
 class _FeasibilityNote extends StatelessWidget {
   const _FeasibilityNote({required this.plan});
 
@@ -783,15 +863,12 @@ class _FeasibilityNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final impossible = plan.state == Feasibility.impossible;
-    final tint = impossible ? AppColour.red : AppColour.orange;
-
-    final detail = impossible
-        ? (plan.shortfallMin > 0
-              ? '${Format.estimate(plan.shortfallMin)} more than you have before then'
-              : '${-plan.slackDays} '
-                    '${-plan.slackDays == 1 ? 'day' : 'days'} past the deadline')
-        : 'it finishes on the day it is due, with nothing spare';
+    final (tint, icon) = switch (plan.state) {
+      Feasibility.fine => (AppColour.green, Icons.check_circle_outline_rounded),
+      Feasibility.tight => (AppColour.orange, Icons.warning_amber_rounded),
+      Feasibility.impossible => (AppColour.red, Icons.warning_amber_rounded),
+    };
+    final sentence = AddPreview.sentence(plan, today: DateTime.now()) ?? '';
 
     return Container(
       width: double.infinity,
@@ -799,19 +876,63 @@ class _FeasibilityNote extends StatelessWidget {
         horizontal: AppSpace.xxl,
         vertical: AppSpace.md,
       ),
-      color: tint.withValues(alpha: 0.12),
+      color: tint.withValues(alpha: plan.state == Feasibility.fine ? 0.08 : 0.12),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, size: 16, color: tint),
+          Icon(icon, size: 16, color: tint),
           const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Text(
-              impossible ? "This won't fit — $detail." : 'Tight — $detail.',
+              '$sentence.'.replaceAll('..', '.'),
               style: AppText.callout.copyWith(color: AppColour.label),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// What past tasks like this one suggest, each a chip to take or leave: nothing is applied
+/// until it is tapped.
+class _Suggestions extends StatelessWidget {
+  const _Suggestions({
+    required this.suggestion,
+    required this.projectName,
+    required this.onEstimate,
+    required this.onLabel,
+    required this.onProject,
+  });
+
+  final TaskSuggestion suggestion;
+  final String? projectName;
+  final ValueChanged<int> onEstimate;
+  final ValueChanged<String> onLabel;
+  final ValueChanged<String> onProject;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = suggestion.basedOn;
+    return Wrap(
+      spacing: AppSpace.sm,
+      runSpacing: AppSpace.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Like ${n == 1 ? 'an earlier task' : '$n earlier tasks'}:',
+          style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
+        ),
+        if (suggestion.estimateMin case final minutes?)
+          ComposerChip(
+            label: 'takes ${Format.estimate(minutes)}',
+            selected: false,
+            onTap: () => onEstimate(minutes),
+          ),
+        for (final label in suggestion.labels)
+          ComposerChip(label: '#$label', selected: false, onTap: () => onLabel(label)),
+        if ((suggestion.projectId, projectName) case (final id?, final name?))
+          ComposerChip(label: 'in $name', selected: false, onTap: () => onProject(id)),
+      ],
     );
   }
 }
