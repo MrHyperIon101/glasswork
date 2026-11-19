@@ -25,6 +25,9 @@ constexpr const char* kIntrospection =
     "      <arg type='u' name='limit' direction='in'/>"
     "      <arg type='aa{sv}' name='results' direction='out'/>"
     "    </method>"
+    "    <method name='Actions'>"
+    "      <arg type='aa{sv}' name='results' direction='out'/>"
+    "    </method>"
     "    <method name='PreviewAdd'>"
     "      <arg type='s' name='text' direction='in'/>"
     "      <arg type='a{sv}' name='preview' direction='out'/>"
@@ -161,7 +164,8 @@ static void on_reply(GObject* object, GAsyncResult* result, gpointer data) {
 
   const gchar* method = call->method;
   GVariant* answer = nullptr;
-  if (strcmp(method, "query") == 0 || strcmp(method, "recents") == 0) {
+  if (strcmp(method, "query") == 0 || strcmp(method, "recents") == 0 ||
+      strcmp(method, "actions") == 0) {
     answer = g_variant_new("(@aa{sv})", list_of_dicts(value));
   } else if (strcmp(method, "previewAdd") == 0) {
     answer = g_variant_new("(@a{sv})", map_to_dict(value));
@@ -228,6 +232,8 @@ static void on_method_call(GDBusConnection* connection,
     call->method = g_strdup("query");
     fl_value_set_string_take(call->args, "text", fl_value_new_string(text));
     fl_value_set_string_take(call->args, "limit", fl_value_new_int(limit));
+  } else if (strcmp(method, "Actions") == 0) {
+    call->method = g_strdup("actions");
   } else if (strcmp(method, "Recents") == 0) {
     guint32 limit;
     g_variant_get(parameters, "(u)", &limit);

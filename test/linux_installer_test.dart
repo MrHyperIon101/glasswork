@@ -14,11 +14,12 @@ import 'support/sleeper.dart';
 /// nothing. Building it needs a C compiler and GTK's headers, as building the app does.
 void main() {
   const id = 'dev.mrhyperion.glasswork';
+  const extension = 'spotlight@glasswork.mrhyperion.dev';
 
   final canBuild =
       Process.runSync('sh', [
         '-c',
-        'command -v cc && pkg-config --exists gtk+-3.0',
+        'command -v cc && command -v glib-compile-schemas && pkg-config --exists gtk+-3.0',
       ]).exitCode ==
       0;
   final skip = canBuild
@@ -33,10 +34,40 @@ void main() {
     root = await Directory.systemTemp.createTemp('glasswork-installer');
     home = '${root.path}/home';
     Directory(home).createSync();
+
+    // GNOME Shell's settings, as far as the installer looks at them: the extensions it
+    // loads. A schema of the test's own, its values in a file in the test's own home —
+    // never the real ones — so the installer finds GNOME here and on CI alike.
+    final schemas = Directory('${root.path}/gnome/glib-2.0/schemas')
+      ..createSync(recursive: true);
+    File('${schemas.path}/org.gnome.shell.gschema.xml').writeAsStringSync(
+      '<schemalist><schema id="org.gnome.shell" path="/org/gnome/shell/">'
+      '<key name="enabled-extensions" type="as"><default>[]</default></key>'
+      '</schema></schemalist>',
+    );
+    Process.runSync('glib-compile-schemas', [schemas.path]);
   });
   tearDown(() => root.delete(recursive: true));
 
   String inHome(String path) => '$home/$path';
+
+  String keyfile() => inHome('.config/glib-2.0/settings/keyfile');
+
+  /// Another extension already switched on, which installing must leave as it is.
+  void enableAnother() => File(keyfile())
+    ..createSync(recursive: true)
+    ..writeAsStringSync(
+      "[org/gnome/shell]\nenabled-extensions=['other@example.com']\n",
+    );
+
+  /// The extensions GNOME Shell is told to load.
+  List<String> enabledExtensions() {
+    final line = File(keyfile()).readAsLinesSync().firstWhere(
+      (l) => l.startsWith('enabled-extensions='),
+      orElse: () => 'enabled-extensions=[]',
+    );
+    return [for (final m in RegExp("'([^']+)'").allMatches(line)) m.group(1)!];
+  }
 
   /// A stand-in for the release build: a program, and a file saying which version it is.
   ///
@@ -80,6 +111,8 @@ void main() {
           'HOME': home,
           'XDG_DATA_HOME': inHome('.local/share'),
           'XDG_CONFIG_HOME': inHome('.config'),
+          'XDG_DATA_DIRS': '${root.path}/gnome',
+          'GSETTINGS_BACKEND': 'keyfile',
           'PATH': Platform.environment['PATH']!,
         },
       );
@@ -92,7 +125,10 @@ void main() {
     () async {
       final first = await build('0.1.0+1');
       expect((await run(first, ['--version'])).stdout, '0.1.0+1\n');
-      expectOk(await run(first, ['--install']));
+      enableAnother();
+      final installed = await run(first, ['--install']);
+      expectOk(installed);
+      expect(installed.stdout, contains('starts the next time you log in'));
 
       final app = inHome('.local/opt/$id');
       expect(File('$app/glasswork').existsSync(), isTrue);
@@ -112,6 +148,12 @@ void main() {
             .existsSync(),
         isTrue,
       );
+      // The OS Spotlight: in place with its settings compiled, and switched on beside the
+      // extension that already was.
+      final spotlight = inHome('.local/share/gnome-shell/extensions/$extension');
+      expect(File('$spotlight/metadata.json').existsSync(), isTrue);
+      expect(File('$spotlight/schemas/gschemas.compiled').existsSync(), isTrue);
+      expect(enabledExtensions(), ['other@example.com', extension]);
 
       // The person's own tasks, which an update must never touch.
       final tasks = File(inHome('.local/share/$id/app.sqlite'))
@@ -125,6 +167,11 @@ void main() {
       expect(File('$app/VERSION').readAsStringSync(), '0.2.0+2\n');
       expect(File('$app/data/which').readAsStringSync(), '0.2.0+2');
       expect(tasks.readAsStringSync(), 'tasks');
+      expect(
+        enabledExtensions(),
+        ['other@example.com', extension],
+        reason: 'switched on once, however often it is installed',
+      );
       expect(
         Directory(inHome('.local/opt'))
             .listSync()
@@ -178,6 +225,7 @@ void main() {
     'uninstalls, keeping the tasks unless told not to',
     () async {
       final setup = await build('0.2.0+2');
+      enableAnother();
       expectOk(await run(setup, ['--install']));
       final tasks = File(inHome('.local/share/$id/app.sqlite'))
         ..createSync(recursive: true);
@@ -195,6 +243,12 @@ void main() {
         isFalse,
         reason: 'nothing left that could wake an app no longer there',
       );
+      expect(
+        Directory(inHome('.local/share/gnome-shell/extensions/$extension'))
+            .existsSync(),
+        isFalse,
+      );
+      expect(enabledExtensions(), ['other@example.com']);
       expect(
         File(inHome('.local/share/icons/hicolor/256x256/apps/$id.png'))
             .existsSync(),

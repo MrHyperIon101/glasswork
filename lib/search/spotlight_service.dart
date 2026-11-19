@@ -162,6 +162,9 @@ class SpotlightService {
     ].take(limit).toList();
   }
 
+  /// Everything Glasswork can do from Spotlight, for its Actions mode.
+  List<SpotlightResult> actionResults() => [for (final action in actions) _result(action)];
+
   /// What adding [text] as a task would do: its title, what was read out of it as chips,
   /// and a sentence saying when.
   Future<SpotlightResult> previewAdd(String text, {DateTime? now}) async {

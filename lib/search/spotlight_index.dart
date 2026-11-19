@@ -98,6 +98,14 @@ abstract final class SpotlightIndex {
     final shortness = -0.5 * (text.length - q.length).clamp(0, 100);
     if (text.startsWith(q)) return 900 + shortness;
 
+    // The same letters, written together or apart: "wifi" is "Wi-Fi", "app store" "AppStore".
+    final joinedQ = q.replaceAll(_breaks, '');
+    final joinedText = text.replaceAll(_breaks, '');
+    if (joinedQ.isNotEmpty && (joinedQ != q || joinedText != text)) {
+      if (joinedText == joinedQ) return 950;
+      if (joinedText.startsWith(joinedQ)) return 850 + shortness;
+    }
+
     final words = text.split(_breaks).where((w) => w.isNotEmpty).toList();
     if (words.any((w) => w.startsWith(q))) return 700 + shortness;
 

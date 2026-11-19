@@ -1,0 +1,255 @@
+/* Glasswork Spotlight, as macOS Tahoe draws Spotlight, in Glasswork's palette: Apple's dark
+   system colours over Liquid Glass. The glass itself — the blurred desktop, its bent and lit
+   rim and the shadow under it — is drawn by lib/ui/glass.js; this is what sits on it. */
+
+/* The tint over the blurred desktop. */
+.gw-bar-glass .gw-glass-tint {
+  background-color: rgba(28, 28, 30, 0.36);
+}
+
+.gw-results-glass .gw-glass-tint {
+  background-color: rgba(28, 28, 30, 0.5);
+}
+
+/* The bar. */
+.gw-bar {
+  padding: 0 18px 0 18px;
+  spacing: 10px;
+}
+
+.gw-lead {
+  icon-size: 22px;
+  color: rgba(235, 235, 245, 0.7);
+}
+
+.gw-lead-active {
+  color: #ffffff;
+}
+
+.gw-entry {
+  font-size: 22px;
+  color: #ffffff;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  selection-background-color: rgba(10, 132, 255, 0.55);
+  caret-color: #0a84ff;
+}
+
+.gw-entry:focus {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+.gw-entry StLabel.hint-text {
+  color: rgba(235, 235, 245, 0.45);
+}
+
+/* An action's name, and its other fields, in the bar. */
+.gw-token {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.gw-segments {
+  spacing: 6px;
+}
+
+.gw-segment {
+  font-size: 17px;
+  color: rgba(235, 235, 245, 0.85);
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
+.gw-segment-empty {
+  color: rgba(235, 235, 245, 0.4);
+}
+
+/* The four browse buttons. */
+.gw-mode {
+  border-radius: 999px;
+  background: none;
+}
+
+.gw-mode:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.gw-mode:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.gw-mode:checked {
+  background-color: rgba(10, 132, 255, 0.92);
+}
+
+.gw-mode-icon {
+  icon-size: 20px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* The results. */
+.gw-results {
+  padding: 6px;
+}
+
+.gw-chip-row {
+  padding: 4px 4px 6px 4px;
+  spacing: 8px;
+}
+
+.gw-chip-scroll {
+  -st-hfade-offset: 28px;
+}
+
+
+.gw-chip {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.75);
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.gw-chip:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.gw-chip:checked {
+  color: #1c1c1e;
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.gw-tools {
+  spacing: 6px;
+}
+
+.gw-tool {
+  border-radius: 999px;
+  padding: 6px;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.gw-tool:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.gw-tool-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.85);
+  padding: 5px 12px;
+}
+
+.gw-tool-icon {
+  icon-size: 16px;
+  color: rgba(235, 235, 245, 0.85);
+}
+
+.gw-list {
+  spacing: 0;
+}
+
+.gw-section {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.5);
+  padding: 10px 12px 4px 12px;
+}
+
+/* The highlight slides behind the rows rather than each row lighting itself. */
+.gw-highlight {
+  background-color: rgba(10, 132, 255, 0.82);
+  border-radius: 12px;
+}
+
+.gw-row {
+  border-radius: 12px;
+  padding: 6px 10px;
+  background: none;
+}
+
+.gw-row-box {
+  spacing: 12px;
+}
+
+.gw-top {
+  padding: 10px 10px;
+}
+
+.gw-title {
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.gw-top .gw-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.gw-subtitle {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.6);
+}
+
+/* A quick key, drawn as a key. */
+.gw-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(235, 235, 245, 0.75);
+  border: 1px solid rgba(235, 235, 245, 0.3);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.gw-copy {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.gw-copy:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Applications as a grid. */
+.gw-cell {
+  border-radius: 16px;
+  background: none;
+}
+
+.gw-cell-box {
+  spacing: 6px;
+  padding: 0 6px;
+}
+
+.gw-cell-title {
+  font-size: 12px;
+  color: #ffffff;
+  text-align: center;
+}
+
+.gw-empty {
+  font-size: 15px;
+  color: rgba(235, 235, 245, 0.5);
+  padding: 22px 12px;
+}
+
+/* Where the selected file is, while Alt is held. */
+.gw-footer {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.65);
+  padding: 6px 12px 2px 12px;
+}

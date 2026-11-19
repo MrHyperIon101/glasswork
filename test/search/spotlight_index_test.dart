@@ -34,6 +34,22 @@ void main() {
     expect(titles(hits), ['DBMS lab report']);
   });
 
+  test('words written together or apart are the same words', () {
+    final items = [task('1', 'Wi-Fi password'), task('2', 'Wild fig recipe'), task('3', 'Wi-Fi')];
+    // "wifi" is "Wi-Fi" itself, just below the very same spelling; then a title starting so;
+    // and never a title that only has its letters in order.
+    expect(titles(SpotlightIndex.search('wifi', items, now: now)), [
+      'Wi-Fi',
+      'Wi-Fi password',
+      'Wild fig recipe',
+    ]);
+    final hits = SpotlightIndex.search('wifi', items, now: now);
+    expect(hits[0].score, greaterThan(hits[1].score));
+    expect(hits[1].score, greaterThan(800), reason: 'good enough to be a top hit');
+    expect(titles(SpotlightIndex.search('app store', [task('1', 'AppStore receipts')], now: now)),
+        ['AppStore receipts']);
+  });
+
   test('its letters in order find it, below anything that matches outright', () {
     final items = [task('1', 'DBMS report'), task('2', 'dbrp notes')];
     expect(titles(SpotlightIndex.search('dbrp', items, now: now)), ['dbrp notes', 'DBMS report']);

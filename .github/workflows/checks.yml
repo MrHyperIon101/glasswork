@@ -23,8 +23,14 @@ jobs:
       - name: GTK development files
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev
+          sudo apt-get install -y libgtk-3-dev gjs libglib2.0-bin
 
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+
+      # Glasswork Spotlight, the GNOME Shell extension: its pure parts, and its settings schema.
+      - name: Extension tests
+        run: |
+          gjs -m linux/gnome-extension/tests/run.js
+          glib-compile-schemas --strict --dry-run linux/gnome-extension/spotlight@glasswork.mrhyperion.dev/schemas

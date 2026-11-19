@@ -43,7 +43,7 @@ fi
 # The Flutter that builds the app: whichever is on the PATH, or FLUTTER=/path/to/bin/flutter.
 flutter="${FLUTTER:-flutter}"
 
-for tool in cc pkg-config tar gzip python3; do
+for tool in cc pkg-config tar gzip python3 glib-compile-schemas; do
   if ! command -v "$tool" >/dev/null; then
     echo "Building the installer needs $tool." >&2
     exit 1
@@ -100,6 +100,11 @@ for icon in "$here"/icons/*/apps/"$app_id".png; do
   size="$(basename "$(dirname "$(dirname "$icon")")")"
   install -D -m 644 "$icon" "$payload/share/icons/hicolor/$size/apps/$app_id.png"
 done
+# Glasswork Spotlight, the GNOME Shell extension, with its settings schema compiled.
+extension="spotlight@glasswork.mrhyperion.dev"
+mkdir -p "$payload/share/gnome-shell/extensions"
+cp -a "$root/linux/gnome-extension/$extension" "$payload/share/gnome-shell/extensions/"
+glib-compile-schemas --strict "$payload/share/gnome-shell/extensions/$extension/schemas"
 tar -C "$payload" -czf "$work/payload.tar.gz" .
 
 # The icon the installer's own window shows, compiled in.

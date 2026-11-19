@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.glasswork-spotlight"
+          path="/org/gnome/shell/extensions/glasswork-spotlight/">
+    <key name="open-spotlight" type="as">
+      <default><![CDATA[['<Super>space']]]></default>
+      <summary>Opens Spotlight</summary>
+      <description>The key that opens Spotlight from anywhere, and closes it again.</description>
+    </key>
+    <key name="web-search" type="s">
+      <default>'https://duckduckgo.com/?q=%s'</default>
+      <summary>Where the web is searched</summary>
+      <description>A search address, with %s where the words go.</description>
+    </key>
+    <key name="search-files" type="b">
+      <default>true</default>
+      <summary>Find files and folders</summary>
+      <description>From GNOME's own index of your files.</description>
+    </key>
+    <key name="search-web" type="b">
+      <default>true</default>
+      <summary>Offer a web search</summary>
+      <description>"Search the web for …", last in the list.</description>
+    </key>
+    <key name="clipboard-history" type="b">
+      <default>true</default>
+      <summary>Keep a clipboard history</summary>
+      <description>What is copied is listed in Spotlight's Clipboard, held in memory only and forgotten on logging out. Nothing a password manager marks as secret is kept.</description>
+    </key>
+    <key name="clipboard-keep" type="s">
+      <choices>
+        <choice value='30m'/>
+        <choice value='8h'/>
+        <choice value='7d'/>
+      </choices>
+      <default>'8h'</default>
+      <summary>How long the clipboard history keeps things</summary>
+      <description>30 minutes, 8 hours or 7 days, and never past logging out.</description>
+    </key>
+    <key name="glass-window" type="b">
+      <default>true</default>
+      <summary>Glasswork's window as glass</summary>
+      <description>Blurs the desktop behind Glasswork's window, and tells Glasswork to let it show through.</description>
+    </key>
+  </schema>
+</schemalist>

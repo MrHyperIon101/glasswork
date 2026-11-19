@@ -40,6 +40,13 @@ I use it every day, which is the only reason it has as few rough edges as it doe
 - **Sync** — optional, through a Supabase project of your own. Every write hits the device first
   and reconciles later, so nothing ever waits on a network.
 - **Undo** — anything destructive can be taken back for five seconds.
+- **Spotlight, for the whole desktop** — on GNOME, Super+Space opens a Spotlight laid out and
+  moving like macOS Tahoe's: apps, files, settings, the calculator, system actions and the web,
+  with your tasks, notes and projects among them. Browse Applications, Files, Actions and
+  Clipboard with Ctrl+1 to 4, run an action by its quick key (`nt` is a new task), and add the
+  line you typed as a task with Ctrl+Return.
+- **Liquid glass** — every card bends and lights what is behind it, and on GNOME the window
+  itself is frosted glass over your desktop.
 
 <p align="center">
   <img src="docs/screenshots/time-budget.png" width="49%" alt="The time budget">
@@ -115,6 +122,11 @@ chmod +x Glasswork-Setup-*-x86_64 && ./Glasswork-Setup-*-x86_64
 It installs into `~/.local/opt/dev.mrhyperion.glasswork` with an app grid entry, or updates
 what is already there. Nothing needs root, and your data is never touched. The same file
 uninstalls it from the app entry's menu.
+
+On GNOME it also installs Glasswork Spotlight, the shell extension behind Super+Space. GNOME
+starts a new extension only with a new session, so log out and back in once. It takes
+Super+Space from GNOME's keyboard-layout switching; the shortcut, the clipboard history and
+the rest are in its settings, in the Extensions app.
 
 **Android** — download the `arm64-v8a` APK from the same release and open it. It is signed
 with a debug key, so Android will ask you to allow installing from an unknown source.
@@ -199,6 +211,7 @@ account's instead.
 ```bash
 flutter analyze
 flutter test
+gjs -m linux/gnome-extension/tests/run.js
 ```
 
 847 of them, and they are where the design is enforced rather than merely described: the

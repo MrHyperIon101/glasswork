@@ -29,6 +29,8 @@ abstract final class SpotlightChannel {
           return await service.query(text(), limit: limit(20));
         case 'recents':
           return await service.recents(limit: limit(8));
+        case 'actions':
+          return service.actionResults();
         case 'previewAdd':
           return await service.previewAdd(text());
         case 'addTask':

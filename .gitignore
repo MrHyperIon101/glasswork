@@ -64,3 +64,6 @@ app.*.map.json
 # Working notes and scratch images that belong to me, not to the repository.
 /CLAUDE.md
 /Gemini_Generated_Image_*.png
+
+# Compiled where the extension is installed, never kept.
+linux/gnome-extension/*/schemas/gschemas.compiled

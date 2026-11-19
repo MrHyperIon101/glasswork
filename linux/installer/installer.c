@@ -12,6 +12,7 @@
  *   ~/.local/share/applications/<id>.desktop          its entry among the apps
  *   ~/.local/share/icons/hicolor/<size>/apps/<id>.png
  *   ~/.local/share/dbus-1/services/<id>.service       how the OS Spotlight wakes it
+ *   ~/.local/share/gnome-shell/extensions/<uuid>      the OS Spotlight itself, on GNOME
  * Tasks and the sign-in live in ~/.local/share/dev.mrhyperion.glasswork, which installing
  * and updating never touch.
  *
@@ -41,6 +42,7 @@
 #endif
 
 #define APP_ID "dev.mrhyperion.glasswork"
+#define EXTENSION_UUID "spotlight@glasswork.mrhyperion.dev"
 #define APP_NAME "Glasswork"
 #define BINARY "glasswork"
 
@@ -81,6 +83,11 @@ static char *desktop_entry(void) {
  * its bus name starts it with --background, and the call waits until it can answer. */
 static char *dbus_service(void) {
   return g_build_filename(g_get_user_data_dir(), "dbus-1", "services", APP_ID ".service", NULL);
+}
+
+static char *extension_dir(void) {
+  return g_build_filename(g_get_user_data_dir(), "gnome-shell", "extensions", EXTENSION_UUID,
+                          NULL);
 }
 
 static char *icon_path(int size) {
@@ -378,6 +385,73 @@ static gboolean write_dbus_service(GError **error) {
   return g_file_set_contents(path, service, -1, error);
 }
 
+/* GNOME Shell's own settings, where GNOME Shell is installed; NULL anywhere else. */
+static GSettings *shell_settings(void) {
+  GSettingsSchemaSource *source = g_settings_schema_source_get_default();
+  if (source == NULL) return NULL;
+  g_autoptr(GSettingsSchema) schema =
+      g_settings_schema_source_lookup(source, "org.gnome.shell", TRUE);
+  if (schema == NULL || !g_settings_schema_has_key(schema, "enabled-extensions")) return NULL;
+  return g_settings_new("org.gnome.shell");
+}
+
+static gboolean on_gnome(void) {
+  g_autoptr(GSettings) shell = shell_settings();
+  return shell != NULL;
+}
+
+/* Adds Spotlight to the extensions GNOME Shell loads, or takes it out, leaving the rest. */
+static void set_extension_enabled(gboolean enabled) {
+  g_autoptr(GSettings) shell = shell_settings();
+  if (shell == NULL) return;
+  g_auto(GStrv) now = g_settings_get_strv(shell, "enabled-extensions");
+  g_autoptr(GPtrArray) next = g_ptr_array_new();
+  for (char **id = now; *id != NULL; id++) {
+    if (strcmp(*id, EXTENSION_UUID) != 0) g_ptr_array_add(next, *id);
+  }
+  if (enabled) g_ptr_array_add(next, (gpointer)EXTENSION_UUID);
+  g_ptr_array_add(next, NULL);
+  g_settings_set_strv(shell, "enabled-extensions", (const char *const *)next->pdata);
+  g_settings_sync();
+}
+
+/*
+ * Glasswork Spotlight, the GNOME Shell extension, in place and switched on. Only where GNOME
+ * Shell is: anywhere else it has nothing to run in. A newer one replaces the one there.
+ */
+static gboolean install_extension(const char *staging, GError **error) {
+  if (!on_gnome()) return TRUE;
+  g_autofree char *from =
+      g_build_filename(staging, "share", "gnome-shell", "extensions", EXTENSION_UUID, NULL);
+  if (!g_file_test(from, G_FILE_TEST_IS_DIR)) return TRUE;
+
+  g_autofree char *to = extension_dir();
+  g_autofree char *parent = g_path_get_dirname(to);
+  if (g_mkdir_with_parents(parent, 0755) != 0) {
+    return fail(error, "Could not create %s: %s", parent, g_strerror(errno));
+  }
+  remove_tree(to);
+  if (g_rename(from, to) != 0) {
+    // Another file system: copied, then, rather than moved.
+    const char *argv[] = {"cp", "-a", from, to, NULL};
+    gint status = 0;
+    if (!g_spawn_sync(NULL, (char **)argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL,
+                      &status, NULL) ||
+        !g_spawn_check_wait_status(status, NULL)) {
+      return fail(error, "Could not put Glasswork Spotlight in %s.", to);
+    }
+  }
+  set_extension_enabled(TRUE);
+  return TRUE;
+}
+
+static void remove_extension(void) {
+  g_autofree char *dir = extension_dir();
+  if (!g_file_test(dir, G_FILE_TEST_IS_DIR)) return;
+  set_extension_enabled(FALSE);
+  remove_tree(dir);
+}
+
 /* Tells the desktop about the new entry and icons, where it keeps caches of them. */
 static void refresh_desktop(void) {
   g_autofree char *hicolor = g_build_filename(g_get_user_data_dir(), "icons", "hicolor", NULL);
@@ -500,7 +574,7 @@ static gboolean install(const Payload *payload, gboolean may_close, Report repor
   if (ok) {
     report("Adding Glasswork to your apps…", data);
     ok = install_icons(staging, error) && write_desktop_entry(staging, error) &&
-         write_dbus_service(error);
+         write_dbus_service(error) && install_extension(staging, error);
     if (ok) refresh_desktop();
   }
 
@@ -539,6 +613,7 @@ static gboolean uninstall(gboolean remove_data, Report report, gpointer data, GE
   g_unlink(entry);
   g_autofree char *service = dbus_service();
   g_unlink(service);
+  remove_extension();
   for (size_t i = 0; i < G_N_ELEMENTS(kIconSizes); i++) {
     g_autofree char *icon = icon_path(kIconSizes[i]);
     g_unlink(icon);
@@ -851,14 +926,18 @@ static Text result_text(gboolean uninstalling, Offer offer, gboolean ok, const c
   t.spec.title = offer == OFFER_UPDATE ? APP_NAME " is updated"
                  : offer == OFFER_OPEN  ? APP_NAME " has been reinstalled"
                                         : APP_NAME " is installed";
+  // GNOME Shell on Wayland loads an extension, new or updated, only as a session starts.
+  const char *spotlight =
+      on_gnome() ? " Spotlight, on Super+Space, starts the next time you log in." : "";
   if (reopened) {
-    t.spec.body = "It has been opened again, and is ready.";
+    t.owned[2] = g_strdup_printf("It has been opened again, and is ready.%s", spotlight);
     t.spec.primary = "Done";
   } else {
-    t.spec.body = "Find it with your other apps, or open it now.";
+    t.owned[2] = g_strdup_printf("Find it with your other apps, or open it now.%s", spotlight);
     t.spec.secondary = "Done";
     t.spec.primary = "Open " APP_NAME;
   }
+  t.spec.body = t.owned[2];
   return t;
 }
 
@@ -1142,6 +1221,7 @@ static int install_in_terminal(gboolean may_close) {
          offer == OFFER_UPDATE ? "is updated" : offer == OFFER_OPEN ? "is reinstalled"
                                                                   : "is installed",
          version);
+  if (on_gnome()) printf("Spotlight, on Super+Space, starts the next time you log in.\n");
   return 0;
 }
 

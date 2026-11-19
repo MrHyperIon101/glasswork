@@ -1,0 +1,1 @@
+{"uuid": "harness@glasswork.test", "name": "Glasswork test harness", "description": "Only ever loaded in the throwaway session tool/nested_session/run.sh makes.", "shell-version": ["51"]}

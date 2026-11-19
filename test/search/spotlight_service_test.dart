@@ -66,6 +66,22 @@ void main() {
     expect(app.read(openTaskProvider), isNull);
   });
 
+  test('Actions lists everything Glasswork can do, and each of them does something', () async {
+    final listed = spotlight.actionResults();
+    final ids = [for (final r in listed) r['id']];
+    // The extension gives these their quick keys by id (lib/quick_keys.js): they must not move.
+    expect(ids, containsAll(['action:new-task', 'action:new-note', 'action:today', 'action:upcoming',
+      'action:time-budget']));
+    for (final result in listed) {
+      expect(result['kind'], 'action');
+      expect(result['icon'], isNotEmpty, reason: '${result['id']} is drawn with an icon');
+      expect(await spotlight.activate(result['id']! as String), isTrue, reason: '${result['id']}');
+    }
+    // What opening them started — a new note, the places loading — finishes before the
+    // database closes.
+    await settle();
+  });
+
   test('actions take you where they say', () async {
     expect(await spotlight.activate('action:time-budget'), isTrue);
     expect(app.read(destinationProvider), isA<CapacityDestination>());

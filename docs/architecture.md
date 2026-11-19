@@ -350,7 +350,7 @@ list, one task a line, each line read the way a single title is.
 
 Glasswork can be searched from outside itself. The runner serves `dev.mrhyperion.glasswork.Spotlight`
 at `/dev/mrhyperion/glasswork/Spotlight` on the app's own bus name (`linux/runner/spotlight_service.cc`):
-`Query`, `Recents`, `PreviewAdd`, `AddTask` and `Activate`. Each call goes to Dart over the
+`Query`, `Recents`, `Actions`, `PreviewAdd`, `AddTask`, `Activate` and `SetDesktopGlass`. Each call goes to Dart over the
 `dev.mrhyperion.glasswork/spotlight` channel (`SpotlightChannel`) and is answered when Dart replies; the
 phone's Spotlight asks the same `SpotlightService` directly.
 
@@ -378,6 +378,82 @@ Two things about Riverpod 3 this rests on, both found the hard way:
 - **A stream provider's `.future` answers with the first value it ever had** until the provider
   rebuilds. The service reads each provider's current value instead (`_load`), waiting only when there
   is none yet.
+
+### Glasswork Spotlight, the GNOME Shell extension
+
+`linux/gnome-extension/spotlight@glasswork.mrhyperion.dev` is Spotlight for the whole desktop, on
+Super+Space, laid out and moving as macOS Tahoe's does. Only the shell can blur what is behind a
+surface on Wayland, so it is an extension rather than a window of the app's.
+
+- **The bar** is a capsule a little under a quarter of the way down the monitor in use. Once the
+  pointer moves over an empty bar, four round buttons — Applications, Files, Actions, Clipboard —
+  bud out of its rounded end and draw back in when typing starts. Ctrl+1 to Ctrl+4 (or Super) choose
+  them from the keyboard, as Command+1 to 4 do on a Mac, and so do slash filters: `/apps`, `/pdf`,
+  `/images`, `kind:folders`, taken out of the line once their word is finished (`lib/modes.js`).
+- **What it finds** comes from every source at once, each answering as it can: apps through GNOME's
+  own `AppSearchProvider`, files from LocalSearch (`gi://Tsparql`), every installed search provider
+  except Files' (files are not listed twice), actions, the web, and Glasswork over D-Bus. Each scores
+  its results on the same scale as `SpotlightIndex` (`lib/ranking.js`), so the best of all of them
+  is the top hit and Glasswork's sit among the rest at their true rank. Under the bar, the kinds
+  found are chips to narrow by; Tab steps through them.
+- **The browse modes**: Applications is every app in a grid (or a list), in Tahoe's categories read
+  from each desktop file (`lib/app_categories.js`), Ctrl+Left and Right between them. Files is the
+  files opened lately — GNOME's own recent list — and Glasswork's recents, by kind. Actions is every
+  action, Glasswork's (from `Actions` over D-Bus), the system's and Spotlight's, each with its quick
+  key (`lib/quick_keys.js`: typing `nt` makes New task the top hit). An action with fields is
+  filled in in the bar — New task asks what, then optionally when, Tab between them, the line read
+  as the composer reads one and previewed by `PreviewAdd` as it is typed. Clipboard is what was
+  copied: text, links, images and files.
+- **The clipboard history** is held in memory only, never written down, and forgotten on logging
+  out; it keeps 30 minutes, 8 hours (the default) or 7 days of it, and nothing a password manager
+  marks as secret (`x-kde-passwordManagerHint`). It can be turned off, which clears it.
+- **Up**, before anything else is chosen, brings back earlier searches, as in macOS — the only thing
+  it keeps between sessions, in `~/.local/state/glasswork-spotlight/history.json`, readable by the
+  user alone. Esc steps back one thing at a time: the text, the action, the mode, then Spotlight.
+  Holding Alt shows the selected file's path; Alt+Return shows it in Files.
+
+The glass (`lib/ui/glass.js`) is a clone of the window group, blurred as the surface's own content,
+then cut to its shapes by a shader that bends the blur along a band inside each edge, splits its
+colours slightly there, lights the rim from the top left and lays a shadow under it. A blur in
+background mode cannot be rounded, which is why it is not that. The bar and its buttons are **one
+glass**: their distances are joined with a smooth minimum, so a button leaving the bar draws out of
+it like a drop and parts from it only once it is clear — Liquid Glass's own behaviour.
+
+It moves on springs (`lib/spring.js`, Apple's response-and-damping form, tested for overshoot):
+opening grows from 94% with under 2% overshoot, the buttons bud out on a looser one, 35 ms apart,
+and the results spring to the height of what is in them; rows fade in as they arrive and the
+highlight slides between them. Closing is faster and has no spring. All of it stops when GNOME is
+asked for less motion.
+
+Found the hard way, and each guarded by a test or by a comment where it is done:
+
+- **The field moves its cursor on Left and Right before it emits a key press**, so a handler on its
+  key presses never sees the grid's arrows. Keys are read in Spotlight's own capture phase instead.
+- **An input method takes each key and sends it back** marked `FLAG_INPUT_METHOD`, later. With one
+  running, that returned copy is the one read, or a Tab typed straight after a word is read before
+  the word's last letters arrive.
+- **A viewport lays its content out at its least width**, and an ellipsizing label's is a few pixels:
+  the chips' labels never ellipsize, and the row scrolls with its ends faded instead.
+- **A row's allocation notifies before the scroll view updates its page size**, so scrolling a row
+  into view measures the scroll view itself.
+
+It also makes Glasswork's window glass: `lib/window_glass.js` puts a blur of the desktop under the
+window and calls `SetDesktopGlass`, and the app turns its own ground see-through over it (an RGBA
+visual in the runner, `desktopGlassProvider` in Dart), frosted rather than clear. Without the
+extension the app draws its own backdrop as before.
+
+**Testing it.** The pure parts are tested with `gjs -m linux/gnome-extension/tests/run.js`, in CI
+too, with the schema compiled strictly. The rest is checked in a throwaway headless GNOME Shell:
+`tool/nested_session/run.sh` with `NESTED_EXTENSION=1` loads it with its own home, settings and bus,
+and the harness extension there presses keys, holds them, moves the pointer and copies text over
+D-Bus (`dev.glasswork.Harness`), while `Describe` reads back what Spotlight shows. Hot corners are off
+in that session: the virtual pointer starts in one. Nothing of the real session is touched.
+
+**Installing it.** The installer puts it in `~/.local/share/gnome-shell/extensions`, its schema
+compiled, adds it to `org.gnome.shell enabled-extensions` beside whatever is there, and takes both
+away again on uninstall — only where GNOME Shell is. GNOME on Wayland loads an extension, new or
+updated, only as a session starts, so the installer says to log out once. It takes Super+Space,
+which GNOME otherwise gives to switching keyboard layouts; the shortcut is in its settings.
 
 ## Desktop: the window and the tray
 

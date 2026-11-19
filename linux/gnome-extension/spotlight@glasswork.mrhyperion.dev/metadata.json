@@ -1,0 +1,8 @@
+{
+  "uuid": "spotlight@glasswork.mrhyperion.dev",
+  "name": "Glasswork Spotlight",
+  "description": "Spotlight for the whole desktop on Super+Space: apps, files, settings, the calculator, system actions and the web, with Glasswork's tasks, notes and projects among them — and Glasswork's own window turned to glass over the desktop.",
+  "shell-version": ["51"],
+  "settings-schema": "org.gnome.shell.extensions.glasswork-spotlight",
+  "url": "https://github.com/MrHyperIon101/glasswork"
+}

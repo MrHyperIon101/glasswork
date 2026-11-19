@@ -49,6 +49,18 @@ void main() {
     expect(service, contains("interface name='dev.mrhyperion.glasswork.Spotlight'"));
     expect(service, contains('/dev/mrhyperion/glasswork/Spotlight'));
 
+    // Every call the GNOME Shell extension makes is one the service answers.
+    final calls = <String>{
+      for (final file in Directory('linux/gnome-extension').listSync(recursive: true))
+        if (file is File && file.path.endsWith('.js'))
+          for (final match in RegExp(r"Glasswork\.call\(\s*'(\w+)'").allMatches(file.readAsStringSync()))
+            match.group(1)!,
+    };
+    expect(calls, containsAll(['Query', 'PreviewAdd', 'AddTask', 'Activate', 'Recents', 'Actions']));
+    for (final method in calls) {
+      expect(service, contains("<method name='$method'>"), reason: 'the extension calls $method');
+    }
+
     // Woken by D-Bus activation, it serves the call and keeps its window out of sight.
     expect(app, contains('"--background"'));
     expect(app, contains('if (self->background) return;'));
