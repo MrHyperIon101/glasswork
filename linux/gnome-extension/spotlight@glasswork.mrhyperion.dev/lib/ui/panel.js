@@ -112,10 +112,13 @@ export const SpotlightPanel = GObject.registerClass({
         this._appsView = 'grid';
         this._alt = false;
 
-        // A click on nothing — not the bar, its buttons or the results — closes it.
+        // A click on nothing — not the bar, its buttons or the results — closes it. Only that
+        // click is claimed: a button's click is a gesture in GNOME 51, and an ancestor
+        // claiming the press cancels it, so the buttons would never be clicked.
         this.connect('button-press-event', (_, event) => {
-            if (global.stage.get_event_actor(event) === this)
-                this.close();
+            if (global.stage.get_event_actor(event) !== this)
+                return Clutter.EVENT_PROPAGATE;
+            this.close();
             return Clutter.EVENT_STOP;
         });
         // Keys are read as they reach Spotlight, before the field has them: the field moves
