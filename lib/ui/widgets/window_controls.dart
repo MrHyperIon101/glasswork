@@ -148,8 +148,10 @@ class WindowDrag extends ConsumerWidget {
     if (!WindowControls.available) return child;
     final shell = ref.watch(desktopShellProvider);
 
+    // All of its area, not only what is drawn in it: the empty part of a title bar is the
+    // part people grab.
     return GestureDetector(
-      behavior: HitTestBehavior.translucent,
+      behavior: HitTestBehavior.opaque,
       onPanStart: (_) => shell.startDrag(),
       onDoubleTap: () async =>
           ref.read(windowMaximizedProvider.notifier).set(await shell.toggleMaximize()),

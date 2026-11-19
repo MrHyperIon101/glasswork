@@ -157,6 +157,7 @@ class _FieldsPainter extends CustomPainter {
     );
     final longest = math.max(size.width, size.height);
     final strength = seeThrough ? AppMaterial.desktopFields : 1.0;
+    if (strength <= 0) return;
     for (final field in _fields) {
       final centre = field.at(time.value, size);
       final radius = field.radius * longest;

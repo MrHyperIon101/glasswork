@@ -91,10 +91,11 @@ export const MARGIN = 28;
 
 const GlassEffect = GObject.registerClass(
 class GlassEffect extends Clutter.ShaderEffect {
-    _init({shapes, blend}) {
+    _init({shapes, blend, rim, bendBy, light, shadow}) {
         super._init();
         this._shapes = shapes;
         this._blend = blend;
+        this._look = {rim, bendBy, light, shadow};
     }
 
     vfunc_get_static_snippet() {
@@ -116,10 +117,10 @@ class GlassEffect extends Clutter.ShaderEffect {
         }
         const blend = typeof this._blend === 'function' ? this._blend() : this._blend;
         this.set_uniform_float('blend', 1, [blend]);
-        this.set_uniform_float('rim', 1, [16]);
-        this.set_uniform_float('bend_by', 1, [14]);
-        this.set_uniform_float('light', 1, [0.2]);
-        this.set_uniform_float('shadow', 1, [0.3]);
+        this.set_uniform_float('rim', 1, [this._look.rim]);
+        this.set_uniform_float('bend_by', 1, [this._look.bendBy]);
+        this.set_uniform_float('light', 1, [this._look.light]);
+        this.set_uniform_float('shadow', 1, [this._look.shadow]);
         super.vfunc_paint_target(node, paintContext);
     }
 });
@@ -150,7 +151,11 @@ class Overhang extends Clutter.Actor {
  */
 export const Glass = GObject.registerClass(
 class Glass extends St.Widget {
-    _init({styleClass, shapes, blend = 0}) {
+    // [content], when given, is what is blurred in place of the whole desktop: an actor laid
+    // out in the stage's coordinates. [rim], [bendBy], [light] and [shadow] are the edge's
+    // bend and highlight and the shadow under it, all in logical pixels or as a share.
+    _init({styleClass, shapes, blend = 0, blur = BLUR, brightness = 0.82, content = null,
+        rim = 16, bendBy = 14, light = 0.2, shadow = 0.3}) {
         super._init({
             style_class: styleClass,
             layout_manager: new Clutter.FixedLayout(),
@@ -166,22 +171,23 @@ class Glass extends St.Widget {
         // blur's width past the glass on every side, so the blur always has real desktop to
         // draw on rather than running out of picture at the edges.
         const holder = new Overhang({layout_manager: new Clutter.FixedLayout()});
+        this._blur = blur;
         this._backdrop = new Clutter.Actor({layout_manager: new Clutter.FixedLayout()});
-        this._clone = new Clutter.Clone({source: global.window_group});
+        this._clone = content ?? new Clutter.Clone({source: global.window_group});
         this._backdrop.add_child(this._clone);
         this._backdrop.add_effect(new Shell.BlurEffect({
             mode: Shell.BlurMode.ACTOR,
-            radius: BLUR,
-            brightness: 0.82,
+            radius: blur,
+            brightness,
         }));
         holder.add_child(this._backdrop);
         this._surface.add_child(holder);
 
         this._tint = new St.Widget({style_class: 'gw-glass-tint'});
         this._surface.add_child(this._tint);
-        this._backdrop.set_position(-BLUR, -BLUR);
+        this._backdrop.set_position(-blur, -blur);
 
-        this._effect = new GlassEffect({shapes, blend});
+        this._effect = new GlassEffect({shapes, blend, rim, bendBy, light, shadow});
         this._surface.add_effect(this._effect);
         this.add_child(this._surface);
     }
@@ -194,7 +200,7 @@ class Glass extends St.Widget {
         this.set_size(width, height);
         this._surface.set_size(width, height);
         this._tint.set_size(width, height);
-        this._backdrop.set_size(width + 2 * BLUR, height + 2 * BLUR);
+        this._backdrop.set_size(width + 2 * this._blur, height + 2 * this._blur);
     }
 
     /** Draws the glass again: its shapes have moved, though nothing under it has. */
@@ -205,7 +211,7 @@ class Glass extends St.Widget {
     /** Lines the desktop up behind this glass, given where its corner sits on the stage. */
     alignBackdrop(stageX, stageY) {
         // The clone sits inside a backdrop that starts a blur's width before the glass.
-        this._clone.set_position(-stageX + BLUR, -stageY + BLUR);
+        this._clone.set_position(-stageX + this._blur, -stageY + this._blur);
     }
 
     /** Sizes, for the tests that read Spotlight back over D-Bus. */

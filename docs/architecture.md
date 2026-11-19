@@ -446,16 +446,25 @@ Found the hard way, and each guarded by a test or by a comment where it is done:
 - **A row's allocation notifies before the scroll view updates its page size**, so scrolling a row
   into view measures the scroll view itself.
 
-It also makes Glasswork's window glass: `lib/window_glass.js` puts a blur of the desktop under the
-window and calls `SetDesktopGlass`, and the app turns its own ground see-through over it (an RGBA
-visual in the runner, `desktopGlassProvider` in Dart), frosted rather than clear. Without the
+It also makes Glasswork's window glass: `lib/window_glass.js` puts a frost under the window and
+calls `SetDesktopGlass`, and the app turns its own ground see-through over it (an RGBA visual in
+the runner, `desktopGlassProvider` in Dart) to exactly the tint and brightness of Spotlight's
+glass, with none of the ambient fields' colour — the two are one material. The frost is that
+same glass: copies of the wallpaper and of the windows stacked below Glasswork's, never the
+window itself, blurred and cut to the window's rounded shape. GNOME's background blur would be
+simpler but is always a rectangle, and its corners showed past the window's. Without the
 extension the app draws its own backdrop as before.
+
+**Clicks on Spotlight's buttons.** A button's click is a gesture in GNOME 51, and an ancestor that
+claims the press cancels it: the panel's "a click on nothing closes it" claims only clicks on
+nothing, or no button, row or chip in Spotlight could be clicked.
 
 **Testing it.** The pure parts are tested with `gjs -m linux/gnome-extension/tests/run.js`, in CI
 too, with the schema compiled strictly. The rest is checked in a throwaway headless GNOME Shell:
 `tool/nested_session/run.sh` with `NESTED_EXTENSION=1` loads it with its own home, settings and bus,
-and the harness extension there presses keys, holds them, moves the pointer and copies text over
-D-Bus (`dev.glasswork.Harness`), while `Describe` reads back what Spotlight shows. Hot corners are off
+and the harness extension there presses keys, holds them, moves the pointer, clicks, copies text,
+says what a click at a point would land on and where every window is, over D-Bus
+(`dev.glasswork.Harness`), while `Describe` reads back what Spotlight shows. Hot corners are off
 in that session: the virtual pointer starts in one. Nothing of the real session is touched.
 
 **Installing it.** The installer puts it in `~/.local/share/gnome-shell/extensions`, its schema
@@ -472,7 +481,11 @@ empty title bar instead of a header bar — empty rather than undecorated, becau
 for client-side decorations and keeps the shadow, the resize edges and the desktop's snapping. Minimise,
 maximise and close are drawn in the app (`WindowControls`, one capsule at the top-right of every
 header, the same pill Voxtrona draws), the title and the space beside it are the handle the window is
-dragged by (`WindowDrag`), and a double click there maximises it. All of it goes over the same
+dragged by (`WindowDrag`, the whole of the title's line, empty space included, since that is
+the part people grab), and a double click there maximises it. Its corners are rounded to
+`AppRadius.xlarge`, the radius for outer window chrome: the app clips itself, sheets and
+dialogs included, GTK's shadow follows the same radius, and the extension's frost is cut to it;
+all three go square while the window fills the screen. All of it goes over the same
 desktop channel; closing this way is `gtk_window_close`, so "Keep in the tray" still decides what
 closing means. The window's title is still set — it is what the switcher and the taskbar read — and
 `test/desktop/runner_order_test.dart` reads the runner to keep a header bar from coming back with a

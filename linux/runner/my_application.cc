@@ -67,11 +67,19 @@ static void my_application_activate(GApplication* application) {
     gtk_widget_set_visual(GTK_WIDGET(window), rgba);
     gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
     g_autoptr(GtkCssProvider) css = gtk_css_provider_new();
-    gtk_css_provider_load_from_data(css, "window.background { background-color: transparent; }",
+    // The shadow GTK draws around the window follows its rounded corners (AppRadius.xlarge,
+    // which the app clips itself to), and is square while it fills the screen.
+    gtk_css_provider_load_from_data(css,
+                                    "window.background { background-color: transparent; }"
+                                    "decoration { border-radius: 28px; }"
+                                    "window.maximized decoration, window.fullscreen decoration,"
+                                    " window.tiled decoration { border-radius: 0; }",
                                     -1, nullptr);
-    gtk_style_context_add_provider(gtk_widget_get_style_context(GTK_WIDGET(window)),
-                                   GTK_STYLE_PROVIDER(css),
-                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    // For the screen, not the window's own style context: the decoration is a node of its
+    // own, which a window's provider does not reach.
+    gtk_style_context_add_provider_for_screen(gtk_window_get_screen(window),
+                                              GTK_STYLE_PROVIDER(css),
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   }
 
   // Before the Flutter view exists, so the close button asks the tray first.

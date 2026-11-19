@@ -17,6 +17,9 @@ const INTERFACE = `
     <method name="Hold"><arg type="s" name="key" direction="in"/><arg type="b" name="down" direction="in"/></method>
     <method name="Move"><arg type="d" name="x" direction="in"/><arg type="d" name="y" direction="in"/></method>
     <method name="Copy"><arg type="s" name="text" direction="in"/></method>
+    <method name="Button"><arg type="b" name="down" direction="in"/></method>
+    <method name="Windows"><arg type="s" name="windows" direction="out"/></method>
+    <method name="Pick"><arg type="d" name="x" direction="in"/><arg type="d" name="y" direction="in"/><arg type="s" name="actor" direction="out"/></method>
   </interface>
 </node>`;
 
@@ -56,6 +59,22 @@ export default class Harness extends Extension {
             Hold: (key, down) => this._key(NAMES[key.toLowerCase()] ?? key.codePointAt(0), down),
             Move: (x, y) => this._pointer.notify_absolute_motion(GLib.get_monotonic_time(), x, y),
             Copy: text => St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, text),
+            // The primary button pressed or let go, wherever the pointer is.
+            Button: down => this._pointer.notify_button(GLib.get_monotonic_time(), Clutter.BUTTON_PRIMARY,
+                down ? Clutter.ButtonState.PRESSED : Clutter.ButtonState.RELEASED),
+            // What a click at a point lands on, and the actors it sits in.
+            Pick: (x, y) => {
+                const chain = [];
+                for (let a = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y); a; a = a.get_parent())
+                    chain.push(`${a.constructor.name}${a.style_class ? `.${a.style_class}` : ''}`);
+                return chain.slice(0, 6).join(' < ');
+            },
+            // Where every window is, for a test to see one move.
+            Windows: () => JSON.stringify(global.get_window_actors().map(a => {
+                const r = a.meta_window.get_frame_rect();
+                return {title: a.meta_window.get_title(), x: r.x, y: r.y, width: r.width, height: r.height,
+                    maximized: a.meta_window.maximized_horizontally && a.meta_window.maximized_vertically};
+            })),
         });
         this._dbus.export(Gio.DBus.session, '/dev/glasswork/Harness');
     }

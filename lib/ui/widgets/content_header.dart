@@ -202,8 +202,10 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
   /// The title, and the space beside it, double as the window's handle: there is no title
   /// bar to drag it by, and this is where one would have been. Only here — a drag over the
   /// search field or a button belongs to that control, not to the window.
-  Widget _titles({required int lines, bool dense = false}) =>
-      WindowDrag(child: _titleLines(lines: lines, dense: dense));
+  Widget _titles({required int lines, bool dense = false}) => WindowDrag(
+    // As wide as the line allows, so the empty space beside the title is a handle too.
+    child: SizedBox(width: double.infinity, child: _titleLines(lines: lines, dense: dense)),
+  );
 
   Widget _titleLines({required int lines, bool dense = false}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
