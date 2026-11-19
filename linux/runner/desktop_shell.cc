@@ -216,6 +216,36 @@ static gboolean on_delete(GtkWidget* window, GdkEvent* event, gpointer data) {
   return TRUE;
 }
 
+// Glasswork Spotlight, the GNOME Shell extension, answering whether it opened: no answer —
+// the extension is not running, or this is not GNOME — and the app opens its own instead.
+static void on_shell_spotlight(GObject* source, GAsyncResult* result, gpointer data) {
+  g_autoptr(FlMethodCall) call = FL_METHOD_CALL(data);
+  g_autoptr(GError) error = nullptr;
+  g_autoptr(GVariant) reply =
+      g_dbus_connection_call_finish(G_DBUS_CONNECTION(source), result, &error);
+  g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
+      fl_method_success_response_new(fl_value_new_bool(reply != nullptr)));
+  fl_method_call_respond(call, response, nullptr);
+}
+
+static void open_shell_spotlight(FlMethodCall* call) {
+  FlValue* args = fl_method_call_get_args(call);
+  const gchar* query = args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_STRING
+                           ? fl_value_get_string(args)
+                           : "";
+  g_autoptr(GDBusConnection) bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, nullptr);
+  if (bus == nullptr) {
+    g_autoptr(FlMethodResponse) response =
+        FL_METHOD_RESPONSE(fl_method_success_response_new(fl_value_new_bool(false)));
+    fl_method_call_respond(call, response, nullptr);
+    return;
+  }
+  g_dbus_connection_call(bus, "org.gnome.Shell", "/dev/mrhyperion/GlassworkSpotlight",
+                         "dev.mrhyperion.GlassworkSpotlight", "Open",
+                         g_variant_new("(s)", query), nullptr, G_DBUS_CALL_FLAGS_NO_AUTO_START,
+                         1000, nullptr, on_shell_spotlight, g_object_ref(call));
+}
+
 static void on_method_call(FlMethodChannel* channel,
                            FlMethodCall* call,
                            gpointer data) {
@@ -223,6 +253,11 @@ static void on_method_call(FlMethodChannel* channel,
   const gchar* method = fl_method_call_get_name(call);
   g_autoptr(FlMethodResponse) response = nullptr;
 
+  if (strcmp(method, "openShellSpotlight") == 0) {
+    // Answered when the shell answers.
+    open_shell_spotlight(call);
+    return;
+  }
   if (strcmp(method, "trayAvailable") == 0) {
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(
         fl_value_new_bool(shell->indicator_loaded)));

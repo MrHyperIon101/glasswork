@@ -6,6 +6,7 @@ import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../motion.dart';
 import 'window_controls.dart';
+import '../spotlight/spotlight_overlay.dart';
 
 /// Title, subtitle, search and the primary action, shared by every content screen.
 ///
@@ -148,7 +149,10 @@ class _ContentHeaderState extends ConsumerState<ContentHeader> {
                   _IconButton(
                     icon: Icons.search_rounded,
                     tooltip: 'Search',
-                    onTap: () => setState(() => _searchOpen = true),
+                    // On a phone, Spotlight; "Show all results" in it comes back to this search.
+                    onTap: () => AppLayout.touch
+                        ? openSpotlight(ref)
+                        : setState(() => _searchOpen = true),
                   ),
                   if (_primary() case final primary?) ...[
                     const SizedBox(width: AppSpace.xs),

@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glasswork/ui/spotlight/spotlight_overlay.dart';
 import 'package:glasswork/data/db/database.dart';
 import 'package:glasswork/data/db/tables.dart';
 import 'package:glasswork/data/project_filter.dart';
@@ -501,8 +502,20 @@ Future<void> _searchKeepsItsText(WidgetTester tester, _Device device) async {
     await _settle(tester);
 
     if (device.size.width < AppBreakpoint.compact) {
+      // On a phone, Search is Spotlight; its "Show all results" is this search.
       await tester.tap(find.byTooltip('Search'));
       await _settle(tester);
+      await tester.enterText(
+        find.descendant(of: find.byType(SpotlightOverlay), matching: find.byType(TextField)),
+        'lab',
+      );
+      await _settle(tester);
+      await tester.tap(find.text('Show all results for “lab”'));
+      await _settle(tester);
+      final field = find.descendant(of: find.byType(SearchField), matching: find.byType(TextField));
+      expect(find.byType(ListScreen), findsOneWidget);
+      expect(tester.widget<TextField>(field).controller!.text, 'lab');
+      return;
     }
     final field = find.descendant(
       of: find.byType(SearchField),

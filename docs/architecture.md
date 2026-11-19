@@ -369,6 +369,16 @@ phone's Spotlight asks the same `SpotlightService` directly.
   to eight seconds. The tray's "a hidden window comes back when the tray is turned off" only means a
   window closed into the tray (`in_tray`), not one that was never shown.
 
+**Ctrl+K and the phone.** Ctrl+K (Command+K) opens Spotlight: on GNOME the shell's own, asked
+over D-Bus by the runner (`openShellSpotlight` on the desktop channel); where it does not answer —
+another desktop, the extension not running, the phone — the app's own, `SpotlightOverlay`
+(`lib/ui/spotlight/`). That is the same capsule and results drawn in Flutter, answered by the same
+`SpotlightService`: Glasswork's ranked results, its actions, the line as a task with its preview
+(Ctrl+Return adds it), and "Show all results", which hands the query to the app's own search. It
+opens on the shell's spring — the one thing in the app allowed to overshoot, and not moving at all
+under reduce-motion — and nothing behind it dims. On a phone the header's search button opens it,
+and Back closes it first.
+
 Two things about Riverpod 3 this rests on, both found the hard way:
 
 - **A provider nothing listens to is paused**, and so is everything it listens to. The shell holds a

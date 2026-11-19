@@ -38,6 +38,7 @@ import 'project_screen.dart';
 import 'settings_screen.dart';
 import 'today_screen.dart';
 import '../widgets/focus_pill.dart';
+import '../spotlight/spotlight_overlay.dart';
 
 const _sidebarWidth = 262.0;
 
@@ -224,6 +225,9 @@ class _ShellState extends ConsumerState<_Shell> {
                 () => ref.read(openNoteProvider.notifier).create(),
             const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true): () =>
                 ref.read(openNoteProvider.notifier).create(),
+            // Spotlight: the shell's own on GNOME, the app's anywhere else.
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): () => openSpotlight(ref),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () => openSpotlight(ref),
             const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
                 ref.read(destinationProvider.notifier).go(const SettingsDestination()),
             const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
@@ -315,6 +319,9 @@ class _ShellState extends ConsumerState<_Shell> {
                   bottom: wide ? AppSpace.xxxl : AppSpace.lg,
                   child: const Center(child: UndoToast()),
                 ),
+
+                // Spotlight, over everything, where the shell's own is not there to open.
+                const SpotlightOverlay(),
               ],
             ),
           ),
@@ -351,6 +358,7 @@ class _BackCloses extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Topmost first: the reverse of the order the shell stacks them in.
     final closers = <VoidCallback>[
+      if (ref.watch(spotlightOpenProvider) != null) ref.read(spotlightOpenProvider.notifier).close,
       if (ref.watch(syncSheetOpenProvider))
         ref.read(syncSheetOpenProvider.notifier).close,
       if (ref.watch(projectSettingsOpenProvider) != null)

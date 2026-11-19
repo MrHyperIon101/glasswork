@@ -44,6 +44,11 @@ class DesktopShell {
 
   Future<bool> maximized() async => await _call<bool>('windowMaximized') ?? false;
 
+  /// Opens Glasswork Spotlight, the GNOME Shell extension, with [query] typed. False where it
+  /// is not running, for the app to open its own Spotlight instead.
+  Future<bool> openShellSpotlight(String query) async =>
+      await _call<bool>('openShellSpotlight', query) ?? false;
+
   /// Answers the tray icon's menu, and hears when the window is maximised or restored —
   /// which the desktop can do without the app being asked.
   void listen({
