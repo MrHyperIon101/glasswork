@@ -323,6 +323,14 @@ abstract final class AppMaterial {
   static const cardBlur = 0.0;
   static const cardTint = Color(0x722C2C2E);
 
+  /// The ground over the desktop, where the shell blurs what is behind the window: dark
+  /// enough that text reads over any wallpaper, light enough that the wallpaper is there.
+  static const desktopGround = Color(0x9E101014);
+
+  /// How much of the ambient fields' colour is kept over the desktop, where the wallpaper's
+  /// own colour is what should show.
+  static const desktopFields = 0.45;
+
   /// A card under the pointer: a shade lighter, as a nearer surface is.
   static const cardHoverTint = Color(0x853A3A3C);
 

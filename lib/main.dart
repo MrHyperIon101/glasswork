@@ -33,8 +33,9 @@ class GlassworkApp extends StatelessWidget {
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
       ),
+      // Clear: the ground is painted by _Ground, which may be laid over the desktop.
       home: const Scaffold(
-        backgroundColor: AppColour.ground,
+        backgroundColor: Color(0x00000000),
         body: _Ground(child: SafeArea(child: AppShell())),
       ),
     );
@@ -51,6 +52,7 @@ class _Ground extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => AmbientBackdrop(
     moving: ref.watch(glassProvider) != Glass.solid,
+    seeThrough: ref.watch(desktopGlassProvider) && ref.watch(glassProvider) != Glass.solid,
     child: BackdropGroup(child: child),
   );
 }

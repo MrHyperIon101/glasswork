@@ -15,12 +15,21 @@ import '../../theme/tokens.dart';
 /// it filter again, so it repaints at a gentle [_fps] rather than every frame, stops while
 /// the window is in the background, and stands still when the system asks for less motion.
 class AmbientBackdrop extends StatefulWidget {
-  const AmbientBackdrop({required this.child, this.moving = true, super.key});
+  const AmbientBackdrop({
+    required this.child,
+    this.moving = true,
+    this.seeThrough = false,
+    super.key,
+  });
 
   final Widget child;
 
   /// False to hold it still: under a solid look, where nothing shows it through the cards.
   final bool moving;
+
+  /// Laid over the desktop rather than instead of it: the ground and its colour thinned, so
+  /// the blur the shell draws behind the window shows through, still dark enough for text.
+  final bool seeThrough;
 
   /// Steps a second. The fields move a fraction of a pixel a frame, so more would be
   /// invisible and only cost the glass a filter pass each.
@@ -85,7 +94,7 @@ class _AmbientBackdropState extends State<AmbientBackdrop> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-    painter: _FieldsPainter(_time),
+    painter: _FieldsPainter(_time, seeThrough: widget.seeThrough),
     isComplex: true,
     child: widget.child,
   );
@@ -120,9 +129,10 @@ class _Field {
 }
 
 class _FieldsPainter extends CustomPainter {
-  _FieldsPainter(this.time) : super(repaint: time);
+  _FieldsPainter(this.time, {required this.seeThrough}) : super(repaint: time);
 
   final ValueListenable<double> time;
+  final bool seeThrough;
 
   /// Apple's own hues, dim: enough for glass to have something to bend, never so much
   /// that text on a card has to fight it.
@@ -141,22 +151,27 @@ class _FieldsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = AppColour.ground);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = seeThrough ? AppMaterial.desktopGround : AppColour.ground,
+    );
     final longest = math.max(size.width, size.height);
+    final strength = seeThrough ? AppMaterial.desktopFields : 1.0;
     for (final field in _fields) {
       final centre = field.at(time.value, size);
       final radius = field.radius * longest;
+      final colour = field.colour.withValues(alpha: field.colour.a * strength);
       canvas.drawCircle(
         centre,
         radius,
         Paint()
           ..shader = RadialGradient(
-            colors: [field.colour, field.colour.withValues(alpha: 0)],
+            colors: [colour, colour.withValues(alpha: 0)],
           ).createShader(Rect.fromCircle(center: centre, radius: radius)),
       );
     }
   }
 
   @override
-  bool shouldRepaint(_FieldsPainter old) => old.time != time;
+  bool shouldRepaint(_FieldsPainter old) => old.time != time || old.seeThrough != seeThrough;
 }

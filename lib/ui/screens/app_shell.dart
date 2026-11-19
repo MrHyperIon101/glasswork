@@ -18,6 +18,7 @@ import '../../state/undo_controller.dart';
 import '../../theme/tokens.dart';
 import '../layout.dart';
 import '../project_icon.dart';
+import '../glass/liquid_glass.dart';
 import '../motion.dart';
 import '../surface.dart';
 import '../widgets/area_widgets.dart';
@@ -165,7 +166,12 @@ class _ShellState extends ConsumerState<_Shell> {
       });
       // What the OS Spotlight asks Glasswork, over the runner's D-Bus service. Listened to,
       // not read: a provider nothing listens to is paused, and the service's data with it.
-      SpotlightChannel.listen(ref.listenManual(spotlightServiceProvider, (_, _) {}).read());
+      SpotlightChannel.listen(
+        ref.listenManual(spotlightServiceProvider, (_, _) {}).read(),
+        onDesktopGlass: (on) {
+          if (mounted) ref.read(desktopGlassProvider.notifier).set(on);
+        },
+      );
     }
     _startReminders();
   }

@@ -58,6 +58,22 @@ static void my_application_activate(GApplication* application) {
 
   gtk_window_set_default_size(window, 2560, 1440);
 
+  // A window that can be see-through, so that where the GNOME Shell extension blurs the
+  // desktop behind it, Glasswork's own ground can turn to glass over that. Flutter paints an
+  // opaque ground until it is told the blur is there, so on its own this changes nothing.
+  // Set before the window is realised: a window cannot gain an alpha channel afterwards.
+  GdkVisual* rgba = gdk_screen_get_rgba_visual(gtk_window_get_screen(window));
+  if (rgba != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(window), rgba);
+    gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+    g_autoptr(GtkCssProvider) css = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(css, "window.background { background-color: transparent; }",
+                                    -1, nullptr);
+    gtk_style_context_add_provider(gtk_widget_get_style_context(GTK_WIDGET(window)),
+                                   GTK_STYLE_PROVIDER(css),
+                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  }
+
   // Before the Flutter view exists, so the close button asks the tray first.
   self->window = window;
   self->shell = desktop_shell_new(GTK_APPLICATION(application), window);
@@ -79,9 +95,8 @@ static void my_application_activate(GApplication* application) {
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
-  // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
-  gdk_rgba_parse(&background_color, "#000000");
+  // Clear, so the window's alpha reaches the desktop: Flutter paints the ground itself.
+  gdk_rgba_parse(&background_color, "#00000000");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

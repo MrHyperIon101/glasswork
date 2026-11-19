@@ -55,26 +55,26 @@ void main() {
   bend = bend * bend * (3.0 - 2.0 * bend);         // eased, so the bend has no seam
   vec2 n = outward(p, half_size, r);
 
-  // Drawn from further in: what sits just inside the rim appears at the rim.
+  // Drawn from further in: what sits just inside the rim appears at the rim. Colour and alpha
+  // are kept premultiplied throughout, so where the window is see-through over the desktop's
+  // own blur, the glass is too.
   vec2 pull = -n * u_refract * bend;
-  vec3 colour = vec3(
-    behind(px + pull * 1.06).r,
-    behind(px + pull).g,
-    behind(px + pull * 0.94).b
-  );
+  vec4 centre = behind(px + pull);
+  vec4 colour = vec4(behind(px + pull * 1.06).r, centre.g, behind(px + pull * 0.94).b, centre.a);
 
   // What shows through is a little richer than it is behind, the way Apple's materials lift
   // the colour of what they cover rather than greying it.
-  float luma = dot(colour, vec3(0.2126, 0.7152, 0.0722));
-  colour = mix(vec3(luma), colour, 1.35);
+  float luma = dot(colour.rgb, vec3(0.2126, 0.7152, 0.0722));
+  colour.rgb = clamp(mix(vec3(luma), colour.rgb, 1.35), vec3(0.0), vec3(colour.a));
 
   // The tint over it, as a colour laid on glass.
-  colour = colour * (1.0 - u_tint.a) + u_tint.rgb;
+  colour = colour * (1.0 - u_tint.a) + u_tint;
 
   // Light from the top left catches the rim facing it, and a little of the far one.
   float rim = smoothstep(2.5, 0.0, depth) * 0.9 + bend * 0.12;
   float facing = dot(n, normalize(vec2(-1.0, -1.4)));
-  colour += vec3(u_light) * rim * (0.35 + 0.65 * max(facing, 0.0) + 0.25 * max(-facing, 0.0));
+  float light = u_light * rim * (0.35 + 0.65 * max(facing, 0.0) + 0.25 * max(-facing, 0.0));
+  colour += vec4(light);
 
-  frag = vec4(colour, 1.0);
+  frag = clamp(colour, 0.0, 1.0);
 }

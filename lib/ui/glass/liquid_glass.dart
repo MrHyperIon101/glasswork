@@ -36,3 +36,16 @@ final glassProvider = Provider<Glass>((ref) {
   final wanted = ref.watch(preferencesProvider).value?.glass ?? Glass.liquid;
   return wanted == Glass.liquid && !LiquidGlass.runs ? Glass.frosted : wanted;
 });
+
+/// Whether the desktop itself is the glass behind the window: the GNOME Shell extension blurs
+/// what is behind Glasswork's window and says so over D-Bus, and the ground turns translucent
+/// over that blur. Off until then, and always off where nothing can blur the desktop — a
+/// window cannot see what is behind it on Wayland, only the compositor can.
+class DesktopGlass extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool on) => state = on;
+}
+
+final desktopGlassProvider = NotifierProvider<DesktopGlass, bool>(DesktopGlass.new);

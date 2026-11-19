@@ -38,6 +38,9 @@ constexpr const char* kIntrospection =
     "      <arg type='u' name='timestamp' direction='in'/>"
     "      <arg type='b' name='opened' direction='out'/>"
     "    </method>"
+    "    <method name='SetDesktopGlass'>"
+    "      <arg type='b' name='on' direction='in'/>"
+    "    </method>"
     "  </interface>"
     "</node>";
 
@@ -162,6 +165,8 @@ static void on_reply(GObject* object, GAsyncResult* result, gpointer data) {
     answer = g_variant_new("(@aa{sv})", list_of_dicts(value));
   } else if (strcmp(method, "previewAdd") == 0) {
     answer = g_variant_new("(@a{sv})", map_to_dict(value));
+  } else if (strcmp(method, "desktopGlass") == 0) {
+    answer = g_variant_new("()");
   } else if (strcmp(method, "addTask") == 0) {
     const gchar* id =
         fl_value_get_type(value) == FL_VALUE_TYPE_STRING ? fl_value_get_string(value) : "";
@@ -233,6 +238,11 @@ static void on_method_call(GDBusConnection* connection,
     g_variant_get(parameters, "(&s)", &text);
     call->method = g_strdup(strcmp(method, "AddTask") == 0 ? "addTask" : "previewAdd");
     fl_value_set_string_take(call->args, "text", fl_value_new_string(text));
+  } else if (strcmp(method, "SetDesktopGlass") == 0) {
+    gboolean on;
+    g_variant_get(parameters, "(b)", &on);
+    call->method = g_strdup("desktopGlass");
+    fl_value_set_string_take(call->args, "on", fl_value_new_bool(on));
   } else {
     const gchar* id;
     g_variant_get(parameters, "(&su)", &id, &call->timestamp);

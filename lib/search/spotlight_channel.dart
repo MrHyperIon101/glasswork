@@ -14,7 +14,11 @@ abstract final class SpotlightChannel {
 
   /// Answers the runner's calls with [service]. [onActivated] runs once something has been
   /// opened, so the window can come forward to show it.
-  static Future<void> listen(SpotlightService service, {VoidCallback? onActivated}) async {
+  static Future<void> listen(
+    SpotlightService service, {
+    VoidCallback? onActivated,
+    ValueChanged<bool>? onDesktopGlass,
+  }) async {
     _channel.setMethodCallHandler((call) async {
       final args = call.arguments is Map ? call.arguments as Map : const {};
       String text() => '${args['text'] ?? ''}';
@@ -29,6 +33,9 @@ abstract final class SpotlightChannel {
           return await service.previewAdd(text());
         case 'addTask':
           return await service.addTask(text()) ?? '';
+        case 'desktopGlass':
+          onDesktopGlass?.call(args['on'] == true);
+          return null;
         case 'activate':
           final opened = await service.activate('${args['id'] ?? ''}');
           if (opened) onActivated?.call();
