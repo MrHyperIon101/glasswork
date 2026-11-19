@@ -114,7 +114,8 @@ class GlassEffect extends Clutter.ShaderEffect {
             this.set_uniform_float(`shape${i}`, 4, s ? [s.x, s.y, s.width, s.height] : [0, 0, 0, 0]);
             this.set_uniform_float(`round${i}`, 1, [s?.radius ?? 0]);
         }
-        this.set_uniform_float('blend', 1, [this._blend]);
+        const blend = typeof this._blend === 'function' ? this._blend() : this._blend;
+        this.set_uniform_float('blend', 1, [blend]);
         this.set_uniform_float('rim', 1, [16]);
         this.set_uniform_float('bend_by', 1, [14]);
         this.set_uniform_float('light', 1, [0.2]);
@@ -141,7 +142,8 @@ class Overhang extends Clutter.Actor {
 /**
  * Glass: the blurred desktop, cut to [shapes] — a function giving, each frame, the shapes in
  * this actor's own logical pixels, as {x, y, width, height, radius} — under a tint, with
- * what is added to it on top. Shapes within [blend] pixels of each other melt together.
+ * what is added to it on top. Shapes within [blend] pixels of each other melt together;
+ * [blend] may be a function, asked each frame, for glass whose shapes melt only as they move.
  *
  * Its size is set by whoever places it, MARGIN larger on every side than the shapes need,
  * for the shadow. Nothing on it is bent: an icon near the edge stays an icon.

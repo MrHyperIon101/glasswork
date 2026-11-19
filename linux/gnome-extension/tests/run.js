@@ -310,6 +310,63 @@ test('an action\'s fields are read as one line', () => {
     equal(quick.line(['Call mum', '']), 'Call mum');
 });
 
+test('everyday words find the system action meant, ahead of every other action', () => {
+    // The actions as Spotlight lists them, with a few of the controls beside them.
+    const actions = [
+        ...Object.values(quick.SYSTEM_ACTIONS),
+        {title: 'Turn Off Dark Style', keywords: ['Dark Style', 'dark mode', 'light mode', 'appearance', 'theme']},
+        {title: 'Turn Off Wi-Fi', keywords: ['Wi-Fi', 'wifi', 'wireless', 'internet', 'network']},
+        {title: 'Turn On Bluetooth', keywords: ['Bluetooth', 'bluetooth', 'headphones', 'earbuds', 'wireless']},
+        {title: 'Turn On Night Light', keywords: ['Night Light', 'night shift', 'blue light', 'warm', 'evening']},
+        {title: 'New Task', keywords: []},
+    ];
+    const best = query => {
+        const ranked = actions
+            .map(a => ({title: a.title, s: quick.matchAction(query, a)}))
+            .filter(r => r.s !== null)
+            .sort((a, b) => b.s - a.s);
+        return ranked[0] && ranked[0].s >= ranking.TOP_HIT_FROM ? ranked[0].title : null;
+    };
+    for (const [query, meant] of [
+        ['turn off pc', 'Shut Down'],
+        ['turn off computer', 'Shut Down'],
+        ['shut down', 'Shut Down'],
+        ['shutdown', 'Shut Down'],
+        ['power off', 'Shut Down'],
+        ['switch off laptop', 'Shut Down'],
+        ['restart', 'Restart'],
+        ['reboot', 'Restart'],
+        ['restart pc', 'Restart'],
+        ['sleep', 'Sleep'],
+        ['suspend', 'Sleep'],
+        ['log out', 'Log Out'],
+        ['logout', 'Log Out'],
+        ['sign out', 'Log Out'],
+        ['lock', 'Lock Screen'],
+        ['screenshot', 'Take a Screenshot'],
+        ['record screen', 'Record the Screen'],
+        ['wifi off', 'Turn Off Wi-Fi'],
+        ['turn off wifi', 'Turn Off Wi-Fi'],
+        ['dark mode', 'Turn Off Dark Style'],
+        ['bluetooth', 'Turn On Bluetooth'],
+        ['night light', 'Turn On Night Light'],
+    ])
+        equal(best(query), meant, `“${query}”`);
+});
+
+test('every word said, in any order, is still a match', () => {
+    const shutDown = quick.SYSTEM_ACTIONS['power-off'];
+    truthy(quick.matchAction('pc turn off', shutDown) >= ranking.TOP_HIT_FROM, 'any order');
+    equal(quick.matchAction('turn off toaster', shutDown), null, 'not a word it answers to');
+});
+
+test('actions are named as on a Mac', () => {
+    equal(quick.titleCase('New task'), 'New Task');
+    equal(quick.titleCase('Next 7 days'), 'Next 7 Days');
+    equal(quick.titleCase('Take a screenshot'), 'Take a Screenshot');
+    equal(quick.titleCase('All open work'), 'All Open Work');
+});
+
 test('nothing that ends the session has a quick key', () => {
     for (const id of ['system:power-off', 'system:restart', 'system:logout', 'system:suspend'])
         equal(quick.QUICK_KEYS[id], undefined, id);

@@ -387,7 +387,9 @@ surface on Wayland, so it is an extension rather than a window of the app's.
 
 - **The bar** is a capsule a little under a quarter of the way down the monitor in use. Once the
   pointer moves over an empty bar, four round buttons — Applications, Files, Actions, Clipboard —
-  bud out of its rounded end and draw back in when typing starts. Ctrl+1 to Ctrl+4 (or Super) choose
+  bud out of its rounded end and draw back in when typing starts. They share the bar's width, as
+  in Tahoe: the bar draws its end in to make room as they come out, and stretches back as they
+  go, so the whole of it — bar, buttons and results — stays one width, centred. Ctrl+1 to Ctrl+4 (or Super) choose
   them from the keyboard, as Command+1 to 4 do on a Mac, and so do slash filters: `/apps`, `/pdf`,
   `/images`, `kind:folders`, taken out of the line once their word is finished (`lib/modes.js`).
 - **What it finds** comes from every source at once, each answering as it can: apps through GNOME's
@@ -399,8 +401,15 @@ surface on Wayland, so it is an extension rather than a window of the app's.
 - **The browse modes**: Applications is every app in a grid (or a list), in Tahoe's categories read
   from each desktop file (`lib/app_categories.js`), Ctrl+Left and Right between them. Files is the
   files opened lately — GNOME's own recent list — and Glasswork's recents, by kind. Actions is every
-  action, Glasswork's (from `Actions` over D-Bus), the system's and Spotlight's, each with its quick
-  key (`lib/quick_keys.js`: typing `nt` makes New task the top hit). An action with fields is
+  action: Glasswork's (from `Actions` over D-Bus, named in title case as on a Mac); the system's
+  under Tahoe's names — Lock Screen, Take a Screenshot, Record the Screen, Sleep, Switch User,
+  Log Out, Restart, Shut Down — each only where GNOME offers it, the ones that end the session
+  asking first as GNOME's own do; the desktop's controls, each named for what it will do from
+  where things are (Turn Off Wi-Fi, Turn On Bluetooth, Airplane Mode, Night Light, Dark Style,
+  Do Not Disturb); and Spotlight's. Each answers to the words people use for it, and every word
+  of a query found among them, in any order, is a match: "turn off pc" is Shut Down
+  (`SYSTEM_ACTIONS` and `matchAction` in `lib/quick_keys.js`). Some have a quick key: `nt` makes
+  New Task the top hit. An action with fields is
   filled in in the bar — New task asks what, then optionally when, Tab between them, the line read
   as the composer reads one and previewed by `PreviewAdd` as it is typed. Clipboard is what was
   copied: text, links, images and files.

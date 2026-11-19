@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Two layers, one over the other: Spotlight's Actions. -->
+  <path fill="#2e3436" fill-rule="evenodd" d="M8 1 15 5 8 9 1 5Z M8 2.75 3.95 5 8 7.25 12.05 5Z"/>
+  <path fill="#2e3436" d="M0.8 9.1 2.05 8.4 8 11.8 13.95 8.4 15.2 9.1 8 13.2Z"/>
+</svg>

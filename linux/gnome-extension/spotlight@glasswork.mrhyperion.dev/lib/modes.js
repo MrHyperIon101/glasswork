@@ -6,8 +6,9 @@
 export const MODES = [
     {id: 'apps', title: 'Applications', hint: 'Search Apps', icon: 'view-app-grid-symbolic'},
     {id: 'files', title: 'Files', hint: 'Search Files', icon: 'folder-symbolic'},
-    {id: 'actions', title: 'Actions', hint: 'Search Actions', icon: 'system-run-symbolic'},
-    {id: 'clipboard', title: 'Clipboard', hint: 'Search Clipboard', icon: 'edit-paste-symbolic'},
+    // Icons named gw- are Spotlight's own, in its icons folder.
+    {id: 'actions', title: 'Actions', hint: 'Search Actions', icon: 'gw-layers-symbolic'},
+    {id: 'clipboard', title: 'Clipboard', hint: 'Search Clipboard', icon: 'edit-copy-symbolic'},
 ];
 
 export function mode(id) {

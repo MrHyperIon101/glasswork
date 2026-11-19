@@ -38,10 +38,27 @@ import {Glass, MARGIN} from './glass.js';
 
 const WIDTH = 680;
 const BAR = 56;
-const BUTTON = 46;
+// The buttons are as tall as the bar, nearly, and share its width: as they come out, the bar
+// draws its right end in to make room for them, as Tahoe's does, and stretches back as they
+// go. Everything — bar, buttons and the results under them — is WIDTH across, centred.
+const BUTTON = 54;
 const BUTTON_GAP = 10;
 const BAR_GAP = 12;
 const BUTTONS_WIDTH = BAR_GAP + MODES.length * BUTTON + (MODES.length - 1) * BUTTON_GAP;
+const SHORT_BAR = WIDTH - BUTTONS_WIDTH;
+// How far apart, in pixels, the bar's shapes still melt together: at rest the gaps between
+// them are wider than half of this, so they stand apart.
+const BLEND_AT_REST = 8;
+const BLEND_MOVING = 26;
+const ICONS = GLib.build_filenamev([
+    GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), '..', '..', 'icons']);
+
+/** An icon by name: the theme's, or Spotlight's own for a name starting gw-. */
+function gicon(name) {
+    return name.startsWith('gw-')
+        ? Gio.FileIcon.new(Gio.File.new_for_path(GLib.build_filenamev([ICONS, `${name}.svg`])))
+        : Gio.ThemedIcon.new(name);
+}
 const GAP = 10;
 const MOST_HEIGHT = 540;
 const INSET = 6;
@@ -143,11 +160,17 @@ export const SpotlightPanel = GObject.registerClass({
     _buildBar() {
         this._barGlass = new Glass({
             styleClass: 'gw-bar-glass',
-            blend: 20,
+            // Melting together strongly while the buttons travel, so each leaves the bar
+            // like a drop, and less as they arrive, so they part into separate circles at
+            // rest and pinch off rather than snap apart.
+            blend: () => {
+                const settled = Math.min(...(this._buttons ?? []).map(b => clamp(b._bud, 0, 1)));
+                return BLEND_AT_REST + (BLEND_MOVING - BLEND_AT_REST) * (1 - settled);
+            },
             shapes: () => this._barShapes(),
         });
         this._barGlass.set_position(-MARGIN, -MARGIN);
-        this._barGlass.setSize(WIDTH + BUTTONS_WIDTH + 2 * MARGIN, BAR + 2 * MARGIN);
+        this._barGlass.setSize(WIDTH + 2 * MARGIN, BAR + 2 * MARGIN);
         this._column.add_child(this._barGlass);
 
         this._bar = new St.BoxLayout({
@@ -187,12 +210,12 @@ export const SpotlightPanel = GObject.registerClass({
                 width: BUTTON,
                 height: BUTTON,
                 accessible_name: m.title,
-                child: new St.Icon({icon_name: m.icon, style_class: 'gw-mode-icon'}),
+                child: new St.Icon({gicon: gicon(m.icon), style_class: 'gw-mode-icon'}),
             });
             button.set_pivot_point(0.5, 0.5);
             button._mode = m.id;
             button._rest = {
-                x: MARGIN + WIDTH + BAR_GAP + i * (BUTTON + BUTTON_GAP),
+                x: MARGIN + SHORT_BAR + BAR_GAP + i * (BUTTON + BUTTON_GAP),
                 y: MARGIN + (BAR - BUTTON) / 2,
             };
             button.set_position(button._rest.x, button._rest.y);
@@ -200,8 +223,7 @@ export const SpotlightPanel = GObject.registerClass({
             this._barGlass.add_child(button);
             return button;
         });
-        for (const button of this._buttons)
-            this._placeButton(button, 0);
+        this._placeBuds(this._buttons.map(() => 0));
         this._budsOut = false;
     }
 
@@ -317,8 +339,7 @@ export const SpotlightPanel = GObject.registerClass({
         this._pointerMoved = false;
         const [px, py] = global.get_pointer();
         this._pointerAtOpen = [px, py];
-        for (const button of this._buttons)
-            this._placeButton(button, 0);
+        this._placeBuds(this._buttons.map(() => 0));
         this._budsOut = false;
         this._clip.height = 0;
         this._resultsGlass.opacity = 0;
@@ -328,7 +349,11 @@ export const SpotlightPanel = GObject.registerClass({
         this._grab = Main.pushModal(this, {actionMode: Shell.ActionMode.POPUP});
         this._entry.grab_key_focus();
         this._glasswork?.wake();
-        this._actions?.refresh();
+        // Glasswork's actions come a moment later, from the app; shown as they arrive.
+        this._actions?.refresh().then(changed => {
+            if (changed && this.isOpen && !this._form && (this._mode === 'actions' || this._query()))
+                this._search();
+        });
 
         this._updateBar();
         this._settingText = true;
@@ -405,22 +430,32 @@ export const SpotlightPanel = GObject.registerClass({
     // --- the browse buttons -----------------------------------------------------------------
 
     /**
-     * Places [button] [p] of the way out of the bar: at 0 it is a small drop at the centre of
-     * the bar's rounded end, inside it and unseen; at 1 it is in its place beside the bar.
+     * Places the buttons [progress] of the way out of the bar, one figure each, and the bar
+     * around them. At 0 a button is a small drop at the centre of the bar's rounded end,
+     * inside it and unseen; at 1 it is in its place, and the bar has drawn its end in to make
+     * room. The bar follows the first button, the one nearest it: it is the first to leave
+     * and the last back.
      */
-    _placeButton(button, p) {
-        const capX = MARGIN + WIDTH - BAR / 2 - BUTTON / 2;
-        button.translation_x = (capX - button._rest.x) * (1 - p);
-        const s = Math.max(0.35 + 0.65 * p, 0.01);
-        button.set_scale(s, s);
-        button.opacity = Math.round(255 * clamp((p - 0.4) / 0.45, 0, 1));
-        button.reactive = p > 0.6;
-        button._bud = p;
+    _placeBuds(progress) {
+        const first = clamp(progress[0], 0, 1);
+        this._barWidth = WIDTH - (WIDTH - SHORT_BAR) * first;
+        this._bar.width = this._barWidth;
+        const cap = MARGIN + this._barWidth - BAR / 2;
+        this._buttons.forEach((button, i) => {
+            const p = progress[i];
+            const rest = button._rest.x + BUTTON / 2;
+            button.translation_x = (cap - rest) * (1 - p);
+            const s = Math.max(0.35 + 0.65 * p, 0.01);
+            button.set_scale(s, s);
+            button.opacity = Math.round(255 * clamp((p - 0.4) / 0.45, 0, 1));
+            button.reactive = p > 0.6;
+            button._bud = p;
+        });
     }
 
     /** The glass's shapes: the bar, and each button that is out of it, or on its way. */
     _barShapes() {
-        const shapes = [{x: MARGIN, y: MARGIN, width: WIDTH, height: BAR, radius: BAR / 2}];
+        const shapes = [{x: MARGIN, y: MARGIN, width: this._barWidth ?? WIDTH, height: BAR, radius: BAR / 2}];
         for (const button of this._buttons ?? []) {
             if (!(button._bud > 0.001))
                 continue;
@@ -441,7 +476,7 @@ export const SpotlightPanel = GObject.registerClass({
         this._budTimeline?.stop();
         const from = this._buttons.map(b => b._bud);
         if (!animations()) {
-            this._buttons.forEach(b => this._placeButton(b, out ? 1 : 0));
+            this._placeBuds(this._buttons.map(() => out ? 1 : 0));
             this._barGlass.refresh();
             return;
         }
@@ -451,16 +486,12 @@ export const SpotlightPanel = GObject.registerClass({
         const seconds = out ? spring.settles(spring.BUD, 0.002) + STAGGER * last : 0.18 + 0.03 * last;
         const step = ms => {
             const t = ms / 1000;
-            this._buttons.forEach((button, i) => {
-                let p;
-                if (out) {
-                    p = from[i] + (1 - from[i]) * spring.progress(t - i * STAGGER, spring.BUD);
-                } else {
-                    const k = clamp((t - (last - i) * 0.03) / 0.18, 0, 1);
-                    p = from[i] * (1 - k * k);
-                }
-                this._placeButton(button, p);
-            });
+            this._placeBuds(this._buttons.map((_, i) => {
+                if (out)
+                    return from[i] + (1 - from[i]) * spring.progress(t - i * STAGGER, spring.BUD);
+                const k = clamp((t - (last - i) * 0.03) / 0.18, 0, 1);
+                return from[i] * (1 - k * k);
+            }));
             this._barGlass.refresh();
         };
         this._budTimeline = new Clutter.Timeline({actor: this._barGlass, duration: Math.round(seconds * 1000)});
@@ -538,7 +569,7 @@ export const SpotlightPanel = GObject.registerClass({
     _updateBar() {
         const form = this._form;
         const m = modeById(this._mode);
-        this._lead.icon_name = form ? this._iconName(form.action) : m?.icon ?? 'edit-find-symbolic';
+        this._lead.gicon = gicon(form ? this._iconName(form.action) : m?.icon ?? 'edit-find-symbolic');
         if (form || m)
             this._lead.add_style_class_name('gw-lead-active');
         else
@@ -1431,6 +1462,7 @@ export const SpotlightPanel = GObject.registerClass({
                 values: this._form.values,
             } : null,
             buttons: this._buttons.map(b => round(b._bud)),
+            barWidth: Math.round(this._barWidth),
             chips: this._chipList.map(c => c.id === this._filter ? `[${c.title}]` : c.title),
             view: this._layout,
             top: this._arranged?.top?.title ?? null,

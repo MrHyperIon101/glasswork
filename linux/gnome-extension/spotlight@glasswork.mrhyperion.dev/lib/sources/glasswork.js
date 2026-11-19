@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Glasswork from '../glasswork.js';
+import {titleCase} from '../quick_keys.js';
 
 export class GlassworkSource {
     constructor({onAdded} = {}) {
@@ -55,7 +56,8 @@ export class GlassworkSource {
      */
     async actions() {
         const [results] = await Glasswork.call('Actions', null, '(aa{sv})', {wake: true, timeout: 10000});
-        return results.map(r => this._result(r, 'actions'));
+        // Named as actions are on a Mac: "New Task", "Next 7 Days".
+        return results.map(r => ({...this._result(r, 'actions'), title: titleCase(r.title)}));
     }
 
     /** What [line] would add, read as Glasswork reads it, or null when it cannot say. */
