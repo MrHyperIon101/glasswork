@@ -56,6 +56,7 @@ class SettingsScreen extends ConsumerWidget {
 
     const account = _Account();
     const reminders = _Reminders();
+    const focus = _Focus();
     const newTasks = _NewTasks();
     const timeBudget = _TimeBudget();
     const about = _About();
@@ -86,18 +87,19 @@ class SettingsScreen extends ConsumerWidget {
                 final columns = width >= _threeColumnsFrom
                     ? [
                         [account, newTasks, if (desktop) const _Desktop()],
-                        [reminders, appearance],
+                        [reminders, focus, appearance],
                         [timeBudget, if (desktop) const _Shortcuts(), about],
                       ]
                     : width >= _twoColumnsFrom
                     ? [
-                        [account, reminders, appearance, if (desktop) const _Desktop()],
+                        [account, reminders, focus, appearance, if (desktop) const _Desktop()],
                         [newTasks, timeBudget, if (desktop) const _Shortcuts(), about],
                       ]
                     : [
                         [
                           account,
                           reminders,
+                          focus,
                           newTasks,
                           timeBudget,
                           appearance,
@@ -446,6 +448,70 @@ class _RemindersState extends ConsumerState<_Reminders> {
             repo?.setSnooze(typed);
             return true;
           },
+        ),
+      ],
+    );
+  }
+}
+
+// --- focus ----------------------------------------------------------------------------
+
+/// The focus timer's lengths, on this device.
+class _Focus extends ConsumerWidget {
+  const _Focus();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(preferencesProvider).value ?? const Preferences();
+    final repo = ref.watch(appScopeProvider).value?.preferences;
+    final now = DateTime.now();
+    String at(DateTime t) => Format.clock(t.hour * 60 + t.minute);
+    final focusEnds = now.add(Duration(minutes: preferences.focusMin));
+    final breakEnds = focusEnds.add(Duration(minutes: preferences.breakMin));
+
+    ValueStepper stepper({
+      required String label,
+      required int value,
+      required List<int> steps,
+      required void Function(int) save,
+      required String explanation,
+      required String effect,
+    }) => ValueStepper(
+      label: label,
+      text: Format.estimate(value),
+      keyboardType: TextInputType.datetime,
+      explanation: explanation,
+      effect: effect,
+      onStep: (direction) => save(Preferences.step(steps, value, direction)),
+      onSubmit: (text) {
+        final typed = TimeEntry.duration(text, bareMinutes: true);
+        if (typed == null) return false;
+        save(typed);
+        return true;
+      },
+    );
+
+    return _Group(
+      title: 'Focus timer',
+      about:
+          'Start focus from a task, from Today or from Spotlight. The time it runs is '
+          'tracked against the task, and counts in Today\'s figures.',
+      children: [
+        stepper(
+          label: 'Focus',
+          value: preferences.focusMin,
+          steps: Preferences.focusSteps,
+          save: (minutes) => repo?.setFocus(minutes),
+          explanation: 'How long a focus session runs before it tells you to take a break.',
+          effect: 'Started now, it would end at ${at(focusEnds)}.',
+        ),
+        stepper(
+          label: 'Break',
+          value: preferences.breakMin,
+          steps: Preferences.breakSteps,
+          save: (minutes) => repo?.setBreak(minutes),
+          explanation: 'How long the break after a focus session runs.',
+          effect: 'Taken after that focus, it would end at ${at(breakEnds)}.',
         ),
       ],
     );

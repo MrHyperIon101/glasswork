@@ -110,6 +110,17 @@ class LinuxReminders implements ReminderGateway {
   }
 
   @override
+  Future<bool> announce(String title, String body) async {
+    await _plugin.show(
+      id: ReminderPlan.announceId,
+      title: title,
+      body: body,
+      notificationDetails: _details(),
+    );
+    return true;
+  }
+
+  @override
   Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {
     _snooze = snooze;
     _plan = reminders;

@@ -37,6 +37,7 @@ import 'notes_screen.dart';
 import 'project_screen.dart';
 import 'settings_screen.dart';
 import 'today_screen.dart';
+import '../widgets/focus_pill.dart';
 
 const _sidebarWidth = 262.0;
 
@@ -292,6 +293,13 @@ class _ShellState extends ConsumerState<_Shell> {
                   ),
                 ),
 
+                // The focus timer: over every screen, under every sheet.
+                const Positioned(
+                  top: AppSpace.md,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: FocusPill()),
+                ),
                 const Positioned.fill(child: TaskDetailSheet()),
                 const Positioned.fill(child: TaskComposer()),
                 const Positioned.fill(child: NoteEditorSheet()),

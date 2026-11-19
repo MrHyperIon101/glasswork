@@ -11,6 +11,8 @@ import '../data/repository/capacity_repository.dart';
 import '../data/preferences.dart';
 import '../data/repository/label_repository.dart';
 import '../data/repository/note_image_repository.dart';
+import '../intel/focus_stats.dart';
+import '../data/repository/focus_repository.dart';
 import '../data/repository/note_repository.dart';
 import '../data/repository/preferences_repository.dart';
 import '../data/repository/project_repository.dart';
@@ -42,6 +44,7 @@ class AppScope {
     required this.labels,
     required this.notes,
     required this.noteImages,
+    required this.focus,
     required this.areas,
     required this.preferences,
     required this.workspace,
@@ -61,6 +64,7 @@ class AppScope {
   final LabelRepository labels;
   final NoteRepository notes;
   final NoteImageRepository noteImages;
+  final FocusRepository focus;
   final AreaRepository areas;
   final PreferencesRepository preferences;
   final Workspace workspace;
@@ -100,6 +104,7 @@ final appScopeProvider = FutureProvider<AppScope>((ref) async {
     labels: LabelRepository(writer),
     notes: NoteRepository(writer),
     noteImages: NoteImageRepository(writer, ref.watch(imageStoreProvider)),
+    focus: FocusRepository(writer),
     areas: AreaRepository(writer),
     preferences: PreferencesRepository(db),
     workspace: workspace,
@@ -858,3 +863,83 @@ ViewKind viewKindOf(BoardView view) => switch (view) {
 };
 
 BoardView boardViewOf(ViewKind kind) => _kindOf(kind);
+
+// --- focus ------------------------------------------------------------------
+
+/// Every focus session in the workspace, the newest first.
+final focusSessionsProvider = StreamProvider<List<FocusSession>>((ref) async* {
+  final scope = await ref.watch(appScopeProvider.future);
+  yield* scope.focus.watchAll(scope.workspace.id);
+});
+
+/// The session running now, on this device or another, if one is.
+final runningFocusProvider = Provider<FocusSession?>((ref) {
+  final sessions = ref.watch(focusSessionsProvider).value ?? const <FocusSession>[];
+  final now = DateTime.now();
+  for (final s in sessions) {
+    if (s.endedAt != null) continue;
+    // One left running past its length is over, whether or not anything has said so yet.
+    if (now.isBefore(s.startedAt.add(Duration(minutes: s.plannedMin)))) return s;
+  }
+  return null;
+});
+
+/// What the focus timer has tracked, as of when the sessions last changed.
+final focusStatsProvider = Provider<FocusStats>((ref) {
+  final sessions = ref.watch(focusSessionsProvider).value ?? const <FocusSession>[];
+  return FocusStats.of([
+    for (final s in sessions)
+      TrackedSession(
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        plannedMin: s.plannedMin,
+        taskId: s.taskId,
+        isBreak: s.kind == 'break',
+      ),
+  ], DateTime.now());
+});
+
+/// Starts and stops the focus timer. The sessions are the state; this only writes them.
+class FocusController {
+  FocusController(this._ref);
+
+  final Ref _ref;
+
+  Future<AppScope?> get _scope async => _ref.read(appScopeProvider.future);
+
+  Preferences get _preferences => _ref.read(preferencesProvider).value ?? const Preferences();
+
+  /// Focus on [taskId], or on nothing in particular, for the length Settings has.
+  Future<void> start({String? taskId}) async {
+    final scope = await _scope;
+    if (scope == null) return;
+    await scope.focus.start(
+      workspaceId: scope.workspace.id,
+      taskId: taskId,
+      plannedMin: _preferences.focusMin,
+      now: DateTime.now(),
+    );
+  }
+
+  /// A break, for the length Settings has.
+  Future<void> startBreak() async {
+    final scope = await _scope;
+    if (scope == null) return;
+    await scope.focus.start(
+      workspaceId: scope.workspace.id,
+      plannedMin: _preferences.breakMin,
+      now: DateTime.now(),
+      isBreak: true,
+    );
+  }
+
+  /// Stops the running session now, keeping the time it ran.
+  Future<void> stop() async {
+    final scope = await _scope;
+    final running = _ref.read(runningFocusProvider);
+    if (scope == null || running == null) return;
+    await scope.focus.end(running, at: DateTime.now());
+  }
+}
+
+final focusControllerProvider = Provider<FocusController>(FocusController.new);

@@ -496,6 +496,29 @@ model or leaves the device.
   spare", "Won't fit by Thursday — 1h 30m short. Start today." The composer shows it for every
   task with a deadline, green when it fits; Spotlight's Add says it after where the task goes.
 
+## Focus timer and time tracking
+
+A session is a row (`focus_sessions`, schema v8, synced like every other table): focus on a
+task or on nothing in particular, or a break, with when it started, how long it was set for
+and when it ended — null while it runs. The sessions *are* the timer: nothing counts in memory,
+so it survives screens, restarts and devices, and one started on the phone shows on the desktop.
+
+- `FocusRepository` writes them through `SyncWriter`. One runs at a time: starting a session ends
+  the one running. A session ended after its length — the app was closed — is ended at its
+  length, so time is never tracked that nobody was there for.
+- `FocusController` starts focus (on a task, or not), a break, and stops; its lengths are the
+  device-local `Preferences.focusMin` and `breakMin` (Settings → Focus timer, each saying when a
+  session started now would end).
+- `FocusPill` floats at the top centre, over every screen and under every sheet: the time left
+  and what it is on, Stop or Skip; at its length it ends the session, says so through the
+  reminder gateway's `announce` (a plain notification) and offers the break, or focus again.
+- `FocusStats` (`lib/intel/focus_stats.dart`, pure) works out today, the last seven days, each
+  day, the streak (today counts while it has none yet, if yesterday had some) and time per task;
+  the task sheet shows a task's against its estimate, with Start focus.
+- On the server, the migration gives the table what every synced table has: row security that
+  lets members read their workspace's rows, no direct writes, the pull index, the update trigger
+  and realtime. Applied to the linked project on 19 November 2026.
+
 ## Desktop: the window and the tray
 
 **The window has no title bar.** A strip in the desktop's theme sitting on top of a window drawn in

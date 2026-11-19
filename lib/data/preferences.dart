@@ -35,6 +35,8 @@ class Preferences {
     this.captureProjectId,
     this.keepInTray = false,
     this.glass,
+    this.focusMin = defaultFocusMin,
+    this.breakMin = defaultBreakMin,
   });
 
   /// When a "morning" reminder is: "Tomorrow morning", "The morning it is due", and a
@@ -57,6 +59,31 @@ class Preferences {
   /// How surfaces are drawn, as chosen here. Null until a choice is made, when the device's
   /// own default applies — see `glassProvider`.
   final Glass? glass;
+
+  /// How long the focus timer runs, in minutes.
+  final int focusMin;
+
+  /// How long the break after a focus session runs, in minutes.
+  final int breakMin;
+
+  static const defaultFocusMin = 25;
+  static const defaultBreakMin = 5;
+  static const shortestFocusMin = 5;
+  static const longestFocusMin = 180;
+  static const shortestBreakMin = 1;
+  static const longestBreakMin = 60;
+
+  /// The lengths the focus timer's steppers step through.
+  static const focusSteps = [15, 20, 25, 30, 45, 50, 60, 90, 120];
+  static const breakSteps = [3, 5, 10, 15, 20, 30];
+
+  static int clampFocus(int minutes) => minutes.clamp(shortestFocusMin, longestFocusMin);
+  static int clampBreak(int minutes) => minutes.clamp(shortestBreakMin, longestBreakMin);
+
+  /// The step from [minutes] in [direction] in [steps], as Snooze steps.
+  static int step(List<int> steps, int minutes, int direction) => direction > 0
+      ? steps.firstWhere((s) => s > minutes, orElse: () => steps.last)
+      : steps.lastWhere((s) => s < minutes, orElse: () => steps.first);
 
   static const defaultMorningMin = 9 * 60;
   static const defaultEveningMin = 18 * 60;
@@ -114,6 +141,8 @@ class Preferences {
       captureProjectId: project == null || project.isEmpty ? null : project,
       keepInTray: stored[keepInTrayKey] == 'true',
       glass: Glass.named(stored[glassKey]),
+      focusMin: read(focusKey, defaultFocusMin, clampFocus),
+      breakMin: read(breakKey, defaultBreakMin, clampBreak),
     );
   }
 
@@ -123,6 +152,8 @@ class Preferences {
   static const captureProjectKey = 'pref.capture_project_id';
   static const keepInTrayKey = 'pref.keep_in_tray';
   static const glassKey = 'pref.glass';
+  static const focusKey = 'pref.focus_min';
+  static const breakKey = 'pref.break_min';
 
   static const keys = {
     morningKey,
@@ -131,6 +162,8 @@ class Preferences {
     captureProjectKey,
     keepInTrayKey,
     glassKey,
+    focusKey,
+    breakKey,
   };
 
   @override
@@ -141,14 +174,17 @@ class Preferences {
       other.snoozeMin == snoozeMin &&
       other.captureProjectId == captureProjectId &&
       other.keepInTray == keepInTray &&
-      other.glass == glass;
+      other.glass == glass &&
+      other.focusMin == focusMin &&
+      other.breakMin == breakMin;
 
   @override
   int get hashCode =>
-      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId, keepInTray, glass);
+      Object.hash(morningMin, eveningMin, snoozeMin, captureProjectId, keepInTray, glass, focusMin, breakMin);
 
   @override
   String toString() =>
       'Preferences(morning: $morningMin, evening: $eveningMin, snooze: $snoozeMin, '
-      'project: $captureProjectId, tray: $keepInTray, glass: $glass)';
+      'project: $captureProjectId, tray: $keepInTray, glass: $glass, '
+      'focus: $focusMin, break: $breakMin)';
 }

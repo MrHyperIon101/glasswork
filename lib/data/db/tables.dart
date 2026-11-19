@@ -185,6 +185,28 @@ class NoteImages extends Table with SyncColumns, WorkspaceScoped {
   TextColumn get orderKey => text()();
 }
 
+/// A stretch of focused work, or the break after one, as the focus timer times it.
+///
+/// Running while [endedAt] is null: every device sees it, so one started on the phone shows on
+/// the desktop as "Focusing on …". What has ended is the time tracked, per task and per day.
+@TableIndex(name: 'focus_session_task', columns: {#taskId})
+@TableIndex(name: 'focus_session_started', columns: {#startedAt})
+class FocusSessions extends Table with SyncColumns, WorkspaceScoped {
+  /// The task focused on, or null for focus on nothing in particular, and for a break.
+  TextColumn get taskId => text().nullable().references(Tasks, #id)();
+
+  DateTimeColumn get startedAt => dateTime()();
+
+  /// When it stopped, by hand or on reaching its length. Null while it runs.
+  DateTimeColumn get endedAt => dateTime().nullable()();
+
+  /// How long it was set to run, in minutes.
+  IntColumn get plannedMin => integer()();
+
+  /// `focus` or `break`.
+  TextColumn get kind => text().withDefault(const Constant('focus'))();
+}
+
 /// Local-only: the images whose bytes this device holds, and whether storage has them too.
 /// No [SyncColumns]: which files are on this device is this device's own fact.
 class ImageFiles extends Table {

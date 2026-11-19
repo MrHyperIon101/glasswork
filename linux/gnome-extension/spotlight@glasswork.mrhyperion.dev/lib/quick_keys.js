@@ -7,6 +7,7 @@ import {normal, score} from './ranking.js';
 export const QUICK_KEYS = {
     'glasswork:action:new-task': 'nt',
     'glasswork:action:new-note': 'nn',
+    'glasswork:action:start-focus': 'fo',
     'glasswork:action:today': 'td',
     'glasswork:action:upcoming': 'wk',
     'glasswork:action:time-budget': 'tb',

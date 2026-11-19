@@ -85,6 +85,18 @@ class AndroidReminders implements ReminderGateway {
   }
 
   @override
+  Future<bool> announce(String title, String body) async {
+    if (!await permitted()) return false;
+    await _plugin.show(
+      id: ReminderPlan.announceId,
+      title: title,
+      body: body,
+      notificationDetails: _details(),
+    );
+    return true;
+  }
+
+  @override
   Future<void> schedule(List<PlannedReminder> reminders, {required Duration snooze}) async {
     final details = _details(snooze: snooze);
     final wanted = {for (final reminder in reminders) reminder.id};

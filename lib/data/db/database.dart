@@ -31,6 +31,7 @@ part 'database.g.dart';
     Schedules,
     NoteImages,
     ImageFiles,
+    FocusSessions,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -51,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
   /// created. Nothing fails at build time — it fails at launch, on the machine that
   /// already had a database.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   /// The weekday names the per-day sleep columns are named with, Monday first.
   static const sleepDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -118,6 +119,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 7) {
         await m.createTable(noteImages);
         await m.createTable(imageFiles);
+      }
+
+      // v8: focus sessions, the focus timer's and the time it tracks.
+      if (from < 8) {
+        await m.createTable(focusSessions);
+        // A table's indexes are not made with it on an upgrade, only on a fresh install.
+        await m.createIndex(focusSessionTask);
+        await m.createIndex(focusSessionStarted);
       }
     },
     beforeOpen: (details) async {

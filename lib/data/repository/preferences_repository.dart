@@ -28,6 +28,10 @@ class PreferencesRepository {
   Future<void> setSnooze(int minutes) =>
       _put(Preferences.snoozeKey, Preferences.clampSnooze(minutes));
 
+  Future<void> setFocus(int minutes) => _put(Preferences.focusKey, Preferences.clampFocus(minutes));
+
+  Future<void> setBreak(int minutes) => _put(Preferences.breakKey, Preferences.clampBreak(minutes));
+
   Future<void> setKeepInTray(bool keep) => _put(Preferences.keepInTrayKey, keep);
 
   Future<void> setGlass(Glass glass) => _put(Preferences.glassKey, glass.name);

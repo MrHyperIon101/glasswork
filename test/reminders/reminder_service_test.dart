@@ -23,6 +23,9 @@ Task task(String id, {DateTime? remindAt, String title = 'Title'}) => Task(
 
 /// Records what it is asked to schedule, and fails when told to.
 class _Gateway implements ReminderGateway {
+  @override
+  Future<bool> announce(String title, String body) async => true;
+
   final scheduled = <List<PlannedReminder>>[];
   final snoozes = <Duration>[];
   ReminderResponse? launch;

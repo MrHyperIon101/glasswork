@@ -83,6 +83,9 @@ abstract final class ReminderPlan {
   /// task's reminder shares it.
   static final sampleId = notificationId('glasswork-sample-reminder');
 
+  /// The one notification the focus timer raises, replaced by its next.
+  static final announceId = notificationId('glasswork-focus');
+
   /// A notification id for [taskId]: a 31-bit FNV-1a hash, since platform ids are signed
   /// 32-bit integers and task ids are UUIDs.
   static int notificationId(String taskId) {

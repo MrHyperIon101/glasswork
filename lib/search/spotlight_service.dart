@@ -44,6 +44,13 @@ class SpotlightService {
     ),
     SpotlightItem(
       kind: SpotlightKind.action,
+      id: 'start-focus',
+      title: 'Start focus',
+      subtitle: 'Time a stretch of focused work',
+      keywords: ['focus', 'timer', 'pomodoro', 'concentrate', 'deep work'],
+    ),
+    SpotlightItem(
+      kind: SpotlightKind.action,
       id: 'new-note',
       title: 'New note',
       subtitle: 'Write something down',
@@ -267,6 +274,8 @@ class SpotlightService {
         switch (id) {
           case 'new-task':
             _ref.read(composerOpenProvider.notifier).open();
+          case 'start-focus':
+            await _ref.read(focusControllerProvider).start();
           case 'new-note':
             _ref.read(openNoteProvider.notifier).create();
           case 'today':
@@ -334,6 +343,7 @@ class SpotlightService {
     SpotlightKind.action => switch (item.id) {
       'new-task' => 'list-add-symbolic',
       'new-note' => 'document-new-symbolic',
+      'start-focus' => 'alarm-symbolic',
       'time-budget' => 'x-office-calendar-symbolic',
       'settings' => 'emblem-system-symbolic',
       _ => 'go-next-symbolic',

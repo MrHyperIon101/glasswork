@@ -94,7 +94,7 @@ void main() {
     final ids = [for (final r in listed) r['id']];
     // The extension gives these their quick keys by id (lib/quick_keys.js): they must not move.
     expect(ids, containsAll(['action:new-task', 'action:new-note', 'action:today', 'action:upcoming',
-      'action:time-budget']));
+      'action:time-budget', 'action:start-focus']));
     for (final result in listed) {
       expect(result['kind'], 'action');
       expect(result['icon'], isNotEmpty, reason: '${result['id']} is drawn with an icon');

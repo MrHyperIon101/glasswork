@@ -54,6 +54,10 @@ abstract interface class ReminderGateway {
   /// Shows a reminder now, to see how one looks and that one arrives. Returns whether it
   /// could.
   Future<bool> showSample();
+
+  /// Says something now, as a notification without buttons: the focus timer's "Focus done".
+  /// Returns whether it could.
+  Future<bool> announce(String title, String body);
 }
 
 /// The words on a reminder's Snooze button: "Snooze 10 min", "Snooze 1 hr", "Snooze 1 hr
@@ -94,6 +98,9 @@ class NoReminders implements ReminderGateway {
 
   @override
   Future<bool> showSample() async => false;
+
+  @override
+  Future<bool> announce(String title, String body) async => false;
 }
 
 /// Keeps this device's reminders in step with the tasks.

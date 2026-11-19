@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/db/database.dart';
+import '../../data/preferences.dart';
 import '../../data/db/tables.dart';
 import '../../state/providers.dart';
 import '../../state/reminders_controller.dart';
@@ -193,6 +194,8 @@ class _BodyState extends ConsumerState<_Body> {
                 ),
               ),
               const SizedBox(height: AppSpace.xl),
+              _Section(label: 'Focus', child: _Focus(task: task)),
+              const SizedBox(height: AppSpace.xl),
               _Section(
                 label: 'Labels',
                 child: _TaskLabels(task: task),
@@ -292,6 +295,39 @@ DateTime? _isoToDate(String? iso) {
 }
 
 /// When to be reminded about this task.
+/// The time focused on this task against its estimate, and the timer to start on it.
+class _Focus extends ConsumerWidget {
+  const _Focus({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tracked = ref.watch(focusStatsProvider).byTask[task.id] ?? 0;
+    final running = ref.watch(runningFocusProvider);
+    final onThis = running != null && running.taskId == task.id && running.kind == 'focus';
+    final focusMin = (ref.watch(preferencesProvider).value ?? const Preferences()).focusMin;
+    final estimate = task.estimateMin;
+    final said = tracked == 0
+        ? 'Nothing tracked yet.'
+        : estimate == null
+        ? '${Format.estimate(tracked)} focused on it so far.'
+        : '${Format.estimate(tracked)} of the ${Format.estimate(estimate)} it was estimated at'
+              '${tracked > estimate ? ' — ${Format.estimate(tracked - estimate)} over' : ''}.';
+    final controller = ref.read(focusControllerProvider);
+    return Row(
+      children: [
+        Expanded(child: Text(said, style: AppText.footnote.copyWith(color: AppColour.labelSecondary))),
+        const SizedBox(width: AppSpace.md),
+        GhostButton(
+          label: onThis ? 'Stop focus' : 'Start focus · ${Format.estimate(focusMin)}',
+          onTap: () => onThis ? controller.stop() : controller.start(taskId: task.id),
+        ),
+      ],
+    );
+  }
+}
+
 class _Reminder extends ConsumerWidget {
   const _Reminder({required this.task});
 

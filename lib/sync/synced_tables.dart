@@ -18,6 +18,7 @@ extension SyncedTables on AppDatabase {
     taskLabels,
     notes,
     noteImages,
+    focusSessions,
     capacityProfiles,
     schedules,
     commitments,
