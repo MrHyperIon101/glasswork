@@ -460,9 +460,21 @@ It also makes Glasswork's window glass: `lib/window_glass.js` puts a frost under
 calls `SetDesktopGlass`, and the app turns its own ground see-through over it (an RGBA visual in
 the runner, `desktopGlassProvider` in Dart) to exactly the tint and brightness of Spotlight's
 glass, with none of the ambient fields' colour — the two are one material. The frost is that
-same glass: copies of the wallpaper and of the windows stacked below Glasswork's, never the
+same glass: a wallpaper of its own and copies of the windows stacked below Glasswork's, never the
 window itself, blurred and cut to the window's rounded shape. GNOME's background blur would be
-simpler but is always a rectangle, and its corners showed past the window's. Without the
+simpler but is always a rectangle, and its corners showed past the window's. Three things this
+rests on, each found on a real desktop with other windows open:
+
+- **Its wallpaper is its own** (`Background.BackgroundManager`, as the Overview makes one), not a
+  copy of GNOME's: GNOME's draws only what it judges to be in view, and copied came out empty
+  behind Glasswork once other windows had come and gone — the window then showed the desktop
+  sharp, as if clear.
+- **GNOME reorders window actors on its own schedule**, after saying the windows were restacked.
+  So every frame, before layout (`before-update`), the frost is put back directly under its
+  window if it is not, and the windows below it are looked over again — doing nothing when they
+  are the same.
+- A copy has to be added to the frost to be drawn in it: for a while none of the windows below
+  were, and only a test with a window beneath Glasswork showed it. Without the
 extension the app draws its own backdrop as before.
 
 **Clicks on Spotlight's buttons.** A button's click is a gesture in GNOME 51, and an ancestor that

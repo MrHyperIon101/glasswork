@@ -16,6 +16,7 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
+import * as Background from 'resource:///org/gnome/shell/ui/background.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import * as Glasswork from './glasswork.js';
@@ -31,19 +32,32 @@ const BLUR_BRIGHTNESS = 0.82;
  */
 export const CORNER_RADIUS = 28;
 
-/** Everything a window covers on screen: the wallpaper, and each window stacked below it. */
+/**
+ * Everything a window covers on screen: the wallpaper, and each window stacked below it.
+ *
+ * The wallpaper is its own, made as the Overview makes one, not a copy of GNOME's: GNOME's
+ * draws only what it judges to be in view, and copied it came out empty behind Glasswork once
+ * other windows came and went. The windows below are copies, looked over again every frame,
+ * since GNOME reorders windows on its own schedule, after saying it has.
+ */
 class Beneath {
     constructor(windowActor) {
         this._windowActor = windowActor;
         this.actor = new Clutter.Actor({layout_manager: new Clutter.FixedLayout()});
-        this._background = new Clutter.Clone({source: Main.layoutManager._backgroundGroup});
-        this.actor.add_child(this._background);
+        this._wallpaper = new Clutter.Actor({layout_manager: new Clutter.FixedLayout()});
+        this.actor.add_child(this._wallpaper);
+        this._backgrounds = Main.layoutManager.monitors.map((_, monitorIndex) =>
+            new Background.BackgroundManager({container: this._wallpaper, monitorIndex}));
         this._clones = new Map();
+        this._order = '';
+        this.actor.connect('destroy', () => (this._gone = true));
         this.update();
     }
 
-    /** The windows below, again: after any restacking, mapping or moving of windows. */
+    /** The windows below, again — doing nothing when they are the same as last time. */
     update() {
+        if (this._gone)
+            return;
         const below = [];
         for (const child of global.window_group.get_children()) {
             if (child === this._windowActor)
@@ -51,6 +65,10 @@ class Beneath {
             if (child instanceof Meta.WindowActor && child.visible && !child.meta_window?.minimized)
                 below.push(child);
         }
+        const order = below.map(a => a.meta_window?.get_id?.() ?? '').join();
+        if (order === this._order)
+            return;
+        this._order = order;
         for (const [source, clone] of this._clones) {
             if (!below.includes(source)) {
                 clone.destroy();
@@ -61,6 +79,7 @@ class Beneath {
             let clone = this._clones.get(source);
             if (!clone) {
                 clone = new Clutter.Clone({source});
+                this.actor.add_child(clone);
                 this._clones.set(source, clone);
                 // A closed window's actor goes, and its copy with it; one that moves, hides or
                 // is minimised is followed.
@@ -68,10 +87,14 @@ class Beneath {
                     'destroy', () => {
                         this._clones.get(source)?.destroy();
                         this._clones.delete(source);
+                        this._order = '';
                     },
                     'notify::x', () => clone.set_position(source.x, source.y),
                     'notify::y', () => clone.set_position(source.x, source.y),
-                    'notify::visible', () => this.update(),
+                    'notify::visible', () => {
+                        this._order = '';
+                        this.update();
+                    },
                     clone);
             }
             clone.set_position(source.x, source.y);
@@ -82,8 +105,12 @@ class Beneath {
 
     /** Its copies go with it, and their signals with them. */
     destroy() {
+        for (const background of this._backgrounds)
+            background.destroy();
+        this._backgrounds = [];
         this._clones.clear();
-        this.actor.destroy();
+        if (!this._gone)
+            this.actor.destroy();
     }
 }
 
@@ -94,6 +121,7 @@ export class WindowGlass {
         this._settingsId = settings.connect('changed::glass-window', () => this._sync());
         this._createdId = global.display.connect('window-created', (_, window) => this._add(window));
         this._restackedId = global.display.connect('restacked', () => this._restack());
+        this._frameId = global.stage.connect('before-update', () => this._keepUnder());
         this._watchOwner();
         this._sync();
     }
@@ -146,6 +174,7 @@ export class WindowGlass {
             shapes: () => [{x: 0, y: 0, width: frost.width, height: frost.height, radius: entry.radius}],
         });
         frost.reactive = false;
+        frost.connect('destroy', () => (entry.gone = true));
         entry.frost = frost;
         global.window_group.insert_child_below(frost, actor);
 
@@ -193,13 +222,40 @@ export class WindowGlass {
         entry.frost.visible = entry.actor.visible && !window.minimized;
     }
 
-    _restack() {
-        for (const entry of this._frosts.values()) {
-            const {frost, actor, beneath} = entry;
-            if (actor.get_parent() && frost.get_parent() === actor.get_parent())
-                global.window_group.set_child_below_sibling(frost, actor);
+    /**
+     * Each frame, before it is laid out, every frost directly under its window, and what it
+     * copies again if it had to be put back. GNOME reorders window actors on its own schedule
+     * — it says the windows were restacked before it has — so a frost moved when it says so is
+     * sometimes left under a window its own was raised over, which then shows through sharp.
+     * Checked every frame, a reorder is put right before it is ever drawn.
+     */
+    _keepUnder() {
+        for (const {frost, actor, beneath} of this._frosts.values()) {
+            const parent = actor.get_parent();
+            if (parent && frost.get_parent() === parent && actor.get_previous_sibling() !== frost)
+                parent.set_child_below_sibling(frost, actor);
             beneath.update();
         }
+    }
+
+    /**
+     * After any restacking, what each frost copies again: the windows now below its own. Not at
+     * once: GNOME says the windows were restacked before it reorders their actors. Just before
+     * the next frame is drawn, the reordering is done.
+     */
+    _restack() {
+        if (this._restackLater)
+            return;
+        this._restackLater = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._restackLater = 0;
+            this._restackNow();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _restackNow() {
+        for (const {beneath} of this._frosts.values())
+            beneath.update();
     }
 
     _remove(window) {
@@ -207,9 +263,11 @@ export class WindowGlass {
         if (!entry)
             return;
         this._frosts.delete(window);
-        // What it copies first, while the frost that holds it is still there to leave.
+        // What it copies first, while the frost that holds it is still there to leave. A frost
+        // its window took with it when it went is gone already.
         entry.beneath.destroy();
-        entry.frost.destroy();
+        if (!entry.gone)
+            entry.frost.destroy();
         this._tell();
     }
 
@@ -228,9 +286,12 @@ export class WindowGlass {
     }
 
     destroy() {
+        if (this._restackLater)
+            global.compositor.get_laters().remove(this._restackLater);
         this._settings.disconnect(this._settingsId);
         global.display.disconnect(this._createdId);
         global.display.disconnect(this._restackedId);
+        global.stage.disconnect(this._frameId);
         Glasswork.unwatchName(this._nameWatch);
         for (const window of [...this._frosts.keys()])
             this._remove(window);

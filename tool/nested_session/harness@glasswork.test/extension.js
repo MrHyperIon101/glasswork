@@ -19,6 +19,8 @@ const INTERFACE = `
     <method name="Copy"><arg type="s" name="text" direction="in"/></method>
     <method name="Button"><arg type="b" name="down" direction="in"/></method>
     <method name="Windows"><arg type="s" name="windows" direction="out"/></method>
+    <method name="Stack"><arg type="s" name="stack" direction="out"/></method>
+    <method name="Frost"><arg type="s" name="frost" direction="out"/></method>
     <method name="Pick"><arg type="d" name="x" direction="in"/><arg type="d" name="y" direction="in"/><arg type="s" name="actor" direction="out"/></method>
   </interface>
 </node>`;
@@ -69,6 +71,21 @@ export default class Harness extends Extension {
                     chain.push(`${a.constructor.name}${a.style_class ? `.${a.style_class}` : ''}`);
                 return chain.slice(0, 6).join(' < ');
             },
+            // What the window group holds, bottom first: windows by title, anything else by kind.
+            Stack: () => global.window_group.get_children().map(c =>
+                c.meta_window ? `window:${c.meta_window.get_title()}` : `${c.constructor.name}${c.style_class ? `.${c.style_class}` : ''}${c.visible ? '' : '(hidden)'}`,
+            ).join(' | '),
+            // The window frost's own state, for a test to see what it draws from.
+            Frost: () => JSON.stringify(global.window_group.get_children()
+                .filter(c => c.style_class === 'gw-window-glass')
+                .map(f => ({
+                    at: [f.x, f.y, f.width, f.height], visible: f.visible, mapped: f.mapped, opacity: f.opacity,
+                    backdrop: f._backdrop ? [f._backdrop.x, f._backdrop.y, f._backdrop.width, f._backdrop.height] : null,
+                    content: f._clone ? [f._clone.x, f._clone.y, f._clone.width, f._clone.height] : null,
+                    copies: f._clone?.get_children().map(c => [c.source?.meta_window?.get_title() ?? c.source?.constructor.name,
+                        c.x, c.y, c.width, c.height, c.visible]),
+                    effects: f._surface?.get_effects().map(e => [e.constructor.name, e.enabled]),
+                }))),
             // Where every window is, for a test to see one move.
             Windows: () => JSON.stringify(global.get_window_actors().map(a => {
                 const r = a.meta_window.get_frame_rect();

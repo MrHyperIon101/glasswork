@@ -14,6 +14,8 @@
 #   NESTED_EXTENSION=1     install and enable Glasswork Spotlight in the session
 #   NESTED_SERVICE=1       install the D-Bus activation file, so a call can wake the app
 #   NESTED_MONITOR=WxH@R   the virtual monitor (default 1920x1080)
+#   NESTED_MORE_EXTENSIONS='uuid …'  copies of these, from your own extensions folder, enabled
+#                          too: to see Spotlight beside the extensions a real session runs
 #   NESTED_THEN='...'      commands run in the session before the capture, e.g. gdbus calls
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,6 +52,13 @@ if [[ -n "${NESTED_EXTENSION:-}" ]]; then
   glib-compile-schemas "$ext/schemas"
   extensions+=", 'spotlight@glasswork.mrhyperion.dev'"
 fi
+for uuid in ${NESTED_MORE_EXTENSIONS:-}; do
+  from="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$uuid"
+  [[ -d "$from" ]] || from="/usr/share/gnome-shell/extensions/$uuid"
+  [[ -d "$from" ]] || continue
+  cp -r "$from" "$data/gnome-shell/extensions/" 2>/dev/null
+  extensions+=", '$uuid'"
+done
 if [[ -n "${NESTED_SERVICE:-}" ]]; then
   mkdir -p "$data/dbus-1/services"
   printf '[D-BUS Service]\nName=dev.mrhyperion.glasswork\nExec=%s --background\n' "$app" \
