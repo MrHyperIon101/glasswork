@@ -185,6 +185,10 @@ class _SpotlightOverlayState extends ConsumerState<SpotlightOverlay> with Single
     (_, 'action:new-note') => Icons.edit_note_rounded,
     (_, 'action:start-focus') => Icons.timer_outlined,
     (_, 'action:time-budget') => Icons.calendar_month_outlined,
+    (_, 'action:plan-day') => Icons.auto_awesome_outlined,
+    (_, 'action:focus') => Icons.timer_outlined,
+    (_, 'action:radar') => Icons.radar_rounded,
+    (_, 'action:review') => Icons.nightlight_outlined,
     (_, 'action:settings') => Icons.settings_outlined,
     _ => Icons.arrow_forward_rounded,
   };

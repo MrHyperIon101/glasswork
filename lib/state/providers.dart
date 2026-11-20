@@ -154,6 +154,22 @@ class CapacityDestination extends Destination {
   const CapacityDestination();
 }
 
+class PlanDayDestination extends Destination {
+  const PlanDayDestination();
+}
+
+class FocusDestination extends Destination {
+  const FocusDestination();
+}
+
+class RadarDestination extends Destination {
+  const RadarDestination();
+}
+
+class ReviewDestination extends Destination {
+  const ReviewDestination();
+}
+
 class SettingsDestination extends Destination {
   const SettingsDestination();
 }
@@ -359,6 +375,10 @@ final visibleTasksProvider = Provider<List<Task>>((ref) {
   return switch (ref.watch(destinationProvider)) {
     TodayDestination() ||
     CapacityDestination() ||
+    PlanDayDestination() ||
+    FocusDestination() ||
+    RadarDestination() ||
+    ReviewDestination() ||
     NotesDestination() ||
     SettingsDestination() => const <Task>[],
     DoneDestination() => TaskOrder.by(

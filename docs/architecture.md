@@ -229,8 +229,26 @@ date they fall on. `BlockCheck` refuses a block that falls in sleep, past midnig
 another, and offers the nearest free time; blocks already there are flagged, never counted.
 `sleep_target_min` only marks short nights. Two columns a day, not one list, so edits to different
 days on different devices merge — and `setSleep` writes only the times that change. Time budget
-lists sleep a night at a time, to bed on a day and up the next morning: rows of days, getting up
-first, read as sleeping from morning until night. A night's "Up at" writes the next day's wake.
+shows sleep a night at a time, to bed on a day and up the next morning, as Health draws a sleep
+schedule: a bar a night on one clock from the evening to the morning, short nights in orange.
+Tapping a night opens it alone in the sleep dialog; its "up at" writes the next day's wake.
+
+**Time budget is four tabs, one at a time** (`capacity_tabs.dart`, a part of `capacity_screen.dart`),
+chosen in the header's segmented control:
+
+- **Overview**: today's free, planned and spare time and the week's, the next seven days on one
+  clock — shared hours from an hour before the earliest anyone is up to midnight, so a class sits
+  under the same class on another day, one legend, free and planned in two columns — and where
+  today's 24 hours go as one bar cut into its parts (`_DayBreakdown`), the parts adding up to the
+  day: yours to spend, classes, meals and buffer, breaks and drift (what the focus factor keeps
+  back), too short to use, asleep. Blocks the figures leave out are flagged at the top.
+- **Timetable**: the timetables as a row of choices (the one in force marked), and the chosen one's
+  week as a calendar's week view — days across, hours down, sleep shaded. A block is changed by
+  tapping it and deleted from its corner; tapping an empty hour adds a block there
+  (`BlockDialog.prefill`). On a phone the week is a list, since seven columns leave each a sliver.
+- **Sleep**: the nights' chart, the average and the nights short of the goal, and the goal.
+- **Rules**: meals, buffer, the focus factor and the shortest usable gap, as grouped settings rows,
+  under today's breakdown, so a step shows its effect on today at once.
 
 **The profile explains itself.** Each setting says what it is and what one step more would do to an
 average day this week. Those figures come from `SettingEffects`, which reruns the ledger with the
@@ -395,9 +413,10 @@ Two things about Riverpod 3 this rests on, both found the hard way:
 Super+Space, laid out and moving as macOS Tahoe's does. Only the shell can blur what is behind a
 surface on Wayland, so it is an extension rather than a window of the app's.
 
-- **The bar** is a capsule a little under a quarter of the way down the monitor in use. Once the
-  pointer moves over an empty bar, four round buttons — Applications, Files, Actions, Clipboard —
-  bud out of its rounded end and draw back in when typing starts. They share the bar's width, as
+- **The bar** is a capsule a little under a quarter of the way down the monitor in use. As it opens,
+  four round buttons — Applications, Files, Actions, Clipboard — bud out of its rounded end, and
+  they stay out while you type, so a category is always one click away; only an action's fields,
+  which take the bar's whole width, draw them back in. They share the bar's width, as
   in Tahoe: the bar draws its end in to make room as they come out, and stretches back as they
   go, so the whole of it — bar, buttons and results — stays one width, centred. Ctrl+1 to Ctrl+4 (or Super) choose
   them from the keyboard, as Command+1 to 4 do on a Mac, and so do slash filters: `/apps`, `/pdf`,
@@ -571,6 +590,14 @@ view of a pure engine through its provider, tested on fixed days:
   move to tomorrow, to a day picked, mark done or drop (with Undo) — focus against what was
   planned, and **Plan tomorrow**: the same planner over tomorrow's free time, taking what is still
   open with it, shown before it is accepted as one change that one Undo takes back.
+
+**Each also has a page of its own**, under Planning in the sidebar (`planning_screens.dart`, a
+part of `today_screen.dart`, so the cards and the pages share their pieces): Plan my day (today or
+tomorrow as an agenda — classes, tasks already at a time, the plan's tasks dashed between them —
+with Accept plan), Focus (the timer with a ring while a session runs, the last seven days, and the
+time per task), Deadline radar (each day's time as a track and the work planned into it as its
+fill, deadlines as dots, and every task at risk with why), and Daily review. Spotlight's actions
+open each.
 
 ## Desktop: the window and the tray
 

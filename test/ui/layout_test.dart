@@ -269,32 +269,11 @@ final _states = <_State>[
     await _settle(tester);
     await _scrollToEnd(tester, find.byType(CapacityScreen));
   }),
-  _State('time budget, profile', (tester, app, data) async {
-    app.read(destinationProvider.notifier).go(const CapacityDestination());
-    await _settle(tester);
-    await tester.scrollUntilVisible(
-      find.text('Shortest usable gap'),
-      300,
-      scrollable: _pageScrollable(find.byType(CapacityScreen)),
-    );
-  }),
-  _State('time budget, sleep', (tester, app, data) async {
-    app.read(destinationProvider.notifier).go(const CapacityDestination());
-    await _settle(tester);
-    await tester.scrollUntilVisible(
-      find.text('Set several nights'),
-      300,
-      scrollable: _pageScrollable(find.byType(CapacityScreen)),
-    );
-  }),
+  _State('time budget, rules', (tester, app, data) => _budgetTab(tester, app, 'Rules')),
+  _State('time budget, sleep', (tester, app, data) => _budgetTab(tester, app, 'Sleep')),
+  _State('time budget, timetable', (tester, app, data) => _budgetTab(tester, app, 'Timetable')),
   _State('setting sleep for several nights', (tester, app, data) async {
-    app.read(destinationProvider.notifier).go(const CapacityDestination());
-    await _settle(tester);
-    await tester.scrollUntilVisible(
-      find.text('Set several nights'),
-      300,
-      scrollable: _pageScrollable(find.byType(CapacityScreen)),
-    );
+    await _budgetTab(tester, app, 'Sleep');
     await _settle(tester);
     await tester.tap(find.text('Set several nights'));
   }),
@@ -317,17 +296,17 @@ final _states = <_State>[
     );
   }),
   _State('editing a block', (tester, app, data) async {
-    app.read(destinationProvider.notifier).go(const CapacityDestination());
+    await _budgetTab(tester, app, 'Timetable');
     await _settle(tester);
-    // By its days and times: its name is also on the week's timelines.
-    final row = find.text('Mon Wed Fri · 09:00–10:30');
+    // On the week's grid, or in the list a phone shows instead.
+    final block = find.text('DBMS lecture');
     await tester.scrollUntilVisible(
-      row,
+      block.first,
       300,
       scrollable: _pageScrollable(find.byType(CapacityScreen)),
     );
     await _settle(tester);
-    await tester.tap(row);
+    await tester.tap(block.first);
   }),
   _State('time budget, a block while asleep', (tester, app, data) async {
     final scope = app.read(appScopeProvider).value!;
@@ -341,7 +320,24 @@ final _states = <_State>[
         durationMin: 60,
       ),
     );
-    app.read(destinationProvider.notifier).go(const CapacityDestination());
+    await _budgetTab(tester, app, 'Timetable');
+  }),
+  _State('plan my day', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const PlanDayDestination());
+  }),
+  _State('plan my day, tomorrow', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const PlanDayDestination());
+    await _settle(tester);
+    await tester.tap(find.text('Tomorrow').first);
+  }),
+  _State('focus', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const FocusDestination());
+  }),
+  _State('deadline radar', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const RadarDestination());
+  }),
+  _State('daily review', (tester, app, data) async {
+    app.read(destinationProvider.notifier).go(const ReviewDestination());
   }),
   _State('new task with a reminder', (tester, app, data) async {
     app.read(destinationProvider.notifier).go(ProjectDestination(data.courseworkId));
@@ -557,16 +553,16 @@ Widget _app(AppDatabase db, {Key? boundary}) => ProviderScope(
   child: RepaintBoundary(key: boundary, child: const GlassworkApp()),
 );
 
-/// Opens the add-block dialog from the Time budget screen.
-Future<void> _openAddBlock(WidgetTester tester, ProviderContainer app) async {
+/// The Time budget screen, on one of its tabs.
+Future<void> _budgetTab(WidgetTester tester, ProviderContainer app, String tab) async {
   app.read(destinationProvider.notifier).go(const CapacityDestination());
   await _settle(tester);
-  // The button ends a lazily built list, so it exists only once scrolled to.
-  await tester.scrollUntilVisible(
-    find.text('Add block'),
-    300,
-    scrollable: _pageScrollable(find.byType(CapacityScreen)),
-  );
+  await tester.tap(find.text(tab).first);
+}
+
+/// Opens the add-block dialog from the Time budget screen.
+Future<void> _openAddBlock(WidgetTester tester, ProviderContainer app) async {
+  await _budgetTab(tester, app, 'Timetable');
   await _settle(tester);
   await tester.tap(find.text('Add block'));
 }

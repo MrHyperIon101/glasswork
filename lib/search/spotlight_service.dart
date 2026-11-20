@@ -92,6 +92,34 @@ class SpotlightService {
     ),
     SpotlightItem(
       kind: SpotlightKind.action,
+      id: 'plan-day',
+      title: 'Plan my day',
+      subtitle: "Lay today's work into your free time",
+      keywords: ['plan', 'schedule', 'today', 'tomorrow'],
+    ),
+    SpotlightItem(
+      kind: SpotlightKind.action,
+      id: 'focus',
+      title: 'Focus',
+      subtitle: 'The timer, and where your focus went',
+      keywords: ['pomodoro', 'timer', 'tracked'],
+    ),
+    SpotlightItem(
+      kind: SpotlightKind.action,
+      id: 'radar',
+      title: 'Deadline radar',
+      subtitle: 'The next two weeks, and what will not fit',
+      keywords: ['deadlines', 'risk', 'due', 'fortnight'],
+    ),
+    SpotlightItem(
+      kind: SpotlightKind.action,
+      id: 'review',
+      title: 'Daily review',
+      subtitle: 'Look back on today, and set up tomorrow',
+      keywords: ['review', 'evening', 'reflect', 'tomorrow'],
+    ),
+    SpotlightItem(
+      kind: SpotlightKind.action,
       id: 'time-budget',
       title: 'Time budget',
       subtitle: 'Your timetable, sleep and free time',
@@ -290,6 +318,14 @@ class SpotlightService {
             destinations.go(const NotesDestination());
           case 'time-budget':
             destinations.go(const CapacityDestination());
+          case 'plan-day':
+            destinations.go(const PlanDayDestination());
+          case 'focus':
+            destinations.go(const FocusDestination());
+          case 'radar':
+            destinations.go(const RadarDestination());
+          case 'review':
+            destinations.go(const ReviewDestination());
           case 'settings':
             destinations.go(const SettingsDestination());
           default:
@@ -345,6 +381,10 @@ class SpotlightService {
       'new-note' => 'document-new-symbolic',
       'start-focus' => 'alarm-symbolic',
       'time-budget' => 'x-office-calendar-symbolic',
+      'plan-day' => 'view-list-bullet-symbolic',
+      'focus' => 'alarm-symbolic',
+      'radar' => 'dialog-warning-symbolic',
+      'review' => 'weather-clear-night-symbolic',
       'settings' => 'emblem-system-symbolic',
       _ => 'go-next-symbolic',
     },

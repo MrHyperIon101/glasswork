@@ -22,6 +22,9 @@ abstract final class Format {
     'Sun',
   ];
 
+  /// "Mon" for a Monday.
+  static String weekdayShort(DateTime day) => _weekdayNames[day.weekday - 1];
+
   /// Null when the task has no due date at all.
   ///
   /// All-day and timed tasks are compared differently on purpose: an all-day task is
@@ -74,6 +77,14 @@ abstract final class Format {
         .difference(DateTime.utc(now.year, now.month, now.day))
         .inDays;
     return days < 0 ? _lateLabel(-days) : _dayWord(days, day);
+  }
+
+  /// "Due tomorrow", "Due Fri", or "Overdue by a day": a deadline in a sentence of its own.
+  static String dueSentence(DateTime day, DateTime now) {
+    final said = dueDay(day, now);
+    if (said.startsWith('Overdue')) return said;
+    // A weekday or a date keeps its capital; "Today" and "Tomorrow" are words in a sentence.
+    return 'Due ${said == 'Today' || said == 'Tomorrow' ? said.toLowerCase() : said}';
   }
 
   static String _dayWord(int days, DateTime day) {

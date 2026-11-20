@@ -108,6 +108,14 @@ void main() {
   test('actions take you where they say', () async {
     expect(await spotlight.activate('action:time-budget'), isTrue);
     expect(app.read(destinationProvider), isA<CapacityDestination>());
+    expect(await spotlight.activate('action:plan-day'), isTrue);
+    expect(app.read(destinationProvider), isA<PlanDayDestination>());
+    expect(await spotlight.activate('action:focus'), isTrue);
+    expect(app.read(destinationProvider), isA<FocusDestination>());
+    expect(await spotlight.activate('action:radar'), isTrue);
+    expect(app.read(destinationProvider), isA<RadarDestination>());
+    expect(await spotlight.activate('action:review'), isTrue);
+    expect(app.read(destinationProvider), isA<ReviewDestination>());
     expect(await spotlight.activate('action:new-task'), isTrue);
     expect(app.read(composerOpenProvider), isTrue);
   });

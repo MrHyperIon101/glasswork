@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../capacity/day_agenda.dart';
 import '../../capacity/day_plan.dart';
+import '../../capacity/deadline_radar.dart';
 import '../widgets/field_controls.dart';
 import '../../data/recents.dart';
 import '../../data/preferences.dart';
@@ -33,6 +34,7 @@ import '../widgets/note_widgets.dart';
 import '../widgets/task_row.dart';
 import '../widgets/week_load_strip.dart';
 
+part 'planning_screens.dart';
 part 'today_more.dart';
 
 /// The Today dashboard: the few figures worth a glance, what is due today and coming up,

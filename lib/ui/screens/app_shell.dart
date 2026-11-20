@@ -578,6 +578,34 @@ class _Sidebar extends ConsumerWidget {
                 const _SectionLabel('Planning'),
 
                 _SidebarRow(
+                  icon: Icons.auto_awesome_outlined,
+                  label: 'Plan my day',
+                  tint: AppColour.accent,
+                  selected: current is PlanDayDestination,
+                  onTap: () => go(const PlanDayDestination()),
+                ),
+                _SidebarRow(
+                  icon: Icons.timer_outlined,
+                  label: 'Focus',
+                  tint: AppColour.orange,
+                  selected: current is FocusDestination,
+                  onTap: () => go(const FocusDestination()),
+                ),
+                _SidebarRow(
+                  icon: Icons.radar_rounded,
+                  label: 'Deadline radar',
+                  tint: AppColour.red,
+                  selected: current is RadarDestination,
+                  onTap: () => go(const RadarDestination()),
+                ),
+                _SidebarRow(
+                  icon: Icons.nightlight_outlined,
+                  label: 'Daily review',
+                  tint: AppColour.indigo,
+                  selected: current is ReviewDestination,
+                  onTap: () => go(const ReviewDestination()),
+                ),
+                _SidebarRow(
                   icon: Icons.speed_outlined,
                   label: 'Time budget',
                   tint: AppColour.purple,
@@ -774,6 +802,14 @@ class _Content extends ConsumerWidget {
       screen = TodayScreen(onMenu: onMenu);
     } else if (destination is CapacityDestination) {
       screen = CapacityScreen(onMenu: onMenu);
+    } else if (destination is PlanDayDestination) {
+      screen = PlanDayScreen(onMenu: onMenu);
+    } else if (destination is FocusDestination) {
+      screen = FocusScreen(onMenu: onMenu);
+    } else if (destination is RadarDestination) {
+      screen = RadarScreen(onMenu: onMenu);
+    } else if (destination is ReviewDestination) {
+      screen = ReviewScreen(onMenu: onMenu);
     } else if (destination is SettingsDestination) {
       screen = SettingsScreen(onMenu: onMenu);
     } else if (destination is NotesDestination) {

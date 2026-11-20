@@ -484,7 +484,10 @@ class _DailyReviewDialog extends ConsumerWidget {
 /// Plan tomorrow, at the end of the day's review: tomorrow's work laid into tomorrow's free
 /// time, shown before anything changes, and accepted as one change that one Undo takes back.
 class _PlanTomorrow extends ConsumerWidget {
-  const _PlanTomorrow();
+  const _PlanTomorrow({this.heading = true});
+
+  /// Whether it names itself: not when it sits under a heading of its own.
+  final bool heading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -516,8 +519,10 @@ class _PlanTomorrow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Tomorrow', style: AppText.caption),
-        const SizedBox(height: AppSpace.xs),
+        if (heading) ...[
+          Text('Tomorrow', style: AppText.caption),
+          const SizedBox(height: AppSpace.xs),
+        ],
         if (plan.isEmpty)
           Text('Nothing to plan into tomorrow yet.', style: AppText.footnote)
         else ...[
