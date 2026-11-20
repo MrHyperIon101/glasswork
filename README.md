@@ -5,7 +5,7 @@
 A task app that plans against the hours you actually have, rather than the ones you wish you
 had. Local-first, cloud-synced, Linux and Android.
 
-![The home screen](docs/screenshots/today.png)
+![The home screen](docs/screenshots/today-0.6.png)
 
 ## Why it exists
 
@@ -69,12 +69,12 @@ I use it every day, which is the only reason it has as few rough edges as it doe
   itself is frosted glass over your desktop.
 
 <p align="center">
-  <img src="docs/screenshots/time-budget.png" width="49%" alt="The time budget">
-  <img src="docs/screenshots/plan-my-day.png" width="49%" alt="Plan my day">
+  <img src="docs/screenshots/time-budget-0.6.png" width="49%" alt="The time budget">
+  <img src="docs/screenshots/plan-my-day-0.6.png" width="49%" alt="Plan my day">
 </p>
 <p align="center">
-  <img src="docs/screenshots/deadline-radar.png" width="49%" alt="The deadline radar">
-  <img src="docs/screenshots/notes.png" width="49%" alt="Notes">
+  <img src="docs/screenshots/deadline-radar-0.6.png" width="49%" alt="The deadline radar">
+  <img src="docs/screenshots/notes-0.6.png" width="49%" alt="Notes">
 </p>
 
 ## Under the hood
