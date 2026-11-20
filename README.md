@@ -22,12 +22,30 @@ I use it every day, which is the only reason it has as few rough edges as it doe
 
 ## What it does
 
-- **Today** — one screen: what is due, where the day stands right now, this week's load, the
-  next reminder, and somewhere to put a note. Every figure traces back to a tested function.
+- **Today** — one screen that knows your day: what is due and what won't fit, where the day
+  stands right now, the one task to start next, focus so far, the next two weeks' deadlines,
+  this week's load, notes and where to jump back in. Every figure traces back to a tested
+  function.
 - **Time budget** — sleep, classes and fixed blocks taken out of the day, then meals and a
   buffer, and what is left multiplied by a focus factor *per gap*, because six free hours in one
   block is not six hours in twenty-minute slivers. Tasks are then allocated from one shared pool
-  in deadline order, so two of them can never both claim the same Wednesday.
+  in deadline order, so two of them can never both claim the same Wednesday. It shows its
+  working in four tabs: the next seven days on one clock and where today's 24 hours go; the
+  timetable as a week grid you click into; each night as a bar against your sleep goal; and the
+  rules, with today's figures changing as you step them.
+- **Plan my day** — today's (or tomorrow's) open work laid into the free time around your
+  classes, in deadline order, never into sleep. Shown dashed first; one click accepts it all, one
+  Undo takes it all back.
+- **Focus** — a timer you start on a task, with breaks, that keeps the time it tracked. Your
+  focus per day and per task, the streak, and tracked time against each estimate.
+- **Deadline radar** — the next fourteen days, each one's work against its time, every deadline
+  marked, and each task that won't fit or only just, with why.
+- **Daily review** — in the evening: what got done, what slipped (move it, drop it, or mark it
+  done), focus against the plan, and tomorrow planned before it starts.
+- **Adding that reads you** — "lab report next fri 5pm @dbms for 2h !high" becomes a task with
+  its project, time, estimate and priority, all offline. Similar past tasks suggest the project
+  and an estimate from what they really took, and while you type it says whether the task fits
+  before its deadline — and finds a time for it.
 - **Tasks with a time** — give a task a time and it lands on the time budget for that day,
   counts in its figures, and sits beside your classes. One field, nothing to keep in step.
 - **Timetables** — a set of blocks per semester, with dates, so a horizon that crosses a
@@ -43,13 +61,19 @@ I use it every day, which is the only reason it has as few rough edges as it doe
 - **Spotlight, for the whole desktop** — on GNOME, Super+Space opens a Spotlight laid out and
   moving like macOS Tahoe's: apps, files, settings, the calculator, system actions and the web,
   with your tasks, notes and projects among them. Browse Applications, Files, Actions and
-  Clipboard with Ctrl+1 to 4, run an action by its quick key (`nt` is a new task), and add the
-  line you typed as a task with Ctrl+Return.
+  Clipboard from the four buttons beside the bar or with Ctrl+1 to 4, run an action by its quick
+  key (`nt` is a new task), and add the line you typed as a task with Ctrl+Return. On the phone,
+  and anywhere without the extension, Ctrl+K or the search button opens the same Spotlight in
+  the app.
 - **Liquid glass** — every card bends and lights what is behind it, and on GNOME the window
   itself is frosted glass over your desktop.
 
 <p align="center">
   <img src="docs/screenshots/time-budget.png" width="49%" alt="The time budget">
+  <img src="docs/screenshots/plan-my-day.png" width="49%" alt="Plan my day">
+</p>
+<p align="center">
+  <img src="docs/screenshots/deadline-radar.png" width="49%" alt="The deadline radar">
   <img src="docs/screenshots/notes.png" width="49%" alt="Notes">
 </p>
 
@@ -201,6 +225,9 @@ Skip this and the app still works; it simply keeps everything on the one device.
    ```
 
    A good run ends with `ALL SYNC SCHEMA CHECKS PASSED`.
+
+   Updating from an earlier release, run `supabase db push` again before the new build first
+   syncs: 0.6 adds the table focus sessions are kept in.
 
 Sign in on each device with the same email and password. The first device claims the account;
 the second is asked whether to combine its work with what is already there or take the
