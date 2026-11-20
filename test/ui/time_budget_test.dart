@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +13,6 @@ import 'package:glasswork/state/sync_controller.dart';
 import 'package:glasswork/state/undo_controller.dart';
 import 'package:glasswork/sync/sync_writer.dart';
 import 'package:glasswork/ui/screens/app_shell.dart';
-import 'package:glasswork/ui/screens/capacity_screen.dart';
 import 'package:glasswork/ui/widgets/block_dialog.dart';
 import 'package:glasswork/ui/widgets/field_controls.dart';
 
@@ -86,20 +86,18 @@ void main() {
   bool canSave(WidgetTester tester, String label) =>
       tester.widget<PrimaryButton>(find.widgetWithText(PrimaryButton, label)).enabled;
 
-  Future<void> scrollTo(WidgetTester tester, Finder target) async {
-    await tester.scrollUntilVisible(
-      target,
-      300,
-      scrollable: find
-          .descendant(
-            of: find.byType(CapacityScreen),
-            matching: find.byWidgetPredicate(
-              (w) => w is Scrollable && axisDirectionToAxis(w.axisDirection) == Axis.vertical,
-            ),
-          )
-          .first,
-    );
+  /// One of the screen's four parts, by its name in the segmented control.
+  Future<void> tab(WidgetTester tester, String name) async {
+    await tester.tap(find.text(name).first);
     await _settle(tester);
+  }
+
+  Future<CapacityProfile> profile(WidgetTester tester) async {
+    final scope = app.read(appScopeProvider).value!;
+    final row = await tester.runAsync(
+      () => scope.capacity.watchProfile(scope.workspace.id).first,
+    );
+    return row!;
   }
 
   testWidgets('a block on top of a class offers the nearest free time, and saves there', (
@@ -107,7 +105,7 @@ void main() {
   ) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.text('Add block'));
+      await tab(tester, 'Timetable');
       await tester.tap(find.text('Add block'));
       await _settle(tester);
 
@@ -144,7 +142,7 @@ void main() {
   ) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.text('Add block'));
+      await tab(tester, 'Timetable');
       await tester.tap(find.text('Add block'));
       await _settle(tester);
 
@@ -168,14 +166,51 @@ void main() {
     }
   });
 
+  testWidgets('a block added from an empty hour starts on that day, at that hour', (tester) async {
+    await start(tester);
+    try {
+      await tab(tester, 'Timetable');
+      // Tuesday at three.
+      await tester.tap(find.byKey(const ValueKey('hour-2-15')));
+      await _settle(tester);
+
+      expect(find.text('Fixed block'), findsOneWidget);
+      await tester.enterText(inDialog(find.byType(TextField)).first, 'Seminar');
+      await _settle(tester);
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Add'));
+      await _settle(tester);
+
+      final seminar = (await tester.runAsync(blocks))!.singleWhere((c) => c.title == 'Seminar');
+      expect(
+        (seminar.startMin, seminar.durationMin, seminar.rrule),
+        (15 * 60, 60, 'FREQ=WEEKLY;BYDAY=TU'),
+      );
+    } finally {
+      await finish(tester);
+    }
+  });
+
+  testWidgets('a rule stepped on the Rules tab is saved, and today shows what it did', (tester) async {
+    await start(tester);
+    try {
+      await tab(tester, 'Rules');
+      final before = (await profile(tester)).mealsMin;
+      await tester.tap(find.bySemanticsLabel('More').first);
+      await _settle(tester);
+      expect((await profile(tester)).mealsMin, before + 15);
+      expect(find.text('Today, by these rules'), findsOneWidget);
+    } finally {
+      await finish(tester);
+    }
+  });
+
   testWidgets('editing a block writes only what changed', (tester) async {
     await start(tester);
     try {
-      // By its days and times: its name is also on the week's timelines.
-      final row = find.text('Mon Wed Fri · 09:00–10:30');
-      await scrollTo(tester, row);
+      await tab(tester, 'Timetable');
       await tester.runAsync(() => db.delete(db.outbox).go());
-      await tester.tap(row);
+      // Monday's, on the week's grid: the same block is on Wednesday and Friday too.
+      await tester.tap(find.text('DBMS lecture').first);
       await _settle(tester);
 
       expect(find.text('Edit block'), findsOneWidget);
@@ -196,24 +231,27 @@ void main() {
     }
   });
 
-  Future<CapacityProfile> profile(WidgetTester tester) async {
-    final scope = app.read(appScopeProvider).value!;
-    final row = await tester.runAsync(
-      () => scope.capacity.watchProfile(scope.workspace.id).first,
-    );
-    return row!;
-  }
 
-  testWidgets('a bedtime typed for one day changes that day, and only it syncs', (
+  /// The time fields of the sleep dialog: going to bed, then getting up.
+  Finder sleepTime(int index) =>
+      find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)).at(index);
+
+  testWidgets('a bedtime set for one night changes that day, and only it syncs', (
     tester,
   ) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.byKey(const ValueKey('bedtime-Fri')));
+      await tab(tester, 'Sleep');
       await tester.runAsync(() => db.delete(db.outbox).go());
 
-      await tester.enterText(field('bedtime-Fri'), '1:30');
+      // Friday's night, from the chart: the dialog opens on it alone.
+      await tester.tap(find.text('Fri'));
+      await _settle(tester);
+      expect(find.text('Friday night'), findsOneWidget);
+      await tester.enterText(sleepTime(0), '1:30');
       await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _settle(tester);
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Set'));
       await _settle(tester);
 
       final sleep = CapacityMapping.sleepOf(await profile(tester));
@@ -221,6 +259,7 @@ void main() {
         sleep[DateTime.friday - 1],
         const DaySleep(wakeMin: 7 * 60, bedtimeMin: 90),
       );
+      expect(sleep[DateTime.saturday - 1], CapacitySettings.standardWeek[5]);
       expect(sleep[DateTime.thursday - 1], CapacitySettings.standardWeek[3]);
       final queued = (await tester.runAsync(() => db.select(db.outbox).get()))!;
       expect(
@@ -228,23 +267,27 @@ void main() {
         {'bedtime_fri_min'},
       );
 
-      // Friday's night now starts after midnight, and is short: the row says how short.
+      // Friday's night now starts after midnight, and is short: the chart says how short.
       expect(find.text('5h 30m'), findsOneWidget);
-      expect(find.text('Only 5h 30m of sleep before Sat'), findsOneWidget);
+      expect(find.text('1 night'), findsOneWidget);
     } finally {
       await finish(tester);
     }
   });
 
-  testWidgets('getting up, typed in a night, sets the morning after it', (tester) async {
+  testWidgets('getting up, set for a night, sets the morning after it', (tester) async {
     await start(tester);
     try {
-      // Monday night's "Up at" is when Tuesday starts.
-      await scrollTo(tester, find.byKey(const ValueKey('wake-Tue')));
+      await tab(tester, 'Sleep');
       await tester.runAsync(() => db.delete(db.outbox).go());
 
-      await tester.enterText(field('wake-Tue'), '8:15');
+      // Monday night's getting up is when Tuesday starts.
+      await tester.tap(find.text('Mon'));
+      await _settle(tester);
+      await tester.enterText(sleepTime(1), '8:15');
       await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _settle(tester);
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Set'));
       await _settle(tester);
 
       final sleep = CapacityMapping.sleepOf(await profile(tester));
@@ -269,7 +312,7 @@ void main() {
   ) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.text('Set several nights'));
+      await tab(tester, 'Sleep');
       await tester.tap(find.text('Set several nights'));
       await _settle(tester);
 
@@ -308,8 +351,13 @@ void main() {
   testWidgets('deleting a block can be undone', (tester) async {
     await start(tester);
     try {
-      await scrollTo(tester, find.byTooltip('Delete block'));
-      await tester.tap(find.byTooltip('Delete block'));
+      await tab(tester, 'Timetable');
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('DBMS lecture').first));
+      await _settle(tester);
+      await tester.tap(find.byTooltip('Delete DBMS lecture'));
       await _settle(tester);
       expect(await tester.runAsync(blocks), isEmpty);
 

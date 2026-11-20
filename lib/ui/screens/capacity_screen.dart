@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,12 +21,14 @@ import '../surface.dart';
 import '../time_entry.dart';
 import '../widgets/block_dialog.dart';
 import '../widgets/content_header.dart';
-import '../widgets/day_timeline.dart';
+import '../../capacity/task_slot.dart';
 import '../widgets/field_controls.dart';
 import '../widgets/typed_value.dart';
 import '../widgets/value_stepper.dart';
 import '../widgets/weekday_picker.dart';
 import '../motion.dart';
+
+part 'capacity_tabs.dart';
 
 /// The capacity ledger, and the timetable it is computed from.
 ///
@@ -52,6 +56,23 @@ class CapacityScreen extends ConsumerWidget {
     final compact = AppLayout.compact(context);
     final gutter = AppLayout.gutter(context);
 
+    final tab = ref.watch(_budgetTabProvider);
+    final page = switch (tab) {
+      _BudgetTab.overview => capacity.isEmpty
+          ? const SizedBox()
+          : _OverviewTab(days: capacity, notCounted: uncounted.length + rejected.length),
+      _BudgetTab.timetable => _TimetableTab(
+        commitments: commitments,
+        uncounted: uncounted,
+        rejected: rejected,
+        settings: settings,
+      ),
+      _BudgetTab.sleep => profile == null ? const SizedBox() : _SleepTab(profile: profile),
+      _BudgetTab.rules => profile == null
+          ? const SizedBox()
+          : _RulesTab(profile: profile, today: capacity.firstOrNull),
+    };
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         gutter,
@@ -68,33 +89,13 @@ class CapacityScreen extends ConsumerWidget {
             subtitle: 'What your days actually have room for',
             onMenu: onMenu,
             showNewTask: false,
+            accessory: const _Segments(),
           ),
           SizedBox(height: compact ? AppSpace.lg : AppSpace.xl),
           Expanded(
-            child: ListView(
-              // On a phone the list runs to the bottom edge, so its end needs room to clear it.
-              padding: EdgeInsets.only(bottom: compact ? AppSpace.xxl : 0),
-              children: [
-                if (rejected.isNotEmpty) ...[
-                  _RejectedRules(rejected: rejected),
-                  const SizedBox(height: AppSpace.lg),
-                ],
-                if (uncounted.isNotEmpty) ...[
-                  _UncountedBlocks(blocks: uncounted, settings: settings),
-                  const SizedBox(height: AppSpace.lg),
-                ],
-                if (capacity.isNotEmpty) ...[
-                  _TodayCard(day: capacity.first),
-                  const SizedBox(height: AppSpace.lg),
-                  _WeekCard(days: capacity.take(7).toList()),
-                  const SizedBox(height: AppSpace.lg),
-                ],
-                if (profile != null) _ProfileCard(profile: profile),
-                const SizedBox(height: AppSpace.lg),
-                _ScheduleSets(),
-                const SizedBox(height: AppSpace.lg),
-                _CommitmentsCard(commitments: commitments),
-              ],
+            child: AnimatedSwitcher(
+              duration: AppMotion.of(context, AppMotion.quick),
+              child: KeyedSubtree(key: ValueKey(tab), child: page),
             ),
           ),
         ],
@@ -103,689 +104,15 @@ class CapacityScreen extends ConsumerWidget {
   }
 }
 
-/// Today, led by the answer rather than the working.
-class _TodayCard extends ConsumerStatefulWidget {
-  const _TodayCard({required this.day});
-
-  final DayCapacity day;
-
-  @override
-  ConsumerState<_TodayCard> createState() => _TodayCardState();
-}
-
-class _TodayCardState extends ConsumerState<_TodayCard> {
-  bool _showWorking = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final day = widget.day;
-    final profile = ref.watch(capacityProfileProvider).value;
-    final planned = ref.watch(scheduleProvider).allocatedOn(day.date);
-    final spare = day.spareAfter(planned);
-
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Today', style: AppText.caption),
-          const SizedBox(height: AppSpace.sm),
-
-          // One sentence, in words, before any chart or number grid.
-          Text(
-            planned == 0
-                ? 'You have ${Format.estimate(day.usableMin)} to spend and '
-                      'nothing planned into it yet.'
-                : spare < 0
-                ? "You have ${Format.estimate(day.usableMin)} to spend and "
-                      "${Format.estimate(planned)} planned. "
-                      "That's ${Format.estimate(-spare)} more than fits."
-                : 'You have ${Format.estimate(day.usableMin)} to spend and '
-                      '${Format.estimate(planned)} planned, '
-                      '${spare == 0 ? 'with nothing to spare' : '${Format.estimate(spare)} spare'}.',
-            style: AppText.title3.copyWith(
-              color: spare < 0 ? AppColour.red : AppColour.label,
-            ),
-          ),
-          const SizedBox(height: AppSpace.lg),
-
-          DayTimeline(
-            day: day,
-            allocatedMin: planned,
-            tasks: ref.watch(taskSlotsProvider(day.date)),
-          ),
-
-          const SizedBox(height: AppSpace.md),
-          const AppDivider(),
-          const SizedBox(height: AppSpace.sm),
-
-          // The derivation is still available, just no longer the first thing you meet.
-          GestureDetector(
-            onTap: () => setState(() => _showWorking = !_showWorking),
-            behavior: HitTestBehavior.opaque,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Row(
-                children: [
-                  Icon(
-                    _showWorking ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                    size: 16,
-                    color: AppColour.labelTertiary,
-                  ),
-                  const SizedBox(width: AppSpace.xs),
-                  Text(
-                    _showWorking ? 'Hide the arithmetic' : 'Show the arithmetic',
-                    style: AppText.footnote,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedSize(
-            duration: AppMotion.medium,
-            curve: AppMotion.standard,
-            alignment: Alignment.topCenter,
-            child: _showWorking
-                ? Padding(
-                    padding: const EdgeInsets.only(top: AppSpace.md),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Line(
-                          label: 'Awake',
-                          value: Format.estimate(day.wakingMin),
-                        ),
-                        _Line(
-                          label: 'Classes and fixed blocks',
-                          value: '− ${Format.estimate(day.committedMin)}',
-                        ),
-                        _Line(
-                          label: 'Meals and buffer',
-                          value: '− ${Format.estimate(day.overheadMin)}',
-                        ),
-                        if (day.discardedGapMin > 0)
-                          _Line(
-                            label: 'Gaps too short to use',
-                            value: '− ${Format.estimate(day.discardedGapMin)}',
-                            tint: AppColour.orange,
-                          ),
-                        _Line(
-                          label: 'Focus factor, applied per gap',
-                          value:
-                              '× ${(CapacityMapping.settings(profile).focusFactor * 100).round()}%',
-                          tint: AppColour.labelTertiary,
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: AppSpace.sm),
-                          child: AppDivider(),
-                        ),
-                        _Line(
-                          label: 'Yours to spend',
-                          value: Format.estimate(day.usableMin),
-                          tint: AppColour.accent,
-                        ),
-                        const SizedBox(height: AppSpace.sm),
-                        Text(
-                          'Sleep (${Format.estimate(day.sleepMin)}) is a floor, not '
-                          'spare time. Nothing is ever scheduled into it.',
-                          style: AppText.footnote.copyWith(
-                            color: AppColour.labelTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The week, so a bad Thursday is visible on Monday.
-class _WeekCard extends ConsumerWidget {
-  const _WeekCard({required this.days});
-
-  final List<DayCapacity> days;
-
-  static const _names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final schedule = ref.watch(scheduleProvider);
-    final compact = AppLayout.compact(context);
-
-    Widget timeline(DayCapacity day) => DayTimeline(
-      day: day,
-      allocatedMin: schedule.allocatedOn(day.date),
-      tasks: ref.watch(taskSlotsProvider(day.date)),
-      showHours: false,
-      // Seven full legends down a phone make a wall of figures.
-      dense: compact,
-    );
-
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('The week ahead', style: AppText.caption),
-          const SizedBox(height: AppSpace.md),
-          for (final day in days)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: compact
-                  // The day named above its bar, so the bar has the phone's whole width.
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text.rich(
-                          TextSpan(
-                            style: AppText.numeric,
-                            children: [
-                              TextSpan(
-                                text: _names[day.date.weekday - 1],
-                                style: const TextStyle(color: AppColour.label),
-                              ),
-                              TextSpan(
-                                text: '  ${day.date.day}/${day.date.month}',
-                                style: const TextStyle(
-                                  color: AppColour.labelQuaternary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: AppSpace.xs),
-                        timeline(day),
-                      ],
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 62,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: AppSpace.xs),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _names[day.date.weekday - 1],
-                                  style: AppText.numeric.copyWith(
-                                    color: AppColour.label,
-                                  ),
-                                ),
-                                Text(
-                                  '${day.date.day}/${day.date.month}',
-                                  style: AppText.numeric.copyWith(
-                                    fontSize: 10,
-                                    color: AppColour.labelQuaternary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Expanded(child: timeline(day)),
-                      ],
-                    ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Line extends StatelessWidget {
-  const _Line({required this.label, required this.value, this.tint});
-
-  final String label;
-  final String value;
-  final Color? tint;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      children: [
-        Expanded(child: Text(label, style: AppText.callout)),
-        Text(
-          value,
-          style: AppText.numeric.copyWith(color: tint ?? AppColour.label),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ProfileCard extends ConsumerWidget {
-  const _ProfileCard({required this.profile});
-
-  final CapacityProfile profile;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.watch(appScopeProvider).value?.capacity;
-    final effects = ref.watch(settingEffectsProvider);
-    final focusPercent = (profile.focusFactor * 100).round();
-
-    // A length, stepped or typed, kept inside [min, max].
-    Widget length({
-      required String label,
-      required int value,
-      required int step,
-      required int min,
-      required int max,
-      required void Function(int minutes) save,
-      required String explanation,
-      required String effect,
-      bool bareMinutes = false,
-    }) => ValueStepper(
-      label: label,
-      text: Format.estimate(value),
-      keyboardType: TextInputType.datetime,
-      explanation: explanation,
-      effect: effect,
-      onStep: (direction) => save((value + direction * step).clamp(min, max)),
-      onSubmit: (text) {
-        final typed = TimeEntry.duration(text, bareMinutes: bareMinutes);
-        if (typed == null) return false;
-        save(typed.clamp(min, max));
-        return true;
-      },
-    );
-
-    // What one step more does to an average day's time to spend.
-    String stepEffect(String step, int change) => change == 0
-        ? '$step more would change nothing this week.'
-        : change < 0
-        ? '$step more leaves about ${Format.estimate(-change)} less a day to spend.'
-        : '$step more adds about ${Format.estimate(change)} a day to spend.';
-
-    final shortNights = [
-      for (final day in effects.shortNights.keys) _SleepWeek.names[day - 1],
-    ];
-
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Profile', style: AppText.caption),
-          const SizedBox(height: AppSpace.xs),
-          Text(
-            'Every figure on this screen is worked out from these. Under each is what it '
-            'means, and what changing it would do to an average day this week.',
-            style: AppText.footnote,
-          ),
-          const SizedBox(height: AppSpace.lg),
-          _SleepWeek(profile: profile),
-          const SizedBox(height: AppSpace.md),
-          const AppDivider(),
-          const SizedBox(height: AppSpace.sm),
-          length(
-            label: 'Sleep at least',
-            value: profile.sleepTargetMin,
-            step: 15,
-            min: 240,
-            max: 720,
-            save: (v) => repo?.updateProfile(profile.id, sleepTargetMin: v),
-            explanation:
-                'The least sleep you want in a night. Nothing is planned into sleep '
-                'either way: this only marks the nights above that fall short of it.',
-            effect: shortNights.isEmpty
-                ? 'Every night this week gets at least this.'
-                : '${shortNights.length == 1 ? 'The night after ${shortNights.single} '
-                          'falls' : '${shortNights.length} nights fall'} short of it.',
-          ),
-          length(
-            label: 'Meals',
-            value: profile.mealsMin,
-            step: SettingEffects.mealsStepMin,
-            min: 0,
-            max: 300,
-            save: (v) => repo?.updateProfile(profile.id, mealsMin: v),
-            explanation:
-                "Time for eating, taken out of each day's free time before anything is "
-                'planned, spread across the day.',
-            effect: stepEffect(
-              Format.estimate(SettingEffects.mealsStepMin),
-              effects.mealsStep,
-            ),
-          ),
-          length(
-            label: 'Buffer',
-            value: profile.bufferMin,
-            step: SettingEffects.bufferStepMin,
-            min: 0,
-            max: 300,
-            save: (v) => repo?.updateProfile(profile.id, bufferMin: v),
-            explanation:
-                'Getting around, admin, and the small things every day loses. Taken out '
-                'of free time the same way as meals.',
-            effect: stepEffect(
-              Format.estimate(SettingEffects.bufferStepMin),
-              effects.bufferStep,
-            ),
-          ),
-          ValueStepper(
-            label: 'Focus factor',
-            text: '$focusPercent%',
-            keyboardType: TextInputType.number,
-            explanation:
-                'How much of your free time turns into real work. At $focusPercent%, a '
-                'free hour counts as ${Format.estimate((60 * profile.focusFactor).round())}.',
-            effect: profile.focusFactor >= 1
-                ? 'Already all of it: every free minute counts.'
-                : stepEffect(
-                    '${SettingEffects.focusStepPercent}%',
-                    effects.focusStep,
-                  ),
-            onStep: (direction) => repo?.updateProfile(
-              profile.id,
-              focusFactor:
-                  (profile.focusFactor +
-                          direction * SettingEffects.focusStepPercent / 100)
-                      .clamp(0.3, 1.0),
-            ),
-            onSubmit: (text) {
-              final typed = TimeEntry.percent(text);
-              if (typed == null) return false;
-              repo?.updateProfile(
-                profile.id,
-                focusFactor: (typed / 100).clamp(0.3, 1.0),
-              );
-              return true;
-            },
-          ),
-          length(
-            label: 'Shortest usable gap',
-            value: profile.minGapMin,
-            step: SettingEffects.minGapStepMin,
-            min: 5,
-            max: 120,
-            bareMinutes: true,
-            save: (v) => repo?.updateProfile(profile.id, minGapMin: v),
-            explanation:
-                'Free stretches shorter than this are ignored, because real work does not '
-                'get started in them.',
-            effect:
-                '${effects.discardedPerDay == 0 ? 'No free time this week comes in '
-                          'stretches that short. ' : 'This week that sets aside about '
-                          '${Format.estimate(effects.discardedPerDay)} of free time a day. '}'
-                '${stepEffect(Format.estimate(SettingEffects.minGapStepMin), effects.minGapStep)}',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Sleep, day by day: when you get up, and when you go to bed that night.
-class _SleepWeek extends ConsumerWidget {
-  const _SleepWeek({required this.profile});
-
-  final CapacityProfile profile;
-
-  static const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  /// Room for the arrow between going to bed and getting up.
-  static const arrowWidth = AppSpace.xl;
-
-  /// Shares of the width for a night's name, each of its times, and how long it is. The
-  /// heading and the rows use the same shares, so the columns line up at any width and any
-  /// text size: fixed widths cut the lengths short on a phone, and wrapped the day names
-  /// with larger text.
-  static const nameFlex = 4;
-  static const timeFlex = 5;
-  static const lengthFlex = 5;
-
-  /// Wide enough for every column and no wider. Stretched across a desktop, each night's
-  /// length ended up far from its times.
-  static const maxWidth = 460.0;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.watch(appScopeProvider).value?.capacity;
-    final settings = CapacityMapping.settings(profile);
-
-    // Only the days that actually change are written.
-    void save(Map<int, DaySleep> days) {
-      final changed = {
-        for (final MapEntry(key: day, value: sleep) in days.entries)
-          if (settings.sleepOn(day) != sleep) day: sleep,
-      };
-      if (changed.isNotEmpty) repo?.setSleep(profile.id, changed);
-    }
-
-    Widget heading(String text, {TextAlign align = TextAlign.center}) =>
-        Text(text, style: AppText.caption, textAlign: align);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: Text('Sleep', style: AppText.headline)),
-            _SmallAction(
-              label: 'Set several nights',
-              onTap: () => _setSeveral(context, settings, save),
-            ),
-          ],
-        ),
-        Text(
-          'When you go to bed each night, and when you get up the next morning. A bedtime '
-          'earlier than you got up that day is after midnight. Nothing is ever planned '
-          'into sleep, and blocks that fall in it do not count.',
-          style: AppText.footnote,
-        ),
-        const SizedBox(height: AppSpace.md),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: maxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    flex: nameFlex,
-                    child: heading('Night', align: TextAlign.start),
-                  ),
-                  Expanded(flex: timeFlex, child: heading('To bed')),
-                  const SizedBox(width: arrowWidth),
-                  Expanded(flex: timeFlex, child: heading('Up at')),
-                  const SizedBox(width: AppSpace.sm),
-                  Expanded(
-                    flex: lengthFlex,
-                    child: heading('Asleep', align: TextAlign.end),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpace.xs),
-              // A row a night, the way a night is lived: to bed on the day it is named for,
-              // then up the next morning. Rows of days, getting up first, read as sleeping
-              // from morning until night.
-              for (var day = DateTime.monday; day <= DateTime.sunday; day++)
-                _SleepNightRow(
-                  name: names[day - 1],
-                  nextName: names[CapacitySettings.dayAfter(day) - 1],
-                  bedtimeMin: settings.sleepOn(day).bedtimeMin,
-                  wakeMin: settings.sleepOn(CapacitySettings.dayAfter(day)).wakeMin,
-                  night: settings.nightAfter(day),
-                  target: settings.sleepTargetMin,
-                  onBedtime: (minutes) {
-                    final sleep = settings.sleepOn(day);
-                    // Getting up and going to bed at the same minute is a day of no length.
-                    if (minutes == sleep.wakeMin) return false;
-                    save({day: DaySleep(wakeMin: sleep.wakeMin, bedtimeMin: minutes)});
-                    return true;
-                  },
-                  onWake: (minutes) {
-                    final next = CapacitySettings.dayAfter(day);
-                    final sleep = settings.sleepOn(next);
-                    if (minutes == sleep.bedtimeMin) return false;
-                    save({next: DaySleep(wakeMin: minutes, bedtimeMin: sleep.bedtimeMin)});
-                    return true;
-                  },
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _setSeveral(
-    BuildContext context,
-    CapacitySettings settings,
-    void Function(Map<int, DaySleep> days) save,
-  ) async {
-    final result = await showAppDialog<(Set<int>, int, int)>(
-      context: context,
-      builder: (context) => _SleepDialog(
-        bedtimeMin: settings.sleepOn(DateTime.monday).bedtimeMin,
-        wakeMin: settings.sleepOn(DateTime.tuesday).wakeMin,
-      ),
-    );
-    if (result == null) return;
-    final (nights, bedtime, wake) = result;
-
-    // Each night sets the bedtime of the day it starts on and getting up on the next, so
-    // two nights in a row share the day between them.
-    final days = <int, DaySleep>{};
-    DaySleep current(int day) => days[day] ?? settings.sleepOn(day);
-    for (final night in nights) {
-      days[night] = DaySleep(wakeMin: current(night).wakeMin, bedtimeMin: bedtime);
-      final next = CapacitySettings.dayAfter(night);
-      days[next] = DaySleep(wakeMin: wake, bedtimeMin: current(next).bedtimeMin);
-    }
-    // Never a day of no length, which only a clash with an untouched time could make.
-    save({
-      for (final MapEntry(key: day, value: sleep) in days.entries)
-        if (sleep.wakeMin != sleep.bedtimeMin) day: sleep,
-    });
-  }
-}
-
-class _SleepNightRow extends StatelessWidget {
-  const _SleepNightRow({
-    required this.name,
-    required this.nextName,
-    required this.bedtimeMin,
-    required this.wakeMin,
-    required this.night,
-    required this.target,
-    required this.onBedtime,
-    required this.onWake,
-  });
-
-  /// The day the night starts on.
-  final String name;
-
-  /// The day after it, when getting up ends the night.
-  final String nextName;
-
-  final int bedtimeMin;
-  final int wakeMin;
-
-  /// How long the night is.
-  final int night;
-
-  /// The least sleep wanted in a night.
-  final int target;
-
-  /// Each takes a typed time, and says whether it could be used.
-  final bool Function(int minutes) onBedtime;
-  final bool Function(int minutes) onWake;
-
-  @override
-  Widget build(BuildContext context) {
-    bool submit(String text, bool Function(int minutes) apply) {
-      final minutes = TimeEntry.clock(text);
-      return minutes != null && apply(minutes);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                flex: _SleepWeek.nameFlex,
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.body,
-                ),
-              ),
-              Expanded(
-                flex: _SleepWeek.timeFlex,
-                child: TypedValue(
-                  key: ValueKey('bedtime-$name'),
-                  fill: true,
-                  text: Format.clock(bedtimeMin),
-                  keyboardType: TextInputType.datetime,
-                  onSubmit: (text) => submit(text, onBedtime),
-                ),
-              ),
-              const SizedBox(
-                width: _SleepWeek.arrowWidth,
-                child: Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 13,
-                  color: AppColour.labelTertiary,
-                ),
-              ),
-              Expanded(
-                flex: _SleepWeek.timeFlex,
-                child: TypedValue(
-                  // Named for the day it sets: getting up ends the night on the next day.
-                  key: ValueKey('wake-$nextName'),
-                  fill: true,
-                  text: Format.clock(wakeMin),
-                  keyboardType: TextInputType.datetime,
-                  onSubmit: (text) => submit(text, onWake),
-                ),
-              ),
-              const SizedBox(width: AppSpace.sm),
-              Expanded(
-                flex: _SleepWeek.lengthFlex,
-                child: Text(
-                  Format.estimate(night),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.numeric.copyWith(
-                    color: night < target ? AppColour.orange : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (night < target)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: AppSpace.xs),
-              child: Text(
-                night == 0
-                    ? 'No sleep at all before $nextName'
-                    : 'Only ${Format.estimate(night)} of sleep before $nextName',
-                style: AppText.footnote.copyWith(color: AppColour.orange),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The same sleep for several nights at once.
+/// One night's sleep, or the same sleep for several nights at once.
 class _SleepDialog extends StatefulWidget {
-  const _SleepDialog({required this.bedtimeMin, required this.wakeMin});
+  const _SleepDialog({required this.bedtimeMin, required this.wakeMin, this.nights = const {}});
 
   final int bedtimeMin;
   final int wakeMin;
+
+  /// The nights chosen when it opens: the one tapped, or none.
+  final Set<int> nights;
 
   @override
   State<_SleepDialog> createState() => _SleepDialogState();
@@ -793,7 +120,7 @@ class _SleepDialog extends StatefulWidget {
 
 class _SleepDialogState extends State<_SleepDialog> {
   /// Nights, by the day each starts on.
-  final _nights = <int>{};
+  late final _nights = <int>{...widget.nights};
   late int _bedtime = widget.bedtimeMin;
   late int _wake = widget.wakeMin;
 
@@ -835,7 +162,12 @@ class _SleepDialogState extends State<_SleepDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Sleep for several nights', style: AppText.title3),
+              Text(
+                widget.nights.length == 1
+                    ? '${_dayNames[widget.nights.single - 1]} night'
+                    : 'Sleep for several nights',
+                style: AppText.title3,
+              ),
               const SizedBox(height: AppSpace.lg),
               Text('Nights, by the day they start', style: AppText.caption),
               const SizedBox(height: AppSpace.sm),
@@ -904,95 +236,6 @@ class _SleepDialogState extends State<_SleepDialog> {
   }
 }
 
-class _CommitmentsCard extends ConsumerWidget {
-  const _CommitmentsCard({required this.commitments});
-
-  final List<Commitment> commitments;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Only the set being edited, so a semester's blocks are never mixed with another's.
-    final editingId = ref.watch(editingScheduleIdProvider);
-    final visible = commitments
-        .where((c) => c.scheduleId == editingId)
-        .toList();
-    final settings = CapacityMapping.settings(
-      ref.watch(capacityProfileProvider).value,
-    );
-
-    final name = (ref.watch(schedulesProvider).value ?? const <TimetableSet>[])
-        .where((s) => s.id == editingId)
-        .map((s) => s.name)
-        .firstOrNull;
-    // A set not in force takes blocks that count nowhere above, which is baffling unless
-    // it says so.
-    final notInForce = editingId == null
-        ? null
-        : _notInForce(ref.watch(timetableProvider), editingId, name);
-
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name == null ? 'Blocks' : 'Blocks in $name',
-                  style: AppText.caption,
-                ),
-              ),
-              _AddCommitmentButton(),
-            ],
-          ),
-          if (notInForce != null) ...[
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              notInForce,
-              style: AppText.footnote.copyWith(color: AppColour.orange),
-            ),
-          ],
-          const SizedBox(height: AppSpace.md),
-          if (visible.isEmpty)
-            Text(
-              'No fixed blocks yet. Add your classes and labs — until then every day '
-              'looks completely free, and the load figures will flatter you.',
-              style: AppText.callout,
-            )
-          else
-            for (final c in visible)
-              _BlockRow(
-                commitment: c,
-                problems: _problemsOf(
-                  c,
-                  settings,
-                  others: CapacityMapping.blocksOf([
-                    for (final other in visible)
-                      if (other.id != c.id) other,
-                  ]).$1,
-                ),
-                onTap: () => _editBlock(context, ref, existing: c),
-                onDelete: () => _deleteBlock(ref, c),
-              ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteBlock(WidgetRef ref, Commitment c) async {
-    final scope = ref.read(appScopeProvider).value;
-    if (scope == null) return;
-
-    await scope.capacity.deleteCommitment(c.id);
-    ref
-        .read(undoProvider.notifier)
-        .offer(
-          'Deleted "${c.title}"',
-          () => scope.capacity.restoreCommitment(c.id),
-        );
-  }
-}
-
 class _AddCommitmentButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1026,6 +269,7 @@ Future<void> _editBlock(
   BuildContext context,
   WidgetRef ref, {
   Commitment? existing,
+  BlockDraft? prefill,
 }) async {
   final scope = ref.read(appScopeProvider).value;
   final scheduleId =
@@ -1059,6 +303,7 @@ Future<void> _editBlock(
       ),
       others: others,
       initial: initial,
+      prefill: prefill,
       timetableName: name,
       notInForce: _notInForce(ref.read(timetableProvider), scheduleId, name),
     ),
@@ -1189,7 +434,7 @@ class _UncountedBlocks extends ConsumerWidget {
         const SizedBox(height: AppSpace.sm),
         Text(
           'Sleep is never counted as time to spend. Tap a block to move it, or if you '
-          'are up then, change your sleep under Profile.',
+          'are up then, change your sleep under Sleep.',
           style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
         ),
       ],
@@ -1383,44 +628,88 @@ class _ScheduleSets extends ConsumerWidget {
     final sets = ref.watch(schedulesProvider).value ?? const <TimetableSet>[];
     final active = ref.watch(activeScheduleProvider);
     final editingId = ref.watch(editingScheduleIdProvider);
+    final editing = sets.where((s) => s.id == editingId).firstOrNull;
+    // A set not in force takes blocks that count nowhere, which is baffling unless it says so.
+    final notInForce = editing == null
+        ? null
+        : _notInForce(ref.watch(timetableProvider), editing.id, editing.name);
+
+    final dates = editing == null
+        ? null
+        : editing.isFallback
+        ? 'Any day no other timetable covers'
+        : (editing.startsOn == null && editing.endsOn == null)
+        ? 'Every day'
+        : '${_readableDate(editing.startsOn)} – ${_readableDate(editing.endsOn)}';
 
     return AppSurface(
+      padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.md, AppSpace.md, AppSpace.md),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              Expanded(child: Text('Timetables', style: AppText.caption)),
-              _SmallAction(
-                label: 'New',
-                onTap: () => _edit(context, ref, null),
+              // The sets, as a row of choices; the one being edited is raised.
+              Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                children: [
+                  for (final set in sets)
+                    _SetChoice(
+                      name: set.name,
+                      selected: set.id == editingId,
+                      inForce: active?.id == set.id,
+                      onTap: () => ref.read(editingScheduleProvider.notifier).select(set.id),
+                    ),
+                  _SetChoice(
+                    name: 'New',
+                    icon: Icons.add_rounded,
+                    selected: false,
+                    inForce: false,
+                    onTap: () => _edit(context, ref, null),
+                  ),
+                ],
               ),
+              if (editing != null)
+                // Level with the choices above, past the first action's own padding.
+                Transform.translate(
+                  offset: Offset(AppLayout.compact(context) ? -AppSpace.sm : 0, 0),
+                  child: Wrap(
+                  children: [
+                    _SmallAction(label: 'Duplicate', onTap: () => _duplicate(context, ref, editing)),
+                    _SmallAction(label: 'Rename and dates', onTap: () => _edit(context, ref, editing)),
+                    if (!editing.isFallback)
+                      _SmallAction(label: 'Delete', tint: AppColour.red, onTap: () => _delete(ref, editing)),
+                  ],
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: AppSpace.xs),
-          Text(
-            active == null
-                ? 'No timetable covers today, so nothing is being subtracted.'
-                : 'In force today: ${active.name}',
-            style: AppText.footnote.copyWith(
-              color: active == null
-                  ? AppColour.orange
-                  : AppColour.labelTertiary,
+          if (dates != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text.rich(
+              TextSpan(
+                style: AppText.footnote.copyWith(color: AppColour.labelTertiary),
+                children: [
+                  TextSpan(text: dates),
+                  if (notInForce == null)
+                    TextSpan(text: '  ·  In force today', style: TextStyle(color: AppColour.green))
+                  else
+                    TextSpan(text: '  ·  $notInForce', style: TextStyle(color: AppColour.orange)),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpace.md),
-
-          for (final set in sets)
-            _ScheduleRow(
-              set: set,
-              editing: set.id == editingId,
-              inForce: active?.id == set.id,
-              onSelect: () =>
-                  ref.read(editingScheduleProvider.notifier).select(set.id),
-              onEdit: () => _edit(context, ref, set),
-              onDuplicate: () => _duplicate(context, ref, set),
-              onDelete: () => _delete(ref, set),
+          ] else if (active == null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              'No timetable covers today, so nothing is being subtracted.',
+              style: AppText.footnote.copyWith(color: AppColour.orange),
             ),
+          ],
         ],
       ),
     );
@@ -1509,167 +798,90 @@ class _ScheduleSets extends ConsumerWidget {
   }
 }
 
-class _ScheduleRow extends StatefulWidget {
-  const _ScheduleRow({
-    required this.set,
-    required this.editing,
+/// A timetable to choose, as a pill: raised when chosen, a green dot when it is in force.
+class _SetChoice extends StatefulWidget {
+  const _SetChoice({
+    required this.name,
+    required this.selected,
     required this.inForce,
-    required this.onSelect,
-    required this.onEdit,
-    required this.onDuplicate,
-    required this.onDelete,
+    required this.onTap,
+    this.icon,
   });
 
-  final TimetableSet set;
-  final bool editing;
+  final String name;
+  final bool selected;
   final bool inForce;
-  final VoidCallback onSelect;
-  final VoidCallback onEdit;
-  final VoidCallback onDuplicate;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
+  final IconData? icon;
 
   @override
-  State<_ScheduleRow> createState() => _ScheduleRowState();
+  State<_SetChoice> createState() => _SetChoiceState();
 }
 
-class _ScheduleRowState extends State<_ScheduleRow> {
+class _SetChoiceState extends State<_SetChoice> {
   bool _hovered = false;
 
-  /// Narrower than this, a row's actions go on a line under its name instead of beside it.
-  static const _actionsBesideFrom = 420.0;
-
   @override
-  Widget build(BuildContext context) {
-    final set = widget.set;
-    // Shown for the row under the pointer, and for the selected row, which is how a touch
-    // screen, where nothing hovers, reaches them.
-    final showActions = _hovered || widget.editing;
-
-    final dates = set.isFallback
-        ? 'Any day no other timetable covers'
-        : (set.startsOn == null && set.endsOn == null)
-        ? 'Every day'
-        : '${_readableDate(set.startsOn)}  →  ${_readableDate(set.endsOn)}';
-
-    final details = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                set.name,
-                style: AppText.headline,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (widget.inForce) ...[
-              const SizedBox(width: AppSpace.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpace.sm,
-                  vertical: 1,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColour.green.withValues(alpha: 0.18),
-                  borderRadius: AppRadius.smallAll,
-                ),
-                child: Text(
-                  'in force',
-                  style: AppText.numeric.copyWith(color: AppColour.green),
-                ),
-              ),
-            ],
-          ],
-        ),
-        Text(dates, style: AppText.numeric),
-      ],
-    );
-
-    final actions = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _SmallAction(label: 'Duplicate', onTap: widget.onDuplicate),
-        _SmallAction(label: 'Edit', onTap: widget.onEdit),
-        if (!set.isFallback)
-          _SmallAction(
-            label: 'Delete',
-            tint: AppColour.red,
-            onTap: widget.onDelete,
-          ),
-      ],
-    );
-
-    return MouseRegion(
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: widget.selected,
+    child: MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: widget.onSelect,
         behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: AppMotion.quick,
           curve: AppMotion.standard,
-          margin: const EdgeInsets.only(bottom: AppSpace.xs),
-          padding: const EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
+            vertical: AppLayout.touch ? AppSpace.sm : 5,
           ),
           decoration: BoxDecoration(
-            color: widget.editing
+            color: widget.selected
                 ? AppColour.fillStrong
                 : _hovered
                 ? AppColour.fill
                 : null,
-            borderRadius: AppRadius.mediumAll,
+            borderRadius: AppRadius.roundAll,
+            border: Border.all(
+              color: widget.selected ? AppColour.separator : AppColour.fill,
+            ),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < _actionsBesideFrom) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    details,
-                    AnimatedSize(
-                      duration: AppMotion.quick,
-                      curve: AppMotion.standard,
-                      alignment: Alignment.topLeft,
-                      child: showActions
-                          ? Align(
-                              alignment: Alignment.centerLeft,
-                              // Level with the name above, past the first action's padding.
-                              child: Transform.translate(
-                                offset: const Offset(-AppSpace.sm, 0),
-                                child: actions,
-                              ),
-                            )
-                          : const SizedBox(width: double.infinity),
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: details),
-                  // Invisible actions must not still take taps.
-                  IgnorePointer(
-                    ignoring: !showActions,
-                    child: AnimatedOpacity(
-                      duration: AppMotion.quick,
-                      opacity: showActions ? 1 : 0,
-                      child: actions,
-                    ),
-                  ),
-                ],
-              );
-            },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.icon case final icon?) ...[
+                Icon(icon, size: 14, color: AppColour.accent),
+                const SizedBox(width: 4),
+              ],
+              if (widget.inForce) ...[
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(color: AppColour.green, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                widget.name,
+                style: AppText.footnote.copyWith(
+                  color: widget.icon != null
+                      ? AppColour.accent
+                      : widget.selected
+                      ? AppColour.label
+                      : AppColour.labelSecondary,
+                  fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SmallAction extends StatelessWidget {
@@ -1700,6 +912,8 @@ class _SmallAction extends StatelessWidget {
 }
 
 /// Room around a dialog. Material's default takes 80 points off a phone's width.
+const _dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 const _dialogInsets = EdgeInsets.symmetric(
   horizontal: AppSpace.lg,
   vertical: AppSpace.xxl,

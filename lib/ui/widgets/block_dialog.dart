@@ -36,6 +36,7 @@ class BlockDialog extends StatefulWidget {
     required this.settings,
     required this.others,
     this.initial,
+    this.prefill,
     this.timetableName,
     this.notInForce,
     super.key,
@@ -50,6 +51,9 @@ class BlockDialog extends StatefulWidget {
   /// The block being edited, or null to add one.
   final BlockDraft? initial;
 
+  /// For a new block, where it starts out: the hour tapped in the week.
+  final BlockDraft? prefill;
+
   final String? timetableName;
 
   /// Why blocks saved here will not count today, when they will not.
@@ -60,10 +64,11 @@ class BlockDialog extends StatefulWidget {
 }
 
 class _BlockDialogState extends State<BlockDialog> {
-  late final _title = TextEditingController(text: widget.initial?.title ?? '');
-  late final Set<int> _weekdays = {...?widget.initial?.weekdays};
-  late int _startMin = widget.initial?.startMin ?? 9 * 60;
-  late int _durationMin = widget.initial?.durationMin ?? 60;
+  late final _start = widget.initial ?? widget.prefill;
+  late final _title = TextEditingController(text: _start?.title ?? '');
+  late final Set<int> _weekdays = {...?_start?.weekdays};
+  late int _startMin = _start?.startMin ?? 9 * 60;
+  late int _durationMin = _start?.durationMin ?? 60;
 
   /// Whether what is typed into each field can be used.
   bool _startReadable = true;
