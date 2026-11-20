@@ -1,8 +1,9 @@
 // Spotlight itself, laid out and moving as macOS Tahoe's does.
 //
-// A capsule of glass a little under a quarter of the way down the screen; beside it, once
-// the pointer moves, four round buttons — Applications, Files, Actions, Clipboard — that bud
-// out of the bar's end like drops leaving it and draw back in when typing starts. Under it,
+// A capsule of glass a little under a quarter of the way down the screen; beside it, from
+// the moment it opens and while you type, four round buttons — Applications, Files, Actions,
+// Clipboard — that bud out of the bar's end like drops leaving it, drawn back in only while an
+// action's fields fill the bar. Under it,
 // what was found: the categories it falls into as chips to narrow it by, then the top hit and
 // a section for each kind, the highlight sliding from row to row. Each browse mode lists its
 // own: every app in a grid, sorted by category; recent files, by kind; every action, with
@@ -136,16 +137,6 @@ export const SpotlightPanel = GObject.registerClass({
             if (!returned && this._inputMethodTakes(event))
                 return Clutter.EVENT_PROPAGATE;
             return type === Clutter.EventType.KEY_PRESS ? this._key(event) : this._keyUp(event);
-        });
-        // The browse buttons come out once the pointer moves, as they do in Tahoe.
-        this.connect('motion-event', (_, event) => {
-            const [x, y] = event.get_coords();
-            const [x0, y0] = this._pointerAtOpen ?? [x, y];
-            if (!this._pointerMoved && Math.hypot(x - x0, y - y0) > 3) {
-                this._pointerMoved = true;
-                this._updateBuds();
-            }
-            return Clutter.EVENT_PROPAGATE;
         });
 
         // The column is the bar's own size, so it grows from the bar's top centre; the
@@ -339,9 +330,6 @@ export const SpotlightPanel = GObject.registerClass({
         this._form = null;
         this._historyAt = -1;
         this._alt = false;
-        this._pointerMoved = false;
-        const [px, py] = global.get_pointer();
-        this._pointerAtOpen = [px, py];
         this._placeBuds(this._buttons.map(() => 0));
         this._budsOut = false;
         this._clip.height = 0;
@@ -471,8 +459,13 @@ export const SpotlightPanel = GObject.registerClass({
     }
 
     /** Out while browsing, or once the pointer has moved over an empty bar; in otherwise. */
+    /**
+     * The buttons are out whenever Spotlight is: they bud out as it opens, and stay while you
+     * type, so a category is always one click away. Only an action's fields, which take the
+     * bar's whole width, draw them back in.
+     */
     _updateBuds() {
-        const out = !this._form && (this._mode !== null || (!!this._pointerMoved && !this._query()));
+        const out = !this._form;
         if (out === this._budsOut)
             return;
         this._budsOut = out;
