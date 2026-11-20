@@ -4,7 +4,7 @@ abstract final class AppConfig {
 
   /// The version pubspec.yaml builds, as Settings shows it. A test holds the two together;
   /// bump both for every release.
-  static const version = '0.6.1+13';
+  static const version = '0.6.2+14';
 
   /// "0.3.0 (build 3)".
   static String get versionLabel {
