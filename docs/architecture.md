@@ -95,8 +95,14 @@ What the shader is given was found by measuring, not from the documentation, and
 - Its coordinates are **the window's pixels**, not the surface's, and the backdrop it samples is the
   whole window. So each surface tells it where it is (`_RenderLiquid` sets its rect, radius and tint
   each time it paints, from its transform to the screen), and anything that can move a surface
-  without repainting it — the scroll views it is in — makes it paint again, or the bend would be
-  drawn where the surface used to be.
+  without repainting it makes it paint again, or the glass is drawn where the surface used to be.
+  The scroll views it is in repaint it as they move. Everything else — a list laying its items out
+  afresh when one above grows, which only moves their layers; a page's transition carrying it by
+  its transform — is caught by `RepaintsWhenMoved`, which after every frame paints again, in the
+  next, each surface that has moved since it painted. Missing that once drew a card's old outline
+  inside it, the rest lit as rim, on the home page and the planning pages. The shader also lights
+  and bends nothing past the edge it is given, so a surface told the wrong place for a frame shows
+  only a faint line, never a lit wash.
 - The backdrop arrives **the right way up** on OpenGL ES. The documented flip for that backend
   mirrors it: the top of the window appears at the bottom of every surface.
 

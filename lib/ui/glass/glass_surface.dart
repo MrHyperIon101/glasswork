@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/preferences.dart';
 import '../../theme/tokens.dart';
 import 'liquid_glass.dart';
+import 'repaints_when_moved.dart';
 
 /// The app's one surface: a card, a sidebar, a sheet, a toast — drawn in glass, or in its
 /// plainer forms, as Settings → Appearance says ([glassProvider]).
@@ -184,7 +185,7 @@ class _Liquid extends SingleChildRenderObjectWidget {
   }
 }
 
-class _RenderLiquid extends RenderProxyBox {
+class _RenderLiquid extends RenderProxyBox with RepaintsWhenMoved {
   _RenderLiquid(
     this._shader, {
     required double radius,
@@ -274,8 +275,10 @@ class _RenderLiquid extends RenderProxyBox {
   void paint(PaintingContext context, Offset offset) {
     if (child == null) return;
 
-    // Where this surface is on the screen, in the backdrop's own pixels.
-    final onScreen = MatrixUtils.transformRect(getTransformTo(null), Offset.zero & size);
+    // Where this surface is on the screen, in the backdrop's own pixels. Painted again
+    // whenever it moves (RepaintsWhenMoved), so this is never where it used to be.
+    final onScreen = this.onScreen;
+    paintedAt(onScreen);
     final scale = size.width == 0 ? 1.0 : onScreen.width / size.width;
     final px = _devicePixelRatio;
     final tint = _tint;

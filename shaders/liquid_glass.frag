@@ -51,7 +51,11 @@ void main() {
   float r = min(u_radius, min(half_size.x, half_size.y));
 
   float depth = -edge(p, half_size, r);           // 0 at the edge, more inside
-  float bend = clamp(1.0 - depth / u_rim, 0.0, 1.0);
+  // Past the edge there is no rim to bend or light: the surface's clip ends there, so only
+  // the edge's own antialiasing is drawn out here. Were the surface told the wrong place,
+  // what lies past the edge it was told would otherwise all be lit as rim.
+  float within = clamp(depth + 1.5, 0.0, 1.0);
+  float bend = clamp(1.0 - depth / u_rim, 0.0, 1.0) * within;
   bend = bend * bend * (3.0 - 2.0 * bend);         // eased, so the bend has no seam
   vec2 n = outward(p, half_size, r);
 
@@ -71,7 +75,7 @@ void main() {
   colour = colour * (1.0 - u_tint.a) + u_tint;
 
   // Light from the top left catches the rim facing it, and a little of the far one.
-  float rim = smoothstep(2.5, 0.0, depth) * 0.9 + bend * 0.12;
+  float rim = (smoothstep(2.5, 0.0, depth) * 0.9 + bend * 0.12) * within;
   float facing = dot(n, normalize(vec2(-1.0, -1.4)));
   float light = u_light * rim * (0.35 + 0.65 * max(facing, 0.0) + 0.25 * max(-facing, 0.0));
   colour += vec4(light);
